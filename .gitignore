@@ -1,0 +1,50 @@
+# Dependencies
+node_modules/
+.pnp
+.pnp.js
+
+# Build outputs
+dist/
+build/
+.vite/
+*.tsbuildinfo
+
+# Testing
+coverage/
+.nyc_output/
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# IDE
+.vscode/*
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# PocketBase
+packages/server/pb_data/
+packages/server/pocketbase
+packages/server/pb_migrations/
+
+# PWA
+packages/client/dev-dist/
+packages/client/public/workbox-*.js
+packages/client/public/sw.js

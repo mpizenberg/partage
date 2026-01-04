@@ -1,0 +1,16 @@
+{
+  "extends": "../../tsconfig.json",
+  "compilerOptions": {
+    "jsx": "preserve",
+    "jsxImportSource": "solid-js",
+    "types": ["vite/client", "vitest/globals"],
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["./src/*"],
+      "@partage/shared": ["../shared/src/index.ts"],
+      "@partage/shared/*": ["../shared/src/*"]
+    }
+  },
+  "include": ["src/**/*", "tests/**/*"],
+  "exclude": ["node_modules", "dist"]
+}

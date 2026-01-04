@@ -1,0 +1,29 @@
+{
+  "name": "partage",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Fully encrypted, local-first bill-splitting application",
+  "type": "module",
+  "scripts": {
+    "dev": "pnpm --filter client dev",
+    "build": "pnpm --filter client build && pnpm --filter server build",
+    "test": "pnpm -r test",
+    "test:watch": "pnpm -r test:watch",
+    "typecheck": "pnpm -r typecheck",
+    "lint": "pnpm -r lint",
+    "format": "prettier --write \"**/*.{ts,tsx,json,md}\"",
+    "clean": "pnpm -r clean && rm -rf node_modules"
+  },
+  "devDependencies": {
+    "@typescript-eslint/eslint-plugin": "^8.51.0",
+    "@typescript-eslint/parser": "^8.51.0",
+    "eslint": "^9.39.2",
+    "prettier": "^3.7.4",
+    "typescript": "^5.9.3",
+    "vitest": "^4.0.16"
+  },
+  "engines": {
+    "node": ">=20.0.0",
+    "pnpm": ">=8.0.0"
+  }
+}

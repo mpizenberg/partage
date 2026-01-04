@@ -1,0 +1,12 @@
+{
+  "name": "@partage/server",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "pocketbase serve",
+    "build": "echo 'Server setup complete'",
+    "clean": "rm -rf pb_data"
+  },
+  "description": "PocketBase server for Partage - Zero-knowledge encrypted data relay"
+}
