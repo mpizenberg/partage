@@ -1,4 +1,5 @@
 import { beforeEach, afterEach } from 'vitest';
+import 'fake-indexeddb/auto';
 
 beforeEach(() => {
   // Setup before each test
