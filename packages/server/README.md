@@ -3,8 +3,8 @@
 ## Setup
 
 1. Download PocketBase binary from https://pocketbase.io/docs/
-2. Place the binary in this directory
-3. Run `pocketbase serve`
+2. Place the binary in the bin/ directory
+3. Run `bin/pocketbase serve`
 
 ## Configuration
 
