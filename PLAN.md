@@ -11,10 +11,16 @@ Set up a monorepo structure for a fully encrypted, local-first bill-splitting PW
 
 ## Implementation Status
 
-**Current Phase**: Phase 2 - Local CRDT & Data Models
+**Current Phase**: Phase 3 - Basic UI
 **Last Updated**: January 4, 2026
 
 ### Completed
+- ✅ **Phase 2**: Local CRDT & Data Models (100% complete)
+  - Loro CRDT wrapper with two-layer encryption (17 tests)
+  - Balance calculation engine (21 tests)
+  - Entry operations: create, modify, delete
+  - Total: 129 tests passing
+
 - ✅ **Phase 1**: Foundation & Infrastructure (100% complete)
   - Monorepo setup with pnpm workspaces
   - Full cryptography module with 58 tests
@@ -23,10 +29,9 @@ Set up a monorepo structure for a fully encrypted, local-first bill-splitting PW
   - All dependencies updated to latest versions
 
 ### In Progress
-- 🔄 **Phase 2**: Local CRDT & Data Models (0% complete)
+- 🔄 **Phase 3**: Basic UI (0% complete)
 
 ### Upcoming
-- ⏳ Phase 3: Basic UI
 - ⏳ Phase 4: Server & Sync
 - ⏳ Phase 5: Multi-User Features
 - ⏳ Phase 6: Advanced Features
@@ -105,28 +110,49 @@ Set up a monorepo structure for a fully encrypted, local-first bill-splitting PW
 - ✅ Full TypeScript type safety across all modules
 - ✅ Production-ready cryptography foundation
 
-### Phase 2: Local CRDT & Data Models (Weeks 3-4)
+### Phase 2: Local CRDT & Data Models ✅ COMPLETED
 **Goal**: Loro integration and local data operations
 
-**Tasks**:
-1. Define shared types (`/packages/shared/src/types/`):
+**Status**: ✅ **100% Complete** (January 4, 2026)
+
+**Completed Tasks**:
+1. ✅ Shared types already defined in Phase 1 (`/packages/shared/src/types/`):
    - `group.ts`, `member.ts`, `entry.ts`, `balance.ts`
-2. Implement Loro wrapper (`/packages/client/src/core/crdt/loro-wrapper.ts`):
-   - Two-layer approach: Loro for metadata, encrypted payloads for sensitive data
-   - Entry operations: create, modify, delete
-   - Versioning system for modifications
-3. Implement balance calculator (`/packages/client/src/domain/calculations/`):
-   - Calculate balances from entries
-   - Debt graph computation
-   - Settlement plan optimization
-4. Write unit tests for CRDT and calculations
+2. ✅ Implemented Loro wrapper (`/packages/client/src/core/crdt/loro-wrapper.ts`):
+   - Two-layer encryption: Loro stores metadata (id, version, status), encrypted payloads for sensitive data
+   - Entry operations: create, modify (with versioning), soft delete
+   - Snapshot export/import for persistence
+   - Incremental sync support with version vectors
+3. ✅ Implemented balance calculator (`/packages/client/src/domain/calculations/balance-calculator.ts`):
+   - Calculate balances from entries (expenses and transfers)
+   - Support for shares and exact split types
+   - Multi-currency with conversion support
+   - Debt graph computation (greedy algorithm minimizes transactions)
+   - Settlement plan optimization with constraints
+4. ✅ Comprehensive unit tests (38 tests total):
+   - 17 tests for CRDT wrapper (entry creation, modification, deletion, sync)
+   - 21 tests for balance calculator (splits, debt graphs, settlements)
 
-**Critical Files**:
-- `/packages/client/src/core/crdt/loro-wrapper.ts`
-- `/packages/shared/src/types/entry.ts`
-- `/packages/client/src/domain/calculations/balance-calculator.ts`
+**Test Results**:
+- ✅ 129 tests passing (6 test files)
+- ✅ 100% type safety (0 TypeScript errors)
+- ✅ CRDT module: 17 tests
+- ✅ Balance calculations: 21 tests
 
-**Deliverable**: Can create encrypted entries in Loro, calculate balances locally
+**Critical Files Implemented**:
+- ✅ `/packages/client/src/core/crdt/loro-wrapper.ts`
+- ✅ `/packages/client/src/core/crdt/loro-wrapper.test.ts`
+- ✅ `/packages/client/src/domain/calculations/balance-calculator.ts`
+- ✅ `/packages/client/src/domain/calculations/balance-calculator.test.ts`
+
+**Deliverables Achieved**:
+- ✅ Can create encrypted entries in Loro with two-layer encryption
+- ✅ Can modify entries with version tracking
+- ✅ Can soft delete entries with optional reasons
+- ✅ Can calculate accurate balances from complex entry scenarios
+- ✅ Can generate optimized settlement plans
+- ✅ Supports multi-currency with exchange rate tracking
+- ✅ Full snapshot and incremental sync capabilities
 
 ### Phase 3: Basic UI (Weeks 5-6)
 **Goal**: Local-only MVP with working UI

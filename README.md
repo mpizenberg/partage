@@ -69,7 +69,7 @@ pnpm build
 
 ### Tech Stack
 - **Frontend**: SolidJS, Vite, TypeScript
-- **CRDT**: Loro for conflict-free sync
+- **CRDT**: Loro for conflict-free sync (https://loro.dev/llms.txt)
 - **Storage**: IndexedDB (client), PocketBase (server)
 - **Crypto**: WebCrypto API
 - **Testing**: Vitest
@@ -78,7 +78,22 @@ pnpm build
 
 See [PLAN.md](./PLAN.md) for the complete implementation roadmap.
 
-### Current Phase: Phase 2 - Local CRDT & Data Models
+### Current Phase: Phase 3 - Basic UI
+
+**Phase 2 - Local CRDT & Data Models: ✅ COMPLETED** (January 4, 2026)
+- ✅ Loro CRDT wrapper with two-layer encryption: 17 tests passing
+  - Metadata stored in Loro (unencrypted): id, timestamp, actor, version, status
+  - Sensitive data encrypted with AES-256-GCM: amounts, descriptions, member details
+  - Entry operations: create, modify (versioning), soft delete
+  - Snapshot export/import for persistence
+  - Incremental sync support via version vectors
+- ✅ Balance calculation engine: 21 tests passing
+  - Calculate member balances from entries
+  - Support for shares and exact split types
+  - Multi-currency with conversion support
+  - Debt graph generation (minimizes transactions)
+  - Settlement plan optimization
+- ✅ 129 total tests passing, 100% type safety
 
 **Phase 1 - Foundation: ✅ COMPLETED** (January 4, 2026)
 - ✅ Monorepo structure with pnpm workspaces
@@ -94,12 +109,12 @@ See [PLAN.md](./PLAN.md) for the complete implementation roadmap.
   - Loro snapshot storage
   - Offline operation queue
 - ✅ Shared TypeScript types (crypto, group, member, entry, balance)
-- ✅ 91 total tests passing, 100% type safety
 
-**Next Steps (Phase 2)**:
-1. Implement Loro CRDT wrapper with two-layer encryption
-2. Implement balance calculation engine
-3. Create entry operation handlers (create, modify, delete)
+**Next Steps (Phase 3)**:
+1. Set up SolidJS app with Vite
+2. Create base CSS structure (mobile-first)
+3. Implement screens: group creation, entry forms, balance overview
+4. Wire up UI to local CRDT operations
 
 ## Documentation
 
