@@ -1,0 +1,4 @@
+/**
+ * Member data types
+ */
+export {};

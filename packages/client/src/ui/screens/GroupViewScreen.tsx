@@ -1,14 +1,13 @@
 import { Component, createSignal, Match, Switch } from 'solid-js'
 import { useAppContext } from '../context/AppContext'
-import { Button } from '../components/common/Button'
-import { Modal } from '../components/common/Modal'
 import { BalanceTab } from '../components/balance/BalanceTab'
 import { EntriesTab } from '../components/entries/EntriesTab'
+import { AddEntryModal } from '../components/forms/AddEntryModal'
 
 type TabType = 'balance' | 'entries'
 
 export const GroupViewScreen: Component = () => {
-  const { activeGroup, deselectGroup, identity, balances } = useAppContext()
+  const { activeGroup, deselectGroup, identity, balances, addExpense, addTransfer } = useAppContext()
   const [activeTab, setActiveTab] = createSignal<TabType>('balance')
   const [showAddEntry, setShowAddEntry] = createSignal(false)
 
@@ -117,25 +116,13 @@ export const GroupViewScreen: Component = () => {
         +
       </button>
 
-      {/* Add Entry Modal (placeholder) */}
-      <Modal
+      {/* Add Entry Modal */}
+      <AddEntryModal
         isOpen={showAddEntry()}
         onClose={() => setShowAddEntry(false)}
-        title="Add Entry"
-      >
-        <div class="p-lg text-center">
-          <p class="text-muted">
-            Entry forms will be implemented in Step 8
-          </p>
-          <Button
-            variant="primary"
-            onClick={() => setShowAddEntry(false)}
-            class="mt-lg"
-          >
-            Close
-          </Button>
-        </div>
-      </Modal>
+        onAddExpense={addExpense}
+        onAddTransfer={addTransfer}
+      />
     </div>
   )
 }

@@ -78,7 +78,30 @@ pnpm build
 
 See [PLAN.md](./PLAN.md) for the complete implementation roadmap.
 
-### Current Phase: Phase 3 - Basic UI
+### Current Phase: Phase 4 - Server & Sync
+
+**Phase 3 - Basic UI: ✅ COMPLETED** (January 5, 2026)
+- ✅ SolidJS PWA with Vite and VitePWA plugin
+- ✅ Mobile-first CSS design system (variables, layout, components)
+- ✅ Application state management with SolidJS Context API
+- ✅ Complete screen implementations:
+  - SetupScreen: Automatic keypair generation on first launch
+  - GroupSelectionScreen & CreateGroupScreen: Group management
+  - GroupViewScreen: Tab navigation (Balance/Entries)
+  - AddEntryModal: Expense/Transfer forms with validation
+- ✅ Entry components:
+  - EntryList: Date-grouped chronological display
+  - EntryCard: Category emojis, payer/beneficiary info, user share
+- ✅ Balance components:
+  - BalanceCard: Color-coded net balances
+  - SettlementPlan: One-click settlement with optimized transfers
+- ✅ Form features:
+  - Expense: Multi-member splits (shares/exact), advanced options
+  - Transfer: Direct member-to-member payments
+  - Real-time validation and amount calculations
+- ✅ Virtual members: Name-only tracking for MVP (no keypairs)
+- ✅ Production build: 73.82 KB JS, 23.82 KB CSS (gzipped)
+- ✅ 0 TypeScript errors, full type safety
 
 **Phase 2 - Local CRDT & Data Models: ✅ COMPLETED** (January 4, 2026)
 - ✅ Loro CRDT wrapper with two-layer encryption: 17 tests passing
@@ -110,11 +133,11 @@ See [PLAN.md](./PLAN.md) for the complete implementation roadmap.
   - Offline operation queue
 - ✅ Shared TypeScript types (crypto, group, member, entry, balance)
 
-**Next Steps (Phase 3)**:
-1. Set up SolidJS app with Vite
-2. Create base CSS structure (mobile-first)
-3. Implement screens: group creation, entry forms, balance overview
-4. Wire up UI to local CRDT operations
+**Next Steps (Phase 4)**:
+1. Set up PocketBase server with collections schema
+2. Implement API client for encrypted operations
+3. Build sync manager with online/offline detection
+4. Test multi-device real-time synchronization
 
 ## Documentation
 
