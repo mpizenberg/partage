@@ -29,6 +29,7 @@
     "vite": "^6.0.7",
     "vite-plugin-pwa": "^0.21.1",
     "vite-plugin-solid": "^2.10.2",
+    "vite-plugin-wasm": "^3.5.0",
     "vitest": "^2.1.8"
   }
 }

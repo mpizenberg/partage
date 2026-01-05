@@ -1,6 +1,7 @@
 import { defineConfig } from 'vite';
 import solid from 'vite-plugin-solid';
 import { VitePWA } from 'vite-plugin-pwa';
+import wasm from 'vite-plugin-wasm';
 import path from 'path';
 import { fileURLToPath } from 'url';
 
@@ -9,6 +10,7 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 export default defineConfig({
   plugins: [
     solid(),
+    wasm(),
     VitePWA({
       registerType: 'autoUpdate',
       manifest: {
@@ -30,7 +32,7 @@ export default defineConfig({
         ],
       },
       workbox: {
-        globPatterns: ['**/*.{js,css,html,ico,png,svg}'],
+        globPatterns: ['**/*.{js,css,html,ico,png,svg,wasm}'],
         runtimeCaching: [
           {
             urlPattern: /^https:\/\/api\./,
@@ -52,6 +54,12 @@ export default defineConfig({
       '@': path.resolve(__dirname, './src'),
       '@partage/shared': path.resolve(__dirname, '../shared/src/index.ts'),
     },
+  },
+  optimizeDeps: {
+    esbuildOptions: {
+      target: 'esnext',
+    },
+    exclude: ['loro-crdt'],
   },
   build: {
     target: 'esnext',

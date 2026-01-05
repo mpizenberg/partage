@@ -2,6 +2,8 @@
  * Group data types
  */
 
+import type { Member } from './member';
+
 export interface Group {
   id: string;
   name: string;
@@ -10,6 +12,7 @@ export interface Group {
   createdBy: string; // Public key hash
   currentKeyVersion: number;
   settings: GroupSettings;
+  members?: Member[]; // Optional for Phase 3 local-only support
 }
 
 export interface GroupSettings {
