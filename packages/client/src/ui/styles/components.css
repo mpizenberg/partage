@@ -624,6 +624,180 @@
   /* Container styling */
 }
 
+.balance-section {
+  margin-bottom: var(--space-xl);
+}
+
+.balance-section-title {
+  font-size: var(--font-size-lg);
+  font-weight: var(--font-weight-semibold);
+  margin-bottom: var(--space-md);
+  color: var(--color-text);
+}
+
+.balance-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+}
+
+/* Balance Card */
+.balance-card {
+  transition: all var(--transition-base);
+}
+
+.balance-card-current {
+  border: 2px solid var(--color-primary);
+  box-shadow: var(--shadow-md);
+}
+
+.balance-card-header {
+  margin-bottom: var(--space-md);
+}
+
+.balance-card-member {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+}
+
+.balance-card-name {
+  font-size: var(--font-size-lg);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text);
+}
+
+.balance-card-amount {
+  margin-bottom: var(--space-md);
+  text-align: center;
+  padding: var(--space-md) 0;
+  border-top: 1px solid var(--color-border);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.balance-net {
+  font-size: var(--font-size-3xl);
+  font-weight: var(--font-weight-bold);
+  margin-bottom: var(--space-xs);
+}
+
+.balance-positive {
+  color: var(--color-success);
+}
+
+.balance-negative {
+  color: var(--color-danger);
+}
+
+.balance-neutral {
+  color: var(--color-text-light);
+}
+
+.balance-status {
+  font-size: var(--font-size-base);
+  font-weight: var(--font-weight-medium);
+}
+
+.balance-card-details {
+  display: flex;
+  justify-content: space-around;
+  gap: var(--space-md);
+}
+
+.balance-detail {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-xs);
+}
+
+.balance-detail-label {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-light);
+}
+
+.balance-detail-value {
+  font-size: var(--font-size-base);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text);
+}
+
+/* Settlement Plan */
+.settlement-plan {
+  background-color: var(--color-bg-secondary);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  padding: var(--space-lg);
+}
+
+.settlement-empty {
+  background-color: var(--color-bg-secondary);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  padding: var(--space-xl);
+}
+
+.settlement-header {
+  margin-bottom: var(--space-lg);
+}
+
+.settlement-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+}
+
+.settlement-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-md);
+  background-color: var(--color-bg);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  gap: var(--space-md);
+}
+
+.settlement-item-involved {
+  border-color: var(--color-primary);
+  background-color: rgba(37, 99, 235, 0.05);
+}
+
+.settlement-info {
+  flex: 1;
+}
+
+.settlement-flow {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  margin-bottom: var(--space-xs);
+}
+
+.settlement-from,
+.settlement-to {
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text);
+}
+
+.settlement-arrow {
+  color: var(--color-text-light);
+  font-size: var(--font-size-lg);
+}
+
+.settlement-amount {
+  font-size: var(--font-size-xl);
+  font-weight: var(--font-weight-bold);
+  color: var(--color-primary);
+}
+
+.settlement-note {
+  margin-top: var(--space-md);
+  padding-top: var(--space-md);
+  border-top: 1px solid var(--color-border);
+  text-align: center;
+}
+
 /* Entries Tab */
 .entries-tab {
   /* Container styling */
