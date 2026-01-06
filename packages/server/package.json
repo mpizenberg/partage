@@ -4,9 +4,15 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "start": "pocketbase serve",
+    "serve": "cd bin && ./pocketbase serve",
+    "start": "pnpm serve",
+    "setup": "node setup-collections.js",
     "build": "echo 'Server setup complete'",
-    "clean": "rm -rf pb_data"
+    "clean": "rm -rf bin/pb_data/*.db"
   },
-  "description": "PocketBase server for Partage - Zero-knowledge encrypted data relay"
+  "description": "PocketBase server for Partage - Zero-knowledge encrypted data relay",
+  "dependencies": {
+    "dotenv": "^16.4.7",
+    "pocketbase": "^0.26.5"
+  }
 }

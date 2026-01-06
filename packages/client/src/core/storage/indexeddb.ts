@@ -41,6 +41,7 @@ interface GroupRecord {
   createdBy: string;
   currentKeyVersion: number;
   settings: string; // JSON stringified
+  members?: string; // JSON stringified Member[]
 }
 
 interface GroupKeyRecord {
@@ -206,6 +207,7 @@ export class PartageDB {
       createdBy: group.createdBy,
       currentKeyVersion: group.currentKeyVersion,
       settings: JSON.stringify(group.settings),
+      members: group.members ? JSON.stringify(group.members) : undefined,
     };
 
     return this.put(STORES.GROUPS, record);
@@ -228,6 +230,7 @@ export class PartageDB {
       createdBy: record.createdBy,
       currentKeyVersion: record.currentKeyVersion,
       settings: JSON.parse(record.settings),
+      members: record.members ? JSON.parse(record.members) : undefined,
     };
   }
 
@@ -246,6 +249,7 @@ export class PartageDB {
       createdBy: record.createdBy,
       currentKeyVersion: record.currentKeyVersion,
       settings: JSON.parse(record.settings),
+      members: record.members ? JSON.parse(record.members) : undefined,
     }));
   }
 
@@ -442,6 +446,45 @@ export class PartageDB {
     return new Promise((resolve, reject) => {
       transaction.oncomplete = () => resolve();
       transaction.onerror = () => reject(transaction.error);
+    });
+  }
+
+  /**
+   * Queue an operation (alias for savePendingOperation with automatic ID)
+   */
+  async queueOperation(operation: {
+    type: string;
+    groupId: string;
+    data: unknown;
+    timestamp: number;
+  }): Promise<void> {
+    const operationId = `${operation.type}_${operation.timestamp}_${crypto.randomUUID()}`;
+    return this.savePendingOperation(operation.groupId, operationId, operation);
+  }
+
+  /**
+   * Get all queued operations (all groups)
+   */
+  async getQueuedOperations(): Promise<Array<unknown>> {
+    await this.ensureOpen();
+
+    const records = await this.getAll<PendingOperationRecord>(STORES.PENDING_OPS);
+    return records.map((record) => JSON.parse(record.operation));
+  }
+
+  /**
+   * Clear all queued operations (all groups)
+   */
+  async clearQueuedOperations(): Promise<void> {
+    await this.ensureOpen();
+
+    const transaction = this.db!.transaction(STORES.PENDING_OPS, 'readwrite');
+    const store = transaction.objectStore(STORES.PENDING_OPS);
+    const request = store.clear();
+
+    return new Promise((resolve, reject) => {
+      request.onsuccess = () => resolve();
+      request.onerror = () => reject(request.error);
     });
   }
 

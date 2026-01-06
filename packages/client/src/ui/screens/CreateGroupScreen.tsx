@@ -92,14 +92,22 @@ export const CreateGroupScreen: Component<CreateGroupScreenProps> = (props) => {
 
   const handleSubmit = async (e: Event) => {
     e.preventDefault()
+    console.log('[CreateGroupScreen] Form submitted')
+    console.log('[CreateGroupScreen] Virtual members:', members())
 
-    if (!validate()) return
+    if (!validate()) {
+      console.log('[CreateGroupScreen] Validation failed')
+      return
+    }
 
     try {
+      console.log('[CreateGroupScreen] Calling createGroup...')
+      // Pass only virtual members - AppContext will add current user
       await createGroup(groupName().trim(), currency(), members())
+      console.log('[CreateGroupScreen] Group created successfully')
       // Group created successfully - App will navigate to GroupViewScreen
     } catch (err) {
-      console.error('Failed to create group:', err)
+      console.error('[CreateGroupScreen] Failed to create group:', err)
       // Error is already set in context
     }
   }

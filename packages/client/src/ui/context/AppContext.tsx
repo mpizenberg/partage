@@ -5,12 +5,15 @@ import {
   JSX,
   createSignal,
   onMount,
+  onCleanup,
   Accessor,
   createMemo,
 } from 'solid-js'
 import { PartageDB, getDB } from '../../core/storage/indexeddb'
 import { LoroEntryStore } from '../../core/crdt/loro-wrapper'
 import { calculateBalances, generateSettlementPlan } from '../../domain/calculations/balance-calculator'
+import { SyncManager, type SyncState } from '../../core/sync'
+import { pbClient } from '../../api'
 import {
   generateKeypair,
   exportKeypair,
@@ -66,6 +69,7 @@ interface AppContextValue {
   // Core services
   db: PartageDB
   loroStore: Accessor<LoroEntryStore | null>
+  syncManager: Accessor<SyncManager | null>
 
   // User identity
   identity: Accessor<SerializedKeypair | null>
@@ -90,6 +94,11 @@ interface AppContextValue {
   balances: Accessor<Map<string, Balance>>
   settlementPlan: Accessor<SettlementPlan>
 
+  // Sync state and controls
+  syncState: Accessor<SyncState>
+  manualSync: () => Promise<void>
+  toggleAutoSync: () => void
+
   // UI state
   isLoading: Accessor<boolean>
   error: Accessor<string | null>
@@ -101,17 +110,30 @@ const AppContext = createContext<AppContextValue>()
 
 // Provider component
 export const AppProvider: Component<{ children: JSX.Element }> = (props) => {
+  console.log('[AppProvider] Component rendering...')
   const db = getDB()
+  console.log('[AppProvider] Database instance created')
 
   // Core state
   const [identity, setIdentity] = createSignal<SerializedKeypair | null>(null)
   const [groups, setGroups] = createSignal<Group[]>([])
   const [activeGroup, setActiveGroup] = createSignal<Group | null>(null)
   const [loroStore, setLoroStore] = createSignal<LoroEntryStore | null>(null)
+  const [syncManager, setSyncManager] = createSignal<SyncManager | null>(null)
 
   // Derived state
   const [entries, setEntries] = createSignal<Entry[]>([])
   const [balances, setBalances] = createSignal<Map<string, Balance>>(new Map())
+
+  // Sync state
+  const [syncState, setSyncState] = createSignal<SyncState>({
+    status: 'idle',
+    lastSyncTimestamp: null,
+    lastError: null,
+    isOnline: navigator.onLine,
+    activeSubscriptions: 0,
+  })
+  const [autoSyncEnabled, setAutoSyncEnabled] = createSignal(true)
 
   // UI state
   const [isLoading, setIsLoading] = createSignal(true)
@@ -120,8 +142,13 @@ export const AppProvider: Component<{ children: JSX.Element }> = (props) => {
   // Members for active group (all members: real + virtual)
   const members = createMemo(() => {
     const group = activeGroup()
-    if (!group) return []
-    return group.members || []
+    if (!group) {
+      console.log('[AppContext] members() called but no active group')
+      return []
+    }
+    const membersList = group.members || []
+    console.log('[AppContext] members() returning:', membersList)
+    return membersList
   })
 
   // Settlement plan (memoized)
@@ -135,11 +162,13 @@ export const AppProvider: Component<{ children: JSX.Element }> = (props) => {
 
   // Initialize database and load data
   onMount(async () => {
+    console.log('[AppContext] onMount - initializing app...')
     try {
       setIsLoading(true)
 
       // Open database
       await db.open()
+      console.log('[AppContext] Database opened')
 
       // Load user identity
       const storedIdentity = await db.getUserKeypair()
@@ -149,11 +178,23 @@ export const AppProvider: Component<{ children: JSX.Element }> = (props) => {
       const allGroups = await db.getAllGroups()
       setGroups(allGroups)
 
+      // Check server connectivity
+      const isServerReachable = await pbClient.healthCheck()
+      console.log('[AppContext] Server reachable:', isServerReachable)
+
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to initialize app')
       console.error('Initialization error:', err)
     } finally {
       setIsLoading(false)
+    }
+  })
+
+  // Cleanup on unmount
+  onCleanup(async () => {
+    const manager = syncManager()
+    if (manager) {
+      await manager.destroy()
     }
   })
 
@@ -187,6 +228,7 @@ export const AppProvider: Component<{ children: JSX.Element }> = (props) => {
 
   // Create new group
   const createGroup = async (name: string, currency: string, virtualMembers: Member[]) => {
+    console.log('[AppContext] createGroup called with:', { name, currency, virtualMembers })
     try {
       setIsLoading(true)
       setError(null)
@@ -195,6 +237,7 @@ export const AppProvider: Component<{ children: JSX.Element }> = (props) => {
       if (!currentIdentity) {
         throw new Error('No identity found. Please initialize identity first.')
       }
+      console.log('[AppContext] Current identity:', currentIdentity.publicKeyHash)
 
       // Generate group ID and key
       const groupId = crypto.randomUUID()
@@ -235,12 +278,29 @@ export const AppProvider: Component<{ children: JSX.Element }> = (props) => {
       }
 
       // Save to database
+      console.log('[AppContext] Saving group with members:', group.members)
       await db.saveGroup(group)
       await db.saveGroupKey(groupId, 1, exportedKey)
 
       // Initialize Loro store with empty snapshot
       const newLoroStore = new LoroEntryStore()
       await db.saveLoroSnapshot(groupId, newLoroStore.exportSnapshot())
+
+      // Sync group to server if online
+      if (navigator.onLine) {
+        try {
+          await pbClient.createGroup({
+            name: group.name,
+            createdAt: group.createdAt,
+            createdBy: group.createdBy,
+            lastActivityAt: Date.now(),
+            memberCount: group.members?.length || 1,
+          })
+          console.log('[AppContext] Group synced to server')
+        } catch (syncError) {
+          console.warn('[AppContext] Failed to sync group to server (continuing offline):', syncError)
+        }
+      }
 
       // Update groups list
       const updatedGroups = await db.getAllGroups()
@@ -263,11 +323,19 @@ export const AppProvider: Component<{ children: JSX.Element }> = (props) => {
       setIsLoading(true)
       setError(null)
 
+      const currentIdentity = identity()
+      if (!currentIdentity) {
+        throw new Error('No identity found')
+      }
+
       // Get group from database
       const group = await db.getGroup(groupId)
       if (!group) {
         throw new Error('Group not found')
       }
+
+      console.log('[AppContext] Loaded group from DB:', group)
+      console.log('[AppContext] Group members:', group.members)
 
       // Load Loro snapshot
       const snapshot = await db.getLoroSnapshot(groupId)
@@ -279,9 +347,43 @@ export const AppProvider: Component<{ children: JSX.Element }> = (props) => {
 
       setLoroStore(store)
       setActiveGroup(group)
+      console.log('[AppContext] Active group set, members:', activeGroup()?.members)
 
-      // Load entries and calculate balances
+      // Initialize sync manager
+      const manager = new SyncManager({
+        loroStore: store,
+        storage: db,
+        apiClient: pbClient,
+        enableAutoSync: autoSyncEnabled(),
+      })
+      setSyncManager(manager)
+
+      // Load entries and calculate balances (before sync)
       await refreshEntries(groupId, group.currentKeyVersion)
+
+      // Perform initial sync if online
+      if (navigator.onLine && autoSyncEnabled()) {
+        try {
+          console.log('[AppContext] Starting initial sync...')
+          await manager.initialSync(groupId, currentIdentity.publicKeyHash)
+
+          // Subscribe to real-time updates
+          await manager.subscribeToGroup(groupId, currentIdentity.publicKeyHash)
+
+          // Refresh entries after sync
+          await refreshEntries(groupId, group.currentKeyVersion)
+
+          // Update sync state
+          setSyncState(manager.getState())
+
+          console.log('[AppContext] Initial sync completed')
+        } catch (syncError) {
+          console.warn('[AppContext] Sync failed, continuing in offline mode:', syncError)
+          setSyncState(manager.getState())
+        }
+      } else {
+        console.log('[AppContext] Offline mode - skipping sync')
+      }
 
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load group')
@@ -292,11 +394,25 @@ export const AppProvider: Component<{ children: JSX.Element }> = (props) => {
   }
 
   // Deselect active group
-  const deselectGroup = () => {
+  const deselectGroup = async () => {
+    // Cleanup sync manager
+    const manager = syncManager()
+    if (manager) {
+      await manager.destroy()
+      setSyncManager(null)
+    }
+
     setActiveGroup(null)
     setLoroStore(null)
     setEntries([])
     setBalances(new Map())
+    setSyncState({
+      status: 'idle',
+      lastSyncTimestamp: null,
+      lastError: null,
+      isOnline: navigator.onLine,
+      activeSubscriptions: 0,
+    })
   }
 
   // Refresh entries from Loro store
@@ -374,6 +490,26 @@ export const AppProvider: Component<{ children: JSX.Element }> = (props) => {
       // Add to Loro
       await store.createEntry(entry, groupKey, currentIdentity.publicKeyHash)
 
+      // Get the Loro update to push to server
+      const manager = syncManager()
+      if (manager && autoSyncEnabled()) {
+        try {
+          // Export incremental update
+          const version = store.getVersion()
+          const updateBytes = store.exportFrom(version)
+
+          // Push to server
+          await manager.pushUpdate(group.id, currentIdentity.publicKeyHash, updateBytes, version)
+
+          // Update sync state
+          setSyncState(manager.getState())
+
+          console.log('[AppContext] Expense synced to server')
+        } catch (syncError) {
+          console.warn('[AppContext] Failed to sync expense, queued for later:', syncError)
+        }
+      }
+
       // Save snapshot
       await db.saveLoroSnapshot(group.id, store.exportSnapshot())
 
@@ -432,6 +568,26 @@ export const AppProvider: Component<{ children: JSX.Element }> = (props) => {
       // Add to Loro
       await store.createEntry(entry, groupKey, currentIdentity.publicKeyHash)
 
+      // Get the Loro update to push to server
+      const manager = syncManager()
+      if (manager && autoSyncEnabled()) {
+        try {
+          // Export incremental update
+          const version = store.getVersion()
+          const updateBytes = store.exportFrom(version)
+
+          // Push to server
+          await manager.pushUpdate(group.id, currentIdentity.publicKeyHash, updateBytes, version)
+
+          // Update sync state
+          setSyncState(manager.getState())
+
+          console.log('[AppContext] Transfer synced to server')
+        } catch (syncError) {
+          console.warn('[AppContext] Failed to sync transfer, queued for later:', syncError)
+        }
+      }
+
       // Save snapshot
       await db.saveLoroSnapshot(group.id, store.exportSnapshot())
 
@@ -446,11 +602,51 @@ export const AppProvider: Component<{ children: JSX.Element }> = (props) => {
     }
   }
 
+  // Manual sync - force sync now
+  const manualSync = async () => {
+    const manager = syncManager()
+    const group = activeGroup()
+    const currentIdentity = identity()
+
+    if (!manager || !group || !currentIdentity) {
+      console.warn('[AppContext] Cannot sync: missing manager, group, or identity')
+      return
+    }
+
+    try {
+      setIsLoading(true)
+      console.log('[AppContext] Manual sync started')
+
+      // Perform incremental sync
+      await manager.incrementalSync(group.id, currentIdentity.publicKeyHash)
+
+      // Refresh entries
+      await refreshEntries(group.id, group.currentKeyVersion)
+
+      // Update sync state
+      setSyncState(manager.getState())
+
+      console.log('[AppContext] Manual sync completed')
+    } catch (err) {
+      console.error('[AppContext] Manual sync failed:', err)
+      setError(err instanceof Error ? err.message : 'Sync failed')
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  // Toggle auto-sync on/off
+  const toggleAutoSync = () => {
+    setAutoSyncEnabled(!autoSyncEnabled())
+    console.log('[AppContext] Auto-sync:', autoSyncEnabled() ? 'enabled' : 'disabled')
+  }
+
   const clearError = () => setError(null)
 
   const value: AppContextValue = {
     db,
     loroStore,
+    syncManager,
     identity,
     initializeIdentity,
     groups,
@@ -464,6 +660,9 @@ export const AppProvider: Component<{ children: JSX.Element }> = (props) => {
     addTransfer,
     balances,
     settlementPlan,
+    syncState,
+    manualSync,
+    toggleAutoSync,
     isLoading,
     error,
     clearError,

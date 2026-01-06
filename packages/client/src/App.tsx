@@ -38,6 +38,8 @@ const AppRouter: Component = () => {
 }
 
 const App: Component = () => {
+  console.log('[App] App component rendering...')
+  console.log('[App] About to render AppProvider')
   return (
     <AppProvider>
       <AppRouter />
