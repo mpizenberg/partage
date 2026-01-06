@@ -61,7 +61,106 @@ Stores incremental Loro CRDT updates for synchronization.
 
 ---
 
-### 3. `loro_snapshots` (Future - Phase 5)
+### 3. `invitations` (Phase 5)
+Group invitation records for multi-user joining flow.
+
+**Fields:**
+- `id` (text, 15 chars, primary key) - Auto-generated invitation ID
+- `groupId` (text, required, indexed) - Foreign key to groups collection
+- `inviterPublicKeyHash` (text, required) - Who created this invitation
+- `createdAt` (number, required) - Unix timestamp
+- `expiresAt` (number, optional) - Optional expiration timestamp
+- `maxUses` (number, optional) - Maximum number of times this can be used
+- `usedCount` (number, required) - How many times this has been used
+- `status` (text, required) - 'active', 'expired', or 'revoked'
+
+**Indexes:**
+- `groupId` - Find invitations by group
+- `inviterPublicKeyHash` - Find invitations by creator
+- `status` - Filter active invitations
+
+**API Rules:**
+- Group members can create (POST)
+- Anyone can read (GET) - needed to display invitation details before joining
+- Creators can update status (for revocation)
+- No deletes
+
+**Notes:**
+- Invitation links encode the invitation ID
+- When clicked, displays group name and asks for user's name
+- Expiration and usage limits provide security controls
+
+---
+
+### 4. `join_requests` (Phase 5)
+Pending requests to join groups via invitations.
+
+**Fields:**
+- `id` (text, 15 chars, primary key) - Auto-generated
+- `invitationId` (text, required, indexed) - Which invitation was used
+- `groupId` (text, required, indexed) - Which group to join
+- `requesterPublicKey` (text, required) - Base64 serialized public key
+- `requesterPublicKeyHash` (text, required, indexed) - SHA-256 hash (member ID)
+- `requesterName` (text, required) - Display name
+- `requestedAt` (number, required) - Unix timestamp
+- `status` (text, required) - 'pending', 'approved', or 'rejected'
+- `approvedBy` (text, optional) - Public key hash of approver
+- `approvedAt` (number, optional) - Unix timestamp
+- `rejectedBy` (text, optional) - Public key hash of rejecter
+- `rejectedAt` (number, optional) - Unix timestamp
+- `rejectionReason` (text, optional) - Optional reason
+
+**Indexes:**
+- `groupId` - Find requests by group
+- `invitationId` - Track invitation usage
+- `requesterPublicKeyHash` - Find by requester
+- `status` - Filter pending requests
+
+**API Rules:**
+- Anyone can create (POST) - creates pending join request
+- Group members can read (GET) - see pending requests
+- Group members can update (for approval/rejection)
+- No deletes
+
+**Notes:**
+- Auto-approved for MVP (Phase 5 focus is key exchange, not moderation)
+- Can add manual approval in Phase 6
+- Includes public key for ECDH key exchange
+
+---
+
+### 5. `key_packages` (Phase 5)
+Encrypted group keys sent to approved members.
+
+**Fields:**
+- `id` (text, 15 chars, primary key) - Auto-generated
+- `joinRequestId` (text, required, indexed) - Which join request this is for
+- `groupId` (text, required, indexed) - Which group
+- `recipientPublicKeyHash` (text, required, indexed) - Who this is for
+- `senderPublicKeyHash` (text, required) - Who encrypted and sent this
+- `encryptedKeys` (json, required) - Encrypted group keys (iv, ciphertext, authTag)
+- `createdAt` (number, required) - Unix timestamp
+- `signature` (text, required) - Base64 ECDSA signature for verification
+
+**Indexes:**
+- `joinRequestId` - Find package by join request
+- `groupId` - Find packages by group
+- `recipientPublicKeyHash` - Find packages for a user
+
+**API Rules:**
+- Group members can create (POST) - send keys to new members
+- Recipients can read (GET) - fetch their encrypted keys
+- No updates/deletes
+
+**Notes:**
+- Contains all historical group keys (encrypted with recipient's public key)
+- Uses ECDH to derive shared secret for encryption
+- Signature ensures authenticity and integrity
+- New members can decrypt old entries with historical keys
+
+---
+
+### 6. `loro_snapshots` (Future - Phase 6)
 Optional: Periodic snapshots for faster initial sync of new clients.
 
 **Fields:**
@@ -72,7 +171,7 @@ Optional: Periodic snapshots for faster initial sync of new clients.
 - `version` (json) - Loro version vector at snapshot time
 
 **Notes:**
-- Not needed for MVP (Phase 4)
+- Not needed for Phase 5
 - Reduces initial sync time for groups with many updates
 - Can be generated periodically server-side or client-side
 

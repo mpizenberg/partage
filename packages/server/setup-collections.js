@@ -157,6 +157,220 @@ async function createLoroUpdatesCollection() {
 }
 
 /**
+ * Create the 'invitations' collection
+ */
+async function createInvitationsCollection() {
+  const collectionName = 'invitations';
+
+  if (await collectionExists(collectionName)) {
+    console.log(`✅ Collection '${collectionName}' already exists, skipping...`);
+    return;
+  }
+
+  console.log(`📦 Creating collection '${collectionName}'...`);
+
+  await pb.collections.create({
+    name: collectionName,
+    type: 'base',
+    listRule: '', // Allow all (public read for MVP)
+    viewRule: '', // Allow all
+    createRule: '', // Allow all (for MVP)
+    updateRule: '', // Allow all (for revocation)
+    deleteRule: null, // No deletes
+    schema: [
+      {
+        name: 'groupId',
+        type: 'text',
+        required: true,
+      },
+      {
+        name: 'inviterPublicKeyHash',
+        type: 'text',
+        required: true,
+      },
+      {
+        name: 'createdAt',
+        type: 'number',
+        required: true,
+      },
+      {
+        name: 'expiresAt',
+        type: 'number',
+        required: false,
+      },
+      {
+        name: 'maxUses',
+        type: 'number',
+        required: false,
+      },
+      {
+        name: 'usedCount',
+        type: 'number',
+        required: true,
+      },
+      {
+        name: 'status',
+        type: 'text',
+        required: true,
+      },
+    ],
+  });
+
+  console.log(`✅ Collection '${collectionName}' created successfully`);
+}
+
+/**
+ * Create the 'join_requests' collection
+ */
+async function createJoinRequestsCollection() {
+  const collectionName = 'join_requests';
+
+  if (await collectionExists(collectionName)) {
+    console.log(`✅ Collection '${collectionName}' already exists, skipping...`);
+    return;
+  }
+
+  console.log(`📦 Creating collection '${collectionName}'...`);
+
+  await pb.collections.create({
+    name: collectionName,
+    type: 'base',
+    listRule: '', // Allow all (public read for MVP)
+    viewRule: '', // Allow all
+    createRule: '', // Allow all (anyone can request to join)
+    updateRule: '', // Allow all (for approval/rejection)
+    deleteRule: null, // No deletes
+    schema: [
+      {
+        name: 'invitationId',
+        type: 'text',
+        required: true,
+      },
+      {
+        name: 'groupId',
+        type: 'text',
+        required: true,
+      },
+      {
+        name: 'requesterPublicKey',
+        type: 'text',
+        required: true,
+      },
+      {
+        name: 'requesterPublicKeyHash',
+        type: 'text',
+        required: true,
+      },
+      {
+        name: 'requesterName',
+        type: 'text',
+        required: true,
+      },
+      {
+        name: 'requestedAt',
+        type: 'number',
+        required: true,
+      },
+      {
+        name: 'status',
+        type: 'text',
+        required: true,
+      },
+      {
+        name: 'approvedBy',
+        type: 'text',
+        required: false,
+      },
+      {
+        name: 'approvedAt',
+        type: 'number',
+        required: false,
+      },
+      {
+        name: 'rejectedBy',
+        type: 'text',
+        required: false,
+      },
+      {
+        name: 'rejectedAt',
+        type: 'number',
+        required: false,
+      },
+      {
+        name: 'rejectionReason',
+        type: 'text',
+        required: false,
+      },
+    ],
+  });
+
+  console.log(`✅ Collection '${collectionName}' created successfully`);
+}
+
+/**
+ * Create the 'key_packages' collection
+ */
+async function createKeyPackagesCollection() {
+  const collectionName = 'key_packages';
+
+  if (await collectionExists(collectionName)) {
+    console.log(`✅ Collection '${collectionName}' already exists, skipping...`);
+    return;
+  }
+
+  console.log(`📦 Creating collection '${collectionName}'...`);
+
+  await pb.collections.create({
+    name: collectionName,
+    type: 'base',
+    listRule: '', // Allow all (public read for MVP)
+    viewRule: '', // Allow all
+    createRule: '', // Allow all (members send keys)
+    updateRule: null, // No updates
+    deleteRule: null, // No deletes
+    schema: [
+      {
+        name: 'joinRequestId',
+        type: 'text',
+        required: true,
+      },
+      {
+        name: 'groupId',
+        type: 'text',
+        required: true,
+      },
+      {
+        name: 'recipientPublicKeyHash',
+        type: 'text',
+        required: true,
+      },
+      {
+        name: 'senderPublicKeyHash',
+        type: 'text',
+        required: true,
+      },
+      {
+        name: 'encryptedKeys',
+        type: 'json',
+        required: true,
+      },
+      {
+        name: 'createdAt',
+        type: 'number',
+        required: true,
+      },
+      {
+        name: 'signature',
+        type: 'text',
+        required: true,
+      },
+    ],
+  });
+
+  console.log(`✅ Collection '${collectionName}' created successfully`);
+}
+
+/**
  * Main setup function
  */
 async function setup() {
@@ -189,16 +403,26 @@ async function setup() {
     // Create collections
     await createGroupsCollection();
     await createLoroUpdatesCollection();
+    await createInvitationsCollection();
+    await createJoinRequestsCollection();
+    await createKeyPackagesCollection();
 
     console.log('\n✅ All collections are set up successfully!');
+    console.log('\n📋 Collections created:');
+    console.log('   - groups (group metadata)');
+    console.log('   - loro_updates (CRDT sync)');
+    console.log('   - invitations (Phase 5)');
+    console.log('   - join_requests (Phase 5)');
+    console.log('   - key_packages (Phase 5)');
+
     console.log('\n📋 Next steps:');
     console.log('   1. Start the client: pnpm --filter client dev');
-    console.log('   2. Open two browser tabs to test multi-device sync');
-    console.log('   3. Create a group in one tab, see it appear in the other!');
+    console.log('   2. Test multi-user invite flow');
+    console.log('   3. Share invite links between devices!');
 
     console.log('\n🔍 Test with curl:');
     console.log(`   curl ${POCKETBASE_URL}/api/collections/groups/records`);
-    console.log(`   curl ${POCKETBASE_URL}/api/collections/loro_updates/records`);
+    console.log(`   curl ${POCKETBASE_URL}/api/collections/invitations/records`);
 
   } catch (error) {
     console.error('\n❌ Error during setup:', error.message);
