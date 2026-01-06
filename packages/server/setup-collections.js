@@ -70,7 +70,7 @@ async function createGroupsCollection() {
     createRule: '', // Empty string = allow all
     updateRule: '', // Empty string = allow all (for lastActivityAt updates in MVP)
     deleteRule: null, // null = no access (disabled for MVP)
-    fields: [
+    schema: [
       {
         name: 'name',
         type: 'text',

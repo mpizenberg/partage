@@ -92,6 +92,9 @@ function processExpense(expense: ExpenseEntry, totalAmount: number, balances: Ma
 
 /**
  * Calculate split amounts based on beneficiaries
+ *
+ * Uses integer arithmetic (cents) to avoid rounding errors.
+ * Distributes remainder deterministically in sorted member ID order.
  */
 function calculateSplits(
   beneficiaries: ExpenseEntry['beneficiaries'],
@@ -116,10 +119,34 @@ function calculateSplits(
     const remainingAmount = totalAmount - exactTotal;
     const totalShares = sharesBeneficiaries.reduce((sum, b) => sum + (b.shares ?? 1), 0);
 
-    for (const beneficiary of sharesBeneficiaries) {
+    // Convert to cents for integer arithmetic
+    const remainingCents = Math.round(remainingAmount * 100);
+
+    // Calculate base amount per share in cents
+    const centsPerShare = Math.floor(remainingCents / totalShares);
+
+    // Calculate remainder to distribute
+    let remainderCents = remainingCents - (centsPerShare * totalShares);
+
+    // Sort beneficiaries by member ID for deterministic distribution
+    const sortedBeneficiaries = [...sharesBeneficiaries].sort((a, b) =>
+      a.memberId.localeCompare(b.memberId)
+    );
+
+    // Distribute amounts
+    for (const beneficiary of sortedBeneficiaries) {
       const shares = beneficiary.shares ?? 1;
-      const amount = (shares / totalShares) * remainingAmount;
-      splits.set(beneficiary.memberId, amount);
+      let amountCents = centsPerShare * shares;
+
+      // Distribute remainder: give 1 cent to first members until remainder is exhausted
+      if (remainderCents > 0 && shares > 0) {
+        const extraCents = Math.min(remainderCents, shares);
+        amountCents += extraCents;
+        remainderCents -= extraCents;
+      }
+
+      // Convert back to dollars
+      splits.set(beneficiary.memberId, amountCents / 100);
     }
   }
 

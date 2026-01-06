@@ -239,8 +239,33 @@ export const AppProvider: Component<{ children: JSX.Element }> = (props) => {
       }
       console.log('[AppContext] Current identity:', currentIdentity.publicKeyHash)
 
-      // Generate group ID and key
-      const groupId = crypto.randomUUID()
+      // Create group on server first to get server-generated ID
+      let groupId: string
+      const createdAt = Date.now()
+
+      if (navigator.onLine) {
+        try {
+          console.log('[AppContext] Creating group on server...')
+          const serverGroup = await pbClient.createGroup({
+            name,
+            createdAt,
+            createdBy: currentIdentity.publicKeyHash,
+            lastActivityAt: createdAt,
+            memberCount: virtualMembers.length + 1,
+          })
+          groupId = serverGroup.id
+          console.log('[AppContext] Group created on server with ID:', groupId)
+        } catch (error) {
+          console.error('[AppContext] Failed to create group on server:', error)
+          throw new Error('Failed to create group on server. Please check your connection.')
+        }
+      } else {
+        // Offline: use UUID (will need special handling for sync later)
+        groupId = crypto.randomUUID()
+        console.log('[AppContext] Offline: using local UUID:', groupId)
+      }
+
+      // Generate group key
       const groupKey = await generateSymmetricKey()
       const exportedKey = await exportSymmetricKey(groupKey)
 
@@ -258,7 +283,7 @@ export const AppProvider: Component<{ children: JSX.Element }> = (props) => {
         id: groupId,
         name,
         defaultCurrency: currency,
-        createdAt: Date.now(),
+        createdAt,
         createdBy: currentIdentity.publicKeyHash,
         currentKeyVersion: 1,
         settings: defaultSettings,
@@ -278,29 +303,14 @@ export const AppProvider: Component<{ children: JSX.Element }> = (props) => {
       }
 
       // Save to database
-      console.log('[AppContext] Saving group with members:', group.members)
+      console.log('[AppContext] Saving group locally with ID:', groupId)
+      console.log('[AppContext] Group members:', group.members)
       await db.saveGroup(group)
       await db.saveGroupKey(groupId, 1, exportedKey)
 
       // Initialize Loro store with empty snapshot
       const newLoroStore = new LoroEntryStore()
       await db.saveLoroSnapshot(groupId, newLoroStore.exportSnapshot())
-
-      // Sync group to server if online
-      if (navigator.onLine) {
-        try {
-          await pbClient.createGroup({
-            name: group.name,
-            createdAt: group.createdAt,
-            createdBy: group.createdBy,
-            lastActivityAt: Date.now(),
-            memberCount: group.members?.length || 1,
-          })
-          console.log('[AppContext] Group synced to server')
-        } catch (syncError) {
-          console.warn('[AppContext] Failed to sync group to server (continuing offline):', syncError)
-        }
-      }
 
       // Update groups list
       const updatedGroups = await db.getAllGroups()

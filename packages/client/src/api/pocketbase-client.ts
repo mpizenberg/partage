@@ -79,6 +79,7 @@ export class PocketBaseClient {
 
   /**
    * Create a new group
+   * Returns the group record with PocketBase-generated ID
    */
   async createGroup(data: {
     name: string;
