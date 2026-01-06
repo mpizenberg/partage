@@ -78,7 +78,16 @@ pnpm build
 
 See [PLAN.md](./PLAN.md) for the complete implementation roadmap.
 
-### Current Phase: Phase 4 - Server & Sync
+### Current Phase: Phase 5 - Multi-User Features
+
+**Phase 4 - Server & Sync: ✅ COMPLETED** (January 6, 2026)
+- ✅ PocketBase server setup with encrypted operations collection
+- ✅ API client with real-time subscriptions
+- ✅ Sync manager with online/offline detection
+- ✅ Multi-device synchronization via Loro CRDTs
+- ✅ Operation queue for offline support
+- ✅ Conflict resolution through CRDT merge
+- ✅ Tested multi-client sync (multiple browser tabs)
 
 **Phase 3 - Basic UI: ✅ COMPLETED** (January 5, 2026)
 - ✅ SolidJS PWA with Vite and VitePWA plugin
@@ -133,11 +142,12 @@ See [PLAN.md](./PLAN.md) for the complete implementation roadmap.
   - Offline operation queue
 - ✅ Shared TypeScript types (crypto, group, member, entry, balance)
 
-**Next Steps (Phase 4)**:
-1. Set up PocketBase server with collections schema
-2. Implement API client for encrypted operations
-3. Build sync manager with online/offline detection
-4. Test multi-device real-time synchronization
+**Next Steps (Phase 5)**:
+1. Design invite link system with encrypted group keys
+2. Implement public key exchange protocol
+3. Build member identification flow (new vs existing users)
+4. Add group key versioning and rotation logic
+5. Create UI for member management and real user support
 
 ## Documentation
 

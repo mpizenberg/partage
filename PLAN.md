@@ -11,10 +11,18 @@ Set up a monorepo structure for a fully encrypted, local-first bill-splitting PW
 
 ## Implementation Status
 
-**Current Phase**: Phase 4 - Server & Sync
-**Last Updated**: January 5, 2026
+**Current Phase**: Phase 5 - Multi-User Features
+**Last Updated**: January 6, 2026
 
 ### Completed
+- ✅ **Phase 4**: Server & Sync (100% complete)
+  - PocketBase server setup with encrypted operations collection
+  - API client with real-time subscriptions
+  - Sync manager with online/offline detection
+  - Multi-device synchronization via Loro CRDTs
+  - Operation queue for offline support
+  - Conflict resolution through CRDT merge
+
 - ✅ **Phase 3**: Basic UI (100% complete)
   - SolidJS PWA application with Vite
   - Mobile-first CSS design system
@@ -39,10 +47,9 @@ Set up a monorepo structure for a fully encrypted, local-first bill-splitting PW
   - All dependencies updated to latest versions
 
 ### In Progress
-- 🔄 **Phase 4**: Server & Sync (0% complete)
+- 🔄 **Phase 5**: Multi-User Features (0% complete)
 
 ### Upcoming
-- ⏳ Phase 5: Multi-User Features
 - ⏳ Phase 6: Advanced Features
 - ⏳ Phase 7: Polish & Production
 
@@ -248,30 +255,34 @@ Set up a monorepo structure for a fully encrypted, local-first bill-splitting PW
 - ✅ Responsive mobile-first design
 - ✅ Full type safety across UI layer
 
-### Phase 4: Server & Sync (Weeks 7-10)
+### Phase 4: Server & Sync ✅ COMPLETED
 **Goal**: Multi-device synchronization
 
-**Tasks**:
-1. Set up PocketBase server (`/packages/server/`):
+**Status**: ✅ **100% Complete** (January 6, 2026)
+
+**Completed Tasks**:
+1. ✅ Set up PocketBase server (`/packages/server/`):
    - Collections schema for encrypted operations
    - Real-time subscriptions
-2. Implement API client (`/packages/client/src/api/pocketbase-client.ts`)
-3. Implement sync manager (`/packages/client/src/core/sync/sync-manager.ts`):
+2. ✅ Implemented API client (`/packages/client/src/api/pocketbase-client.ts`)
+3. ✅ Implemented sync manager (`/packages/client/src/core/sync/sync-manager.ts`):
    - Push local operations to server
    - Pull and apply remote operations
    - Online/offline detection
    - Operation queue for offline support
    - Conflict resolution via Loro CRDTs
-4. Test multi-client sync (multiple browser tabs)
+4. ✅ Tested multi-client sync (multiple browser tabs)
 
-**Critical Files**:
-- `/packages/client/src/core/sync/sync-manager.ts`
-- `/packages/client/src/api/pocketbase-client.ts`
+**Critical Files Implemented**:
+- ✅ `/packages/client/src/core/sync/sync-manager.ts`
+- ✅ `/packages/client/src/api/pocketbase-client.ts`
 
-**Deliverable**: Two browser tabs can sync changes in real-time
+**Deliverable Achieved**: Two browser tabs can sync changes in real-time
 
-### Phase 5: Multi-User Features (Weeks 11-12)
+### Phase 5: Multi-User Features
 **Goal**: Enable group collaboration
+
+**Status**: 🔄 **In Progress** (0% complete)
 
 **Tasks**:
 1. Invite link generation and joining flow
@@ -280,6 +291,12 @@ Set up a monorepo structure for a fully encrypted, local-first bill-splitting PW
 4. Group key versioning and rotation
 5. Member management UI
 6. Historical key sharing for recovery
+
+**Critical Files**:
+- `/packages/client/src/core/crypto/key-exchange.ts`
+- `/packages/client/src/domain/group/invite-manager.ts`
+- `/packages/client/src/ui/screens/JoinGroupScreen.tsx`
+- `/packages/client/src/ui/components/members/MemberList.tsx`
 
 **Deliverable**: Multiple users can join groups and collaborate
 
@@ -376,10 +393,10 @@ Set up a monorepo structure for a fully encrypted, local-first bill-splitting PW
 **Week 5-6**: Basic UI ✅
 - SolidJS app, CSS, screens, local-only MVP
 
-**Week 7-10**: Server & Sync (Current)
+**Week 7-10**: Server & Sync ✅
 - PocketBase setup, API client, sync manager, multi-client testing
 
-**Week 11-12**: Multi-User
+**Week 11-12**: Multi-User (Current)
 - Invite/join flows, key exchange, member management
 
 **Week 13-16**: Advanced Features
@@ -398,17 +415,14 @@ Set up a monorepo structure for a fully encrypted, local-first bill-splitting PW
 
 ## Next Steps
 
-**Current Focus**: Phase 4 - Server & Sync
+**Current Focus**: Phase 5 - Multi-User Features
 
-1. Set up PocketBase server with collections schema
-2. Define encrypted operations collection structure
-3. Implement PocketBase API client with real-time subscriptions
-4. Build sync manager with:
-   - Push local Loro operations to server
-   - Pull and apply remote operations
-   - Online/offline detection
-   - Operation queue for offline support
-5. Test multi-device synchronization (multiple browser tabs)
-6. Verify Loro CRDT conflict resolution
+1. Design invite link system with encrypted group keys
+2. Implement public key exchange protocol
+3. Build member identification flow (new vs existing users)
+4. Add group key versioning and rotation logic
+5. Create UI for member management
+6. Implement historical key sharing for new members
+7. Update virtual member system to support real users
 
-**Goal**: Enable real-time sync across multiple devices while maintaining local-first architecture
+**Goal**: Enable multiple users to join groups, exchange keys securely, and collaborate in real-time
