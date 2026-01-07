@@ -341,7 +341,29 @@ export const AppProvider: Component<{ children: JSX.Element }> = (props) => {
       console.log('[AppContext] Group members:', group.members)
       await db.saveGroup(group)
       await db.saveGroupKey(groupId, 1, exportedKey)
-      await db.saveLoroSnapshot(groupId, newLoroStore.exportSnapshot())
+
+      const initialSnapshot = newLoroStore.exportSnapshot()
+      await db.saveLoroSnapshot(groupId, initialSnapshot)
+
+      // Push initial Loro state (with members) to server
+      if (navigator.onLine) {
+        try {
+          console.log('[AppContext] Pushing initial group state to server...')
+          const manager = new SyncManager({
+            loroStore: newLoroStore,
+            storage: db,
+            apiClient: pbClient,
+            enableAutoSync: false, // Don't auto-sync yet
+          })
+
+          // Export the initial state as an update
+          const updateBytes = newLoroStore.exportSnapshot()
+          await manager.pushUpdate(groupId, currentIdentity.publicKeyHash, updateBytes)
+          console.log('[AppContext] Initial state pushed to server')
+        } catch (pushErr) {
+          console.warn('[AppContext] Failed to push initial state, will sync later:', pushErr)
+        }
+      }
 
       // Update groups list
       const updatedGroups = await db.getAllGroups()
@@ -604,6 +626,9 @@ export const AppProvider: Component<{ children: JSX.Element }> = (props) => {
       }
       const groupKey = await importSymmetricKey(keyString)
 
+      // Get version BEFORE adding entry
+      const versionBefore = store.getVersion()
+
       // Add to Loro
       await store.createEntry(entry, groupKey, currentIdentity.publicKeyHash)
 
@@ -611,12 +636,11 @@ export const AppProvider: Component<{ children: JSX.Element }> = (props) => {
       const manager = syncManager()
       if (manager && autoSyncEnabled()) {
         try {
-          // Export incremental update
-          const version = store.getVersion()
-          const updateBytes = store.exportFrom(version)
+          // Export incremental update (changes since versionBefore)
+          const updateBytes = store.exportFrom(versionBefore)
 
           // Push to server
-          await manager.pushUpdate(group.id, currentIdentity.publicKeyHash, updateBytes, version)
+          await manager.pushUpdate(group.id, currentIdentity.publicKeyHash, updateBytes, versionBefore)
 
           // Update sync state
           setSyncState(manager.getState())
@@ -682,6 +706,9 @@ export const AppProvider: Component<{ children: JSX.Element }> = (props) => {
       }
       const groupKey = await importSymmetricKey(keyString)
 
+      // Get version BEFORE adding entry
+      const versionBefore = store.getVersion()
+
       // Add to Loro
       await store.createEntry(entry, groupKey, currentIdentity.publicKeyHash)
 
@@ -689,12 +716,11 @@ export const AppProvider: Component<{ children: JSX.Element }> = (props) => {
       const manager = syncManager()
       if (manager && autoSyncEnabled()) {
         try {
-          // Export incremental update
-          const version = store.getVersion()
-          const updateBytes = store.exportFrom(version)
+          // Export incremental update (changes since versionBefore)
+          const updateBytes = store.exportFrom(versionBefore)
 
           // Push to server
-          await manager.pushUpdate(group.id, currentIdentity.publicKeyHash, updateBytes, version)
+          await manager.pushUpdate(group.id, currentIdentity.publicKeyHash, updateBytes, versionBefore)
 
           // Update sync state
           setSyncState(manager.getState())
