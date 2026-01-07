@@ -78,9 +78,9 @@ pnpm build
 
 See [PLAN.md](./PLAN.md) for the complete implementation roadmap.
 
-### Current Phase: Phase 5 Complete ✅ → Ready for Phase 6
+### Current Phase: Phase 6 - Advanced Features 🔄
 
-**Phase 5 - Multi-User Features: ✅ COMPLETED** (January 6, 2026)
+**Phase 5 - Multi-User Features: ✅ COMPLETED** (January 7, 2026)
 - ✅ Invitation link generation and sharing
 - ✅ Secure public key exchange (ECDH + ECDSA)
 - ✅ Join group via invite link flow
@@ -156,12 +156,15 @@ See [PLAN.md](./PLAN.md) for the complete implementation roadmap.
   - Offline operation queue
 - ✅ Shared TypeScript types (crypto, group, member, entry, balance)
 
-**Next Steps (Phase 5)**:
-1. Design invite link system with encrypted group keys
-2. Implement public key exchange protocol
-3. Build member identification flow (new vs existing users)
-4. Add group key versioning and rotation logic
-5. Create UI for member management and real user support
+**Next Steps (Phase 6)**:
+1. Entry modification with versioning UI
+2. Entry soft deletion with undo
+3. Activity feed showing recent changes
+4. Filtering and search for entries
+5. Multi-currency support with exchange rates
+6. Settlement suggestions (debt optimization)
+7. Export functionality (JSON)
+8. PWA service worker for full offline support
 
 ## Documentation
 

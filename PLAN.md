@@ -11,10 +11,21 @@ Set up a monorepo structure for a fully encrypted, local-first bill-splitting PW
 
 ## Implementation Status
 
-**Current Phase**: Phase 5 - Multi-User Features
-**Last Updated**: January 6, 2026
+**Current Phase**: Phase 6 - Advanced Features
+**Last Updated**: January 7, 2026
 
 ### Completed
+- ✅ **Phase 5**: Multi-User Features (100% complete)
+  - Invite link generation and joining flow
+  - Public key exchange protocol (ECDH + ECDSA)
+  - Group key versioning and rotation on member join
+  - Real-time subscriptions for join requests and key packages
+  - Multi-device sync with proper Loro CRDT merging
+  - Fixed subscription management (callback-based routing)
+  - Fixed Loro map handle refresh after remote updates
+  - Fixed causal dependencies for cross-peer sync
+  - 140 tests passing, 0 TypeScript errors
+
 - ✅ **Phase 4**: Server & Sync (100% complete)
   - PocketBase server setup with encrypted operations collection
   - API client with real-time subscriptions
@@ -46,11 +57,10 @@ Set up a monorepo structure for a fully encrypted, local-first bill-splitting PW
   - Shared TypeScript types (crypto, group, member, entry, balance)
   - All dependencies updated to latest versions
 
-### Completed
-- ✅ **Phase 5**: Multi-User Features (100% complete - Fully integrated and ready for testing)
+### In Progress
+- 🔄 **Phase 6**: Advanced Features
 
 ### Upcoming
-- ⏳ Phase 6: Advanced Features
 - ⏳ Phase 7: Polish & Production
 
 ## Project Structure
@@ -282,7 +292,7 @@ Set up a monorepo structure for a fully encrypted, local-first bill-splitting PW
 ### Phase 5: Multi-User Features
 **Goal**: Enable group collaboration
 
-**Status**: ✅ **100% Complete** - Fully integrated and ready for testing (January 6, 2026)
+**Status**: ✅ **100% Complete** (January 7, 2026)
 
 **Completed Tasks**:
 1. ✅ Invite link generation and joining flow
@@ -417,8 +427,8 @@ Set up a monorepo structure for a fully encrypted, local-first bill-splitting PW
 **Week 7-10**: Server & Sync ✅
 - PocketBase setup, API client, sync manager, multi-client testing
 
-**Week 11-12**: Multi-User (Current)
-- Invite/join flows, key exchange, member management
+**Week 11-12**: Multi-User ✅
+- Invite/join flows, key exchange, member management, multi-device sync
 
 **Week 13-16**: Advanced Features
 - Entry lifecycle, activity feed, multi-currency, settlement, PWA
@@ -436,14 +446,15 @@ Set up a monorepo structure for a fully encrypted, local-first bill-splitting PW
 
 ## Next Steps
 
-**Current Focus**: Phase 5 - Multi-User Features
+**Current Focus**: Phase 6 - Advanced Features
 
-1. Design invite link system with encrypted group keys
-2. Implement public key exchange protocol
-3. Build member identification flow (new vs existing users)
-4. Add group key versioning and rotation logic
-5. Create UI for member management
-6. Implement historical key sharing for new members
-7. Update virtual member system to support real users
+1. Entry modification with versioning UI
+2. Entry soft deletion with undo
+3. Activity feed showing recent changes
+4. Filtering and search for entries
+5. Multi-currency support with exchange rates
+6. Settlement suggestions (debt optimization)
+7. Export functionality (JSON)
+8. PWA service worker for full offline support
 
-**Goal**: Enable multiple users to join groups, exchange keys securely, and collaborate in real-time
+**Goal**: Complete feature set with full entry lifecycle, activity tracking, and offline capabilities
