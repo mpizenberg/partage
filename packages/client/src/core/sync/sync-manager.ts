@@ -12,6 +12,22 @@
  * - Local-first: Loro operations happen immediately in memory
  * - Server is just a relay for encrypted CRDT updates
  * - Conflicts are resolved automatically by Loro CRDT
+ *
+ * Debugging notes:
+ * If multi-device sync appears "stuck", verify:
+ * - Are we pushing non-empty CRDT updates?
+ * - Are updates being written to the server?
+ * - Are we fetching/receiving updates on other devices?
+ * - When we apply an update, does the local snapshot/entry count change?
+ *
+ * If `applyRemoteUpdate` logs show no observable change even for known-new updates,
+ * it may be because we are not applying updates in the right order or we are
+ * skipping/duplicating records due to timestamp cursor issues (client clock skew).
+ *
+ * To reduce sensitivity to skew, we can use PocketBase server timestamps (`created`/`updated`)
+ * as the incremental sync cursor instead of the client-provided `timestamp` field.
+ *
+ * The extra logging below aims to distinguish those cases.
  */
 
 import type { LoroEntryStore } from '../crdt/loro-wrapper.js';
@@ -59,11 +75,17 @@ export class SyncManager {
   // Sync state
   private status: SyncStatus = 'idle';
   private isOnline: boolean = navigator.onLine;
+  // Cursor for incremental sync: last applied client-provided timestamp per group.
   private lastSyncTimestamp: Map<string, number> = new Map(); // groupId -> timestamp
   private lastError: string | null = null;
 
   // Real-time subscriptions
   private activeSubscriptions: Map<string, () => void> = new Map();
+  private subscribedGroups: Map<string, string> = new Map(); // groupId -> actorId (for re-subscription)
+
+  // DEBUG: Track applied update record IDs to detect duplicate application/no-op imports.
+  // This is in-memory only; if the app reloads, we will re-apply from server history.
+  private appliedUpdateIds: Set<string> = new Set();
 
   // Offline queue
   private offlineQueue: QueuedOperation[] = [];
@@ -72,6 +94,9 @@ export class SyncManager {
   // Event listeners
   private onlineListener?: () => void;
   private offlineListener?: () => void;
+
+  // Subscription health check interval
+  private healthCheckInterval?: ReturnType<typeof setInterval>;
 
   constructor(config: SyncManagerConfig) {
     this.loroStore = config.loroStore;
@@ -203,6 +228,16 @@ export class SyncManager {
       updateData,
     };
 
+    // DEBUG: Verify we are pushing non-empty updates
+    console.log(
+      `[SyncManager] pushUpdate(group=${groupId}) actor=${actorId} bytes=${updateBytes.byteLength} ts=${timestamp}`
+    );
+    if (updateBytes.byteLength === 0) {
+      console.warn(
+        `[SyncManager] WARNING: exporting an EMPTY update for group=${groupId}. Other devices will never see changes if this persists.`
+      );
+    }
+
     if (!this.isOnline) {
       // Queue for later
       console.log('[SyncManager] Offline - queueing update');
@@ -220,12 +255,17 @@ export class SyncManager {
         version: PocketBaseClient.serializeVersion(version),
       });
 
-      console.log('[SyncManager] Update pushed successfully');
+      console.log(
+        `[SyncManager] Update pushed successfully group=${groupId} actor=${actorId} bytes=${updateBytes.byteLength} ts=${timestamp}`
+      );
 
       // Update last sync timestamp
       this.lastSyncTimestamp.set(groupId, timestamp);
     } catch (error) {
-      console.error('[SyncManager] Failed to push update:', error);
+      console.error(
+        `[SyncManager] Failed to push update group=${groupId} actor=${actorId} bytes=${updateBytes.byteLength}:`,
+        error
+      );
 
       // Queue for retry
       this.offlineQueue.push(operation);
@@ -244,9 +284,13 @@ export class SyncManager {
       return;
     }
 
-    // Unsubscribe existing subscription
+    // Unsubscribe existing subscription (but don't remove from subscribedGroups)
     if (this.activeSubscriptions.has(groupId)) {
-      await this.unsubscribeFromGroup(groupId);
+      const unsubscribe = this.activeSubscriptions.get(groupId);
+      if (unsubscribe) {
+        await unsubscribe();
+      }
+      this.activeSubscriptions.delete(groupId);
     }
 
     try {
@@ -264,9 +308,52 @@ export class SyncManager {
       });
 
       this.activeSubscriptions.set(groupId, unsubscribe);
+      this.subscribedGroups.set(groupId, actorId); // Track for re-subscription
       console.log(`[SyncManager] Subscribed to group ${groupId}`);
+
+      // Start health check if not already running
+      this.startHealthCheck();
     } catch (error) {
       this.handleError('Subscription failed', error);
+    }
+  }
+
+  /**
+   * Start periodic health check for subscriptions
+   */
+  private startHealthCheck(): void {
+    if (this.healthCheckInterval) {
+      return; // Already running
+    }
+
+    // Check subscription health every 30 seconds
+    this.healthCheckInterval = setInterval(async () => {
+      if (!this.isOnline) {
+        return;
+      }
+
+      // For each subscribed group, do an incremental sync to catch any missed updates
+      for (const [groupId, actorId] of this.subscribedGroups) {
+        try {
+          console.log(`[SyncManager] Health check: incremental sync for group ${groupId}`);
+          await this.incrementalSync(groupId, actorId);
+        } catch (error) {
+          console.warn(`[SyncManager] Health check sync failed for group ${groupId}:`, error);
+        }
+      }
+    }, 30000); // 30 seconds
+
+    console.log('[SyncManager] Started subscription health check');
+  }
+
+  /**
+   * Stop the health check interval
+   */
+  private stopHealthCheck(): void {
+    if (this.healthCheckInterval) {
+      clearInterval(this.healthCheckInterval);
+      this.healthCheckInterval = undefined;
+      console.log('[SyncManager] Stopped subscription health check');
     }
   }
 
@@ -278,7 +365,13 @@ export class SyncManager {
     if (unsubscribe) {
       await unsubscribe();
       this.activeSubscriptions.delete(groupId);
+      this.subscribedGroups.delete(groupId);
       console.log(`[SyncManager] Unsubscribed from group ${groupId}`);
+    }
+
+    // Stop health check if no more subscriptions
+    if (this.subscribedGroups.size === 0) {
+      this.stopHealthCheck();
     }
   }
 
@@ -289,6 +382,8 @@ export class SyncManager {
     for (const [groupId] of this.activeSubscriptions) {
       await this.unsubscribeFromGroup(groupId);
     }
+    this.subscribedGroups.clear();
+    this.stopHealthCheck();
   }
 
   /**
@@ -335,6 +430,7 @@ export class SyncManager {
    * Cleanup - unsubscribe and remove listeners
    */
   async destroy(): Promise<void> {
+    this.stopHealthCheck();
     await this.unsubscribeAll();
     this.removeNetworkListeners();
   }
@@ -346,8 +442,73 @@ export class SyncManager {
    */
   private async applyRemoteUpdate(update: LoroUpdateRecord, _actorId: string): Promise<void> {
     try {
+      // DEBUG: capture before/after snapshots to confirm the update actually changes state
+      const beforeSnapshot = this.loroStore.exportSnapshot();
+      const beforeSize = beforeSnapshot.byteLength;
+
+      // Extra DEBUG: attempt to detect "view is stale" vs "import is a no-op"
+      // by sampling snapshot bytes (head/tail) and a JSON representation if available.
+      const beforeHead = Array.from(beforeSnapshot.slice(0, Math.min(16, beforeSnapshot.length)));
+      const beforeTail = Array.from(
+        beforeSnapshot.slice(Math.max(0, beforeSnapshot.length - 16), beforeSnapshot.length)
+      );
+
       const updateBytes = PocketBaseClient.decodeUpdateData(update.updateData);
+      console.log(
+        `[SyncManager] applyRemoteUpdate(group=${update.groupId}) id=${update.id} from=${update.actorId} updateBytes=${updateBytes.byteLength} ts=${update.timestamp}`
+      );
+
+      if (updateBytes.byteLength === 0) {
+        console.warn(
+          `[SyncManager] WARNING: received an EMPTY remote update for group=${update.groupId} from=${update.actorId} (ts=${update.timestamp}).`
+        );
+      }
+
+      // Log a small signature of the update bytes to spot duplicates/collisions.
+      const updateSig = Array.from(updateBytes.slice(0, Math.min(12, updateBytes.length)));
+      console.log(
+        `[SyncManager] applyRemoteUpdate(group=${update.groupId}) updateSig(head12)=${JSON.stringify(updateSig)}`
+      );
+
+      // If we have seen this record id already, applying will likely be a no-op.
+      // This helps diagnose duplicate delivery (e.g. applying from initialSync + subscription).
+      const seen = this.appliedUpdateIds?.has(update.id) ?? false;
+      if (seen) {
+        console.warn(
+          `[SyncManager] applyRemoteUpdate: update id=${update.id} already applied earlier; import likely no-op`
+        );
+      }
+
       this.loroStore.applyUpdate(updateBytes);
+
+      const afterSnapshot = this.loroStore.exportSnapshot();
+      const afterSize = afterSnapshot.byteLength;
+
+      const afterHead = Array.from(afterSnapshot.slice(0, Math.min(16, afterSnapshot.length)));
+      const afterTail = Array.from(
+        afterSnapshot.slice(Math.max(0, afterSnapshot.length - 16), afterSnapshot.length)
+      );
+
+      const delta = afterSize - beforeSize;
+      console.log(
+        `[SyncManager] applyRemoteUpdate(group=${update.groupId}) snapshotBytes before=${beforeSize} after=${afterSize} delta=${delta}`
+      );
+
+      // If delta is zero, compare small snapshot signatures to tell whether bytes changed anyway.
+      // (Size can remain equal even if content changes.)
+      const headChanged = JSON.stringify(beforeHead) !== JSON.stringify(afterHead);
+      const tailChanged = JSON.stringify(beforeTail) !== JSON.stringify(afterTail);
+
+      if (delta === 0) {
+        console.warn(
+          `[SyncManager] applyRemoteUpdate(group=${update.groupId}) snapshotSizeUnchanged; headChanged=${headChanged} tailChanged=${tailChanged}`
+        );
+      }
+
+      // Mark applied (for duplicate detection)
+      if (this.appliedUpdateIds) {
+        this.appliedUpdateIds.add(update.id);
+      }
 
       // Update last sync timestamp
       this.lastSyncTimestamp.set(update.groupId, update.timestamp);
@@ -410,16 +571,32 @@ export class SyncManager {
    * Set up online/offline event listeners
    */
   private setupNetworkListeners(): void {
-    this.onlineListener = () => {
+    this.onlineListener = async () => {
       console.log('[SyncManager] Network online');
       this.isOnline = true;
       this.setStatus('idle');
 
       // Attempt to sync offline queue
       if (this.enableAutoSync) {
-        this.syncOfflineQueue().catch((error) => {
+        try {
+          await this.syncOfflineQueue();
+        } catch (error) {
           console.error('[SyncManager] Failed to sync offline queue:', error);
-        });
+        }
+      }
+
+      // Re-subscribe to all groups that were subscribed before going offline
+      // This uses the subscribedGroups map which persists across offline periods
+      for (const [groupId, actorId] of this.subscribedGroups) {
+        console.log(`[SyncManager] Re-subscribing to group ${groupId} after coming online`);
+        try {
+          // First do an incremental sync to catch up on missed updates
+          await this.incrementalSync(groupId, actorId);
+          // Then re-establish real-time subscription
+          await this.subscribeToGroup(groupId, actorId);
+        } catch (error) {
+          console.error(`[SyncManager] Failed to re-subscribe to group ${groupId}:`, error);
+        }
       }
     };
 
@@ -427,11 +604,14 @@ export class SyncManager {
       console.log('[SyncManager] Network offline');
       this.isOnline = false;
       this.setStatus('offline');
+      this.stopHealthCheck();
 
-      // Unsubscribe from all real-time subscriptions
-      this.unsubscribeAll().catch((error) => {
-        console.error('[SyncManager] Failed to unsubscribe:', error);
-      });
+      // Note: We don't call unsubscribeAll() here because:
+      // 1. It would clear subscribedGroups, losing track of what to re-subscribe to
+      // 2. PocketBase subscriptions will naturally fail when offline
+      // 3. When back online, we re-subscribe in the onlineListener
+      // Instead, just clear the active subscription callbacks
+      this.activeSubscriptions.clear();
     };
 
     window.addEventListener('online', this.onlineListener);

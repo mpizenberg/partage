@@ -10,6 +10,12 @@
  *
  * Usage:
  *   node packages/server/setup-collections.js
+ *
+ * Notes (key rotation):
+ * - Key rotation “fanout” publishes one encrypted key package per recipient.
+ * - To make this efficient and robust, we store `keyVersion` and allow de-duplication
+ *   (same joinRequestId/groupId/recipient/keyVersion) at the application level.
+ *   PocketBase itself doesn’t provide a strict unique constraint for base collections.
  */
 
 import PocketBase from 'pocketbase';
@@ -22,7 +28,8 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 config({ path: join(__dirname, '.env') });
 
-const POCKETBASE_URL = process.env.VITE_POCKETBASE_URL || process.env.POCKETBASE_URL || 'http://127.0.0.1:8090';
+const POCKETBASE_URL =
+  process.env.VITE_POCKETBASE_URL || process.env.POCKETBASE_URL || 'http://127.0.0.1:8090';
 const ADMIN_EMAIL = process.env.PB_ADMIN_EMAIL || process.env.POCKETBASE_ADMIN_EMAIL;
 const ADMIN_PASSWORD = process.env.PB_ADMIN_PASSWORD || process.env.POCKETBASE_ADMIN_PASSWORD;
 
@@ -203,15 +210,15 @@ async function createInvitationsCollection() {
         type: 'number',
         required: false,
         options: {
-          min: 0,  // 0 could mean unlimited
+          min: 0, // 0 could mean unlimited
         },
       },
       {
         name: 'usedCount',
         type: 'number',
-        required: false,  // Can't use required:true because it enforces nonzero
+        required: false, // Can't use required:true because it enforces nonzero
         options: {
-          min: 0,  // Allow 0 and positive values
+          min: 0, // Allow 0 and positive values
         },
       },
       {
@@ -350,6 +357,23 @@ async function createKeyPackagesCollection() {
         type: 'text',
         required: true,
       },
+
+      // Key rotation support: which group key version this package establishes as "current".
+      // The encrypted payload still contains all historical keys; this field allows receivers
+      // to quickly detect whether they already have the latest key.
+      {
+        name: 'keyVersion',
+        type: 'number',
+        required: true,
+      },
+
+      // Optional: why this package was created (join vs rotate). Useful for debugging/UX later.
+      {
+        name: 'reason',
+        type: 'text',
+        required: false,
+      },
+
       {
         name: 'senderPublicKeyHash',
         type: 'text',
@@ -384,6 +408,7 @@ async function createKeyPackagesCollection() {
   });
 
   console.log(`✅ Collection '${collectionName}' created successfully`);
+  console.log(`   ℹ️  Includes key rotation fields: keyVersion, reason`);
 }
 
 /**
@@ -423,6 +448,11 @@ async function setup() {
     await createJoinRequestsCollection();
     await createKeyPackagesCollection();
 
+    // NOTE:
+    // If you previously created 'key_packages' without keyVersion/reason fields,
+    // this setup script will skip it (idempotent). For schema changes, delete the
+    // collection in PocketBase admin UI (or use the reset script) and rerun setup.
+
     console.log('\n✅ All collections are set up successfully!');
     console.log('\n📋 Collections created:');
     console.log('   - groups (group metadata)');
@@ -439,7 +469,6 @@ async function setup() {
     console.log('\n🔍 Test with curl:');
     console.log(`   curl ${POCKETBASE_URL}/api/collections/groups/records`);
     console.log(`   curl ${POCKETBASE_URL}/api/collections/invitations/records`);
-
   } catch (error) {
     console.error('\n❌ Error during setup:', error.message);
     if (error.data) {

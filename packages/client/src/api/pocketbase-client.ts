@@ -164,10 +164,12 @@ export class PocketBaseClient {
    */
   async listGroups(options?: { createdBy?: string; limit?: number }): Promise<GroupRecord[]> {
     const filter = options?.createdBy ? `createdBy="${options.createdBy}"` : '';
-    const result = await this.pb.collection('groups').getList<GroupRecord>(1, options?.limit || 50, {
-      filter,
-      sort: '-lastActivityAt',
-    });
+    const result = await this.pb
+      .collection('groups')
+      .getList<GroupRecord>(1, options?.limit || 50, {
+        filter,
+        sort: '-lastActivityAt',
+      });
     return result.items;
   }
 
@@ -221,10 +223,12 @@ export class PocketBaseClient {
       ? `groupId="${groupId}" && timestamp > ${options.sinceTimestamp}`
       : `groupId="${groupId}"`;
 
-    const result = await this.pb.collection('loro_updates').getList<LoroUpdateRecord>(1, options?.limit || 1000, {
-      filter,
-      sort: '+timestamp', // Chronological order
-    });
+    const result = await this.pb
+      .collection('loro_updates')
+      .getList<LoroUpdateRecord>(1, options?.limit || 1000, {
+        filter,
+        sort: '+timestamp', // Chronological order
+      });
 
     return result.items;
   }
@@ -238,10 +242,12 @@ export class PocketBaseClient {
     const perPage = 500;
 
     while (true) {
-      const result = await this.pb.collection('loro_updates').getList<LoroUpdateRecord>(page, perPage, {
-        filter: `groupId="${groupId}"`,
-        sort: '+timestamp',
-      });
+      const result = await this.pb
+        .collection('loro_updates')
+        .getList<LoroUpdateRecord>(page, perPage, {
+          filter: `groupId="${groupId}"`,
+          sort: '+timestamp',
+        });
 
       allUpdates.push(...result.items);
 
@@ -274,6 +280,10 @@ export class PocketBaseClient {
 
   // ==================== Real-time Subscriptions ====================
 
+  // Track active subscription callbacks per collection to avoid unsubscribe('*') destroying all subscriptions
+  private loroUpdateCallbacks: Map<string, (update: LoroUpdateRecord) => void> = new Map();
+  private loroSubscriptionActive: boolean = false;
+
   /**
    * Subscribe to real-time updates for a group
    *
@@ -287,34 +297,48 @@ export class PocketBaseClient {
   ): Promise<() => void> {
     const subscriptionKey = `loro_updates:${groupId}`;
 
-    // Unsubscribe existing subscription if any
-    if (this.subscriptions.has(subscriptionKey)) {
-      this.subscriptions.get(subscriptionKey)?.();
+    // Store the callback for this group
+    this.loroUpdateCallbacks.set(groupId, onUpdate);
+
+    // Only create the PocketBase subscription once
+    if (!this.loroSubscriptionActive) {
+      console.log('[PocketBase] Creating loro_updates subscription');
+      await this.pb.collection('loro_updates').subscribe<LoroUpdateRecord>(
+        '*',
+        (e: RecordSubscription<LoroUpdateRecord>) => {
+          // Route to the appropriate callback based on groupId
+          if (e.action === 'create') {
+            const callback = this.loroUpdateCallbacks.get(e.record.groupId);
+            if (callback) {
+              console.log(`[PocketBase] Routing update for group ${e.record.groupId} to callback`);
+              callback(e.record);
+            } else {
+              console.log(`[PocketBase] No callback registered for group ${e.record.groupId}`);
+            }
+          }
+        }
+      );
+      this.loroSubscriptionActive = true;
+    } else {
+      console.log(`[PocketBase] Reusing existing loro_updates subscription, adding callback for group ${groupId}`);
     }
 
-    // Subscribe to all updates, but filter client-side
-    await this.pb.collection('loro_updates').subscribe<LoroUpdateRecord>(
-      '*',
-      (e: RecordSubscription<LoroUpdateRecord>) => {
-        // Only process updates for this group
-        if (e.action === 'create' && e.record.groupId === groupId) {
-          onUpdate(e.record);
-        }
-      },
-      {
-        // Server-side filter (if supported by PocketBase version)
-        filter: `groupId="${groupId}"`,
-      }
-    );
-
-    // Create unsubscribe function
+    // Create unsubscribe function that only removes the callback, not the subscription
     const unsubscribe = async () => {
-      try {
-        await this.pb.collection('loro_updates').unsubscribe('*');
-      } catch (error) {
-        console.warn('Error unsubscribing:', error);
-      }
+      console.log(`[PocketBase] Removing callback for group ${groupId}`);
+      this.loroUpdateCallbacks.delete(groupId);
       this.subscriptions.delete(subscriptionKey);
+
+      // Only truly unsubscribe if no more callbacks
+      if (this.loroUpdateCallbacks.size === 0 && this.loroSubscriptionActive) {
+        console.log('[PocketBase] No more callbacks, unsubscribing from loro_updates');
+        try {
+          await this.pb.collection('loro_updates').unsubscribe('*');
+          this.loroSubscriptionActive = false;
+        } catch (error) {
+          console.warn('Error unsubscribing from loro_updates:', error);
+        }
+      }
     };
 
     this.subscriptions.set(subscriptionKey, unsubscribe);
@@ -326,9 +350,52 @@ export class PocketBaseClient {
    * Unsubscribe from all active subscriptions
    */
   async unsubscribeAll(): Promise<void> {
-    const unsubscribePromises = Array.from(this.subscriptions.values()).map((unsub) => unsub());
-    await Promise.all(unsubscribePromises);
+    // Clear all callback maps
+    this.loroUpdateCallbacks.clear();
+    this.joinRequestCallbacks.clear();
+    this.keyPackageCallbacks.clear();
+
+    // Unsubscribe from PocketBase collections
+    try {
+      if (this.loroSubscriptionActive) {
+        await this.pb.collection('loro_updates').unsubscribe('*');
+        this.loroSubscriptionActive = false;
+      }
+      if (this.joinRequestSubscriptionActive) {
+        await this.pb.collection('join_requests').unsubscribe('*');
+        this.joinRequestSubscriptionActive = false;
+      }
+      if (this.keyPackageSubscriptionActive) {
+        await this.pb.collection('key_packages').unsubscribe('*');
+        this.keyPackageSubscriptionActive = false;
+      }
+    } catch (error) {
+      console.warn('[PocketBase] Error during unsubscribeAll:', error);
+    }
+
     this.subscriptions.clear();
+    console.log('[PocketBase] Unsubscribed from all collections');
+  }
+
+  /**
+   * Check if subscriptions are active (for debugging)
+   */
+  getSubscriptionStatus(): {
+    loroUpdates: boolean;
+    joinRequests: boolean;
+    keyPackages: boolean;
+    activeCallbacks: { loroUpdates: number; joinRequests: number; keyPackages: number };
+  } {
+    return {
+      loroUpdates: this.loroSubscriptionActive,
+      joinRequests: this.joinRequestSubscriptionActive,
+      keyPackages: this.keyPackageSubscriptionActive,
+      activeCallbacks: {
+        loroUpdates: this.loroUpdateCallbacks.size,
+        joinRequests: this.joinRequestCallbacks.size,
+        keyPackages: this.keyPackageCallbacks.size,
+      },
+    };
   }
 
   // ==================== Invitations API ====================
@@ -422,12 +489,10 @@ export class PocketBaseClient {
    * List join requests for a specific user (by public key hash)
    */
   async listJoinRequestsByUser(requesterPublicKeyHash: string): Promise<JoinRequestRecord[]> {
-    const result = await this.pb
-      .collection('join_requests')
-      .getList<JoinRequestRecord>(1, 50, {
-        filter: `requesterPublicKeyHash="${requesterPublicKeyHash}"`,
-        sort: '-requestedAt',
-      });
+    const result = await this.pb.collection('join_requests').getList<JoinRequestRecord>(1, 50, {
+      filter: `requesterPublicKeyHash="${requesterPublicKeyHash}"`,
+      sort: '-requestedAt',
+    });
     return result.items;
   }
 
@@ -450,6 +515,8 @@ export class PocketBaseClient {
     joinRequestId: string;
     groupId: string;
     recipientPublicKeyHash: string;
+    keyVersion: number;
+    reason?: string;
     senderPublicKeyHash: string;
     senderPublicKey: string;
     senderSigningPublicKey: string;
@@ -494,6 +561,14 @@ export class PocketBaseClient {
 
   // ==================== Real-time Subscriptions (Phase 5) ====================
 
+  // Track active subscription callbacks for join_requests
+  private joinRequestCallbacks: Map<string, (joinRequest: JoinRequestRecord) => void> = new Map();
+  private joinRequestSubscriptionActive: boolean = false;
+
+  // Track active subscription callbacks for key_packages
+  private keyPackageCallbacks: Map<string, (keyPackage: KeyPackageRecord) => void> = new Map();
+  private keyPackageSubscriptionActive: boolean = false;
+
   /**
    * Subscribe to join requests for a group (for existing members)
    */
@@ -503,27 +578,43 @@ export class PocketBaseClient {
   ): Promise<() => void> {
     const subscriptionKey = `join_requests:${groupId}`;
 
-    if (this.subscriptions.has(subscriptionKey)) {
-      this.subscriptions.get(subscriptionKey)?.();
+    // Store the callback for this group
+    this.joinRequestCallbacks.set(groupId, onJoinRequest);
+
+    // Only create the PocketBase subscription once
+    if (!this.joinRequestSubscriptionActive) {
+      console.log('[PocketBase] Creating join_requests subscription');
+      await this.pb.collection('join_requests').subscribe<JoinRequestRecord>(
+        '*',
+        (e: RecordSubscription<JoinRequestRecord>) => {
+          if (e.action === 'create') {
+            const callback = this.joinRequestCallbacks.get(e.record.groupId);
+            if (callback) {
+              console.log(`[PocketBase] Routing join request for group ${e.record.groupId}`);
+              callback(e.record);
+            }
+          }
+        }
+      );
+      this.joinRequestSubscriptionActive = true;
+    } else {
+      console.log(`[PocketBase] Reusing existing join_requests subscription for group ${groupId}`);
     }
 
-    await this.pb.collection('join_requests').subscribe<JoinRequestRecord>(
-      '*',
-      (e: RecordSubscription<JoinRequestRecord>) => {
-        if (e.action === 'create' && e.record.groupId === groupId) {
-          onJoinRequest(e.record);
-        }
-      },
-      { filter: `groupId="${groupId}"` }
-    );
-
     const unsubscribe = async () => {
-      try {
-        await this.pb.collection('join_requests').unsubscribe('*');
-      } catch (error) {
-        console.warn('Error unsubscribing from join requests:', error);
-      }
+      console.log(`[PocketBase] Removing join_requests callback for group ${groupId}`);
+      this.joinRequestCallbacks.delete(groupId);
       this.subscriptions.delete(subscriptionKey);
+
+      if (this.joinRequestCallbacks.size === 0 && this.joinRequestSubscriptionActive) {
+        console.log('[PocketBase] No more callbacks, unsubscribing from join_requests');
+        try {
+          await this.pb.collection('join_requests').unsubscribe('*');
+          this.joinRequestSubscriptionActive = false;
+        } catch (error) {
+          console.warn('Error unsubscribing from join requests:', error);
+        }
+      }
     };
 
     this.subscriptions.set(subscriptionKey, unsubscribe);
@@ -539,27 +630,43 @@ export class PocketBaseClient {
   ): Promise<() => void> {
     const subscriptionKey = `key_packages:${recipientPublicKeyHash}`;
 
-    if (this.subscriptions.has(subscriptionKey)) {
-      this.subscriptions.get(subscriptionKey)?.();
+    // Store the callback for this recipient
+    this.keyPackageCallbacks.set(recipientPublicKeyHash, onKeyPackage);
+
+    // Only create the PocketBase subscription once
+    if (!this.keyPackageSubscriptionActive) {
+      console.log('[PocketBase] Creating key_packages subscription');
+      await this.pb.collection('key_packages').subscribe<KeyPackageRecord>(
+        '*',
+        (e: RecordSubscription<KeyPackageRecord>) => {
+          if (e.action === 'create') {
+            const callback = this.keyPackageCallbacks.get(e.record.recipientPublicKeyHash);
+            if (callback) {
+              console.log(`[PocketBase] Routing key package for recipient ${e.record.recipientPublicKeyHash}`);
+              callback(e.record);
+            }
+          }
+        }
+      );
+      this.keyPackageSubscriptionActive = true;
+    } else {
+      console.log(`[PocketBase] Reusing existing key_packages subscription for ${recipientPublicKeyHash}`);
     }
 
-    await this.pb.collection('key_packages').subscribe<KeyPackageRecord>(
-      '*',
-      (e: RecordSubscription<KeyPackageRecord>) => {
-        if (e.action === 'create' && e.record.recipientPublicKeyHash === recipientPublicKeyHash) {
-          onKeyPackage(e.record);
-        }
-      },
-      { filter: `recipientPublicKeyHash="${recipientPublicKeyHash}"` }
-    );
-
     const unsubscribe = async () => {
-      try {
-        await this.pb.collection('key_packages').unsubscribe('*');
-      } catch (error) {
-        console.warn('Error unsubscribing from key packages:', error);
-      }
+      console.log(`[PocketBase] Removing key_packages callback for ${recipientPublicKeyHash}`);
+      this.keyPackageCallbacks.delete(recipientPublicKeyHash);
       this.subscriptions.delete(subscriptionKey);
+
+      if (this.keyPackageCallbacks.size === 0 && this.keyPackageSubscriptionActive) {
+        console.log('[PocketBase] No more callbacks, unsubscribing from key_packages');
+        try {
+          await this.pb.collection('key_packages').unsubscribe('*');
+          this.keyPackageSubscriptionActive = false;
+        } catch (error) {
+          console.warn('Error unsubscribing from key packages:', error);
+        }
+      }
     };
 
     this.subscriptions.set(subscriptionKey, unsubscribe);

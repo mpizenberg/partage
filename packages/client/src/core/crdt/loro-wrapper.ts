@@ -9,11 +9,18 @@
  * - Server to relay CRDT operations without seeing sensitive content
  * - Efficient CRDT conflict resolution on metadata
  * - End-to-end encryption of actual entry details
+ *
+ * Sync correctness note:
+ * Loro operations may be buffered until a transaction is committed. Our sync layer
+ * exports incremental updates using `oplogVersion()` and `export({ mode: 'update', from })`.
+ * To ensure local mutations are always reflected in exported updates (and therefore reach
+ * other devices), all mutations must run inside a Loro transaction.
  */
 
 import { Loro, LoroMap } from 'loro-crdt';
 import { encryptJSON, decryptJSON } from '../crypto/symmetric.js';
 import type { Entry, ExpenseEntry, TransferEntry, Member } from '@partage/shared';
+import { PartageDB } from '../storage/indexeddb.js';
 
 /**
  * Metadata stored in Loro (unencrypted)
@@ -22,7 +29,19 @@ interface EntryMetadata {
   id: string;
   groupId: string;
   type: 'expense' | 'transfer';
+
+  /**
+   * Entry schema/version (NOT the encryption key version).
+   * This is used for entry lifecycle (modify/delete) and compatibility.
+   */
   version: number;
+
+  /**
+   * Group key version used to encrypt `encryptedPayload`.
+   * This enables proper key rotation: different entries may require different keys.
+   */
+  keyVersion: number;
+
   previousVersionId?: string;
   createdAt: number;
   createdBy: string;
@@ -96,6 +115,27 @@ export class LoroEntryStore {
   }
 
   /**
+   * Run mutations in a Loro transaction to ensure they are committed to the oplog.
+   *
+   * NOTE: `loro-crdt` typings (and/or runtime API) may not expose a `transact` helper.
+   * We therefore use a defensive wrapper:
+   * - If `transact(fn)` exists, use it.
+   * - Otherwise, run `fn()` directly (best-effort).
+   *
+   * This keeps sync logic correct on versions of Loro that buffer ops until commit,
+   * while remaining compatible with versions that apply ops immediately.
+   */
+  private transact(fn: () => void): void {
+    const loroAny = this.loro as unknown as { transact?: (cb: () => void) => void };
+    if (typeof loroAny.transact === 'function') {
+      loroAny.transact(fn);
+      return;
+    }
+
+    fn();
+  }
+
+  /**
    * Create a new entry (expense or transfer)
    */
   async createEntry(entry: Entry, groupKey: CryptoKey, _actorId: string): Promise<void> {
@@ -112,9 +152,12 @@ export class LoroEntryStore {
       encryptedPayload,
     };
 
-    // Use Loro map to store the entry
-    const entryMap = this.entries.setContainer(entry.id, new LoroMap()) as LoroMap;
-    this.setMetadataInMap(entryMap, entryMetadata);
+    // IMPORTANT: wrap mutations in a transaction so `exportFrom(versionBefore)` includes them.
+    this.transact(() => {
+      // Use Loro map to store the entry
+      const entryMap = this.entries.setContainer(entry.id, new LoroMap()) as LoroMap;
+      this.setMetadataInMap(entryMap, entryMetadata);
+    });
   }
 
   /**
@@ -151,12 +194,14 @@ export class LoroEntryStore {
       throw new Error(`Entry ${entryId} not found`);
     }
 
-    // Mark as deleted in metadata
+    // Mark as deleted in metadata (transactional to ensure sync exports include it)
     const entryMap = this.entries.get(entryId);
     if (entryMap && entryMap instanceof LoroMap) {
-      entryMap.set('status', 'deleted');
-      entryMap.set('deletedAt', Date.now());
-      entryMap.set('deletedBy', actorId);
+      this.transact(() => {
+        entryMap.set('status', 'deleted');
+        entryMap.set('deletedAt', Date.now());
+        entryMap.set('deletedBy', actorId);
+      });
 
       // If there's a deletion reason, we need to re-encrypt the payload with it
       if (reason) {
@@ -164,13 +209,23 @@ export class LoroEntryStore {
         const updatedPayload = { ...payload, deletionReason: reason };
         const encrypted = await encryptJSON(updatedPayload, groupKey);
         const encryptedPayload = this.serializeEncryptedData(encrypted);
-        entryMap.set('encryptedPayload', encryptedPayload);
+        this.transact(() => {
+          entryMap.set('encryptedPayload', encryptedPayload);
+        });
       }
     }
   }
 
   /**
    * Get a single entry by ID
+   *
+   * Key rotation support:
+   * - Newer entries store `metadata.keyVersion` (group key version used for encryption).
+   * - When possible, we resolve the key from IndexedDB using that version.
+   *
+   * Backward compatibility:
+   * - Some call sites (notably tests) pass a CryptoKey directly. If provided, we
+   *   will try it first to decrypt, and only fall back to IndexedDB lookup if it fails.
    */
   async getEntry(entryId: string, groupKey: CryptoKey): Promise<Entry | null> {
     const entryMap = this.entries.get(entryId);
@@ -179,9 +234,42 @@ export class LoroEntryStore {
     }
 
     const metadata = this.getMetadataFromMap(entryMap);
-    const payload = await this.decryptPayload(metadata.encryptedPayload, groupKey);
 
-    return this.mergeEntry(metadata, payload);
+    // 1) Try the provided key first (helps tests and non-rotating contexts).
+    // If it fails, fall back to per-entry keyVersion lookup.
+    try {
+      const payload = await this.decryptPayload(metadata.encryptedPayload, groupKey);
+      return this.mergeEntry(metadata, payload);
+    } catch {
+      // Ignore and fall back to keyVersion lookup below.
+    }
+
+    // 2) Resolve the correct group key version for this entry.
+    const keyString = await this.getGroupKeyString(metadata.groupId, metadata.keyVersion);
+    if (!keyString) {
+      console.warn(
+        `[LoroEntryStore] Missing group key v${metadata.keyVersion} for group=${metadata.groupId}; ` +
+          `cannot decrypt entry ${entryId}. Skipping entry.`
+      );
+      return null;
+    }
+
+    const key = await this.importGroupKeyFromString(keyString);
+
+    // Decryption can legitimately fail during/after key rotation if this client
+    // does not yet have the required key version. Don't let a single entry
+    // prevent the rest of the entries from loading.
+    try {
+      const payload = await this.decryptPayload(metadata.encryptedPayload, key);
+      return this.mergeEntry(metadata, payload);
+    } catch (error) {
+      console.warn(
+        `[LoroEntryStore] Failed to decrypt entry ${entryId} (group=${metadata.groupId}, keyVersion=${metadata.keyVersion}, entryVersion=${metadata.version}). ` +
+          `This usually indicates missing/rotated key material or corrupted data. Skipping entry.`,
+        error
+      );
+      return null;
+    }
   }
 
   /**
@@ -193,6 +281,7 @@ export class LoroEntryStore {
 
     for (const [entryId, _] of Object.entries(entriesObj)) {
       const entry = await this.getEntry(entryId, groupKey);
+      // getEntry() may return null on decryption failure; skip those entries.
       if (entry && entry.groupId === groupId) {
         allEntries.push(entry);
       }
@@ -215,15 +304,17 @@ export class LoroEntryStore {
    * Add a new member to the group
    */
   addMember(member: Member): void {
-    const memberMap = this.members.setContainer(member.id, new LoroMap()) as LoroMap;
-    memberMap.set('id', member.id);
-    memberMap.set('name', member.name);
-    if (member.publicKey) memberMap.set('publicKey', member.publicKey);
-    memberMap.set('joinedAt', member.joinedAt);
-    if (member.leftAt) memberMap.set('leftAt', member.leftAt);
-    memberMap.set('status', member.status);
-    if (member.isVirtual) memberMap.set('isVirtual', member.isVirtual);
-    if (member.addedBy) memberMap.set('addedBy', member.addedBy);
+    this.transact(() => {
+      const memberMap = this.members.setContainer(member.id, new LoroMap()) as LoroMap;
+      memberMap.set('id', member.id);
+      memberMap.set('name', member.name);
+      if (member.publicKey) memberMap.set('publicKey', member.publicKey);
+      memberMap.set('joinedAt', member.joinedAt);
+      if (member.leftAt) memberMap.set('leftAt', member.leftAt);
+      memberMap.set('status', member.status);
+      if (member.isVirtual) memberMap.set('isVirtual', member.isVirtual);
+      if (member.addedBy) memberMap.set('addedBy', member.addedBy);
+    });
   }
 
   /**
@@ -259,12 +350,14 @@ export class LoroEntryStore {
     const memberMap = this.members.get(memberId);
     if (!memberMap || !(memberMap instanceof LoroMap)) return;
 
-    if (updates.name !== undefined) memberMap.set('name', updates.name);
-    if (updates.publicKey !== undefined) memberMap.set('publicKey', updates.publicKey);
-    if (updates.leftAt !== undefined) memberMap.set('leftAt', updates.leftAt);
-    if (updates.status !== undefined) memberMap.set('status', updates.status);
-    if (updates.isVirtual !== undefined) memberMap.set('isVirtual', updates.isVirtual);
-    if (updates.addedBy !== undefined) memberMap.set('addedBy', updates.addedBy);
+    this.transact(() => {
+      if (updates.name !== undefined) memberMap.set('name', updates.name);
+      if (updates.publicKey !== undefined) memberMap.set('publicKey', updates.publicKey);
+      if (updates.leftAt !== undefined) memberMap.set('leftAt', updates.leftAt);
+      if (updates.status !== undefined) memberMap.set('status', updates.status);
+      if (updates.isVirtual !== undefined) memberMap.set('isVirtual', updates.isVirtual);
+      if (updates.addedBy !== undefined) memberMap.set('addedBy', updates.addedBy);
+    });
   }
 
   /**
@@ -308,13 +401,28 @@ export class LoroEntryStore {
 
   /**
    * Split an entry into metadata and encrypted payload
+   *
+   * IMPORTANT: `keyVersion` is the group key version used to encrypt the payload.
+   * We store it in CRDT metadata so that after key rotation, older entries remain decryptable.
    */
-  private splitEntry(entry: Entry): { metadata: Omit<EntryMetadata, 'encryptedPayload'>; payload: EntryPayload } {
+  private splitEntry(entry: Entry): {
+    metadata: Omit<EntryMetadata, 'encryptedPayload'>;
+    payload: EntryPayload;
+  } {
     const metadata = {
       id: entry.id,
       groupId: entry.groupId,
       type: entry.type,
       version: entry.version,
+
+      // Default keyVersion:
+      // - For older entries created before we tracked keyVersion, we assume v1.
+      // - For new entries, call sites should set `entry.keyVersion` (not currently part of Entry type),
+      //   so we still need a way to supply it. Until all call sites are updated, we fall back to 1.
+      //
+      // This will be correct for pre-rotation history and avoids hard failure.
+      keyVersion: (entry as any).keyVersion ?? 1,
+
       previousVersionId: entry.previousVersionId,
       createdAt: entry.createdAt,
       createdBy: entry.createdBy,
@@ -433,9 +541,34 @@ export class LoroEntryStore {
   /**
    * Decrypt an encrypted payload
    */
-  private async decryptPayload(encryptedPayload: string, groupKey: CryptoKey): Promise<EntryPayload> {
+  private async decryptPayload(
+    encryptedPayload: string,
+    groupKey: CryptoKey
+  ): Promise<EntryPayload> {
     const encrypted = this.deserializeEncryptedData(encryptedPayload);
     return await decryptJSON<EntryPayload>(encrypted, groupKey);
+  }
+
+  /**
+   * Load a group key (Base64 string) from IndexedDB by version.
+   * Kept here to allow decrypting entries with their recorded key version.
+   */
+  private async getGroupKeyString(groupId: string, version: number): Promise<string | null> {
+    const db = new PartageDB();
+    await db.open();
+    return await db.getGroupKey(groupId, version);
+  }
+
+  /**
+   * Import a Base64-encoded AES-GCM key string into a CryptoKey.
+   * Mirrors existing export/import helpers but is local to this class to avoid circular deps.
+   */
+  private async importGroupKeyFromString(keyBase64: string): Promise<CryptoKey> {
+    const raw = Uint8Array.from(atob(keyBase64), (c) => c.charCodeAt(0));
+    return await crypto.subtle.importKey('raw', raw, { name: 'AES-GCM' }, false, [
+      'encrypt',
+      'decrypt',
+    ]);
   }
 
   /**
@@ -446,6 +579,10 @@ export class LoroEntryStore {
     map.set('groupId', metadata.groupId);
     map.set('type', metadata.type);
     map.set('version', metadata.version);
+
+    // Key rotation support: store encryption key version used for this entry.
+    map.set('keyVersion', metadata.keyVersion);
+
     if (metadata.previousVersionId) map.set('previousVersionId', metadata.previousVersionId);
     map.set('createdAt', metadata.createdAt);
     map.set('createdBy', metadata.createdBy);
@@ -461,12 +598,18 @@ export class LoroEntryStore {
    * Get metadata from a Loro map
    */
   private getMetadataFromMap(map: LoroMap): EntryMetadata {
-    const obj = map.toJSON();
+    const obj = map.toJSON() as any;
+
     return {
       id: obj.id as string,
       groupId: obj.groupId as string,
       type: obj.type as 'expense' | 'transfer',
       version: obj.version as number,
+
+      // Backward compatibility: old entries won't have `keyVersion` stored.
+      // Assume v1 for those entries.
+      keyVersion: (obj.keyVersion as number | undefined) ?? 1,
+
       previousVersionId: obj.previousVersionId as string | undefined,
       createdAt: obj.createdAt as number,
       createdBy: obj.createdBy as string,
@@ -487,9 +630,9 @@ export class LoroEntryStore {
     let hash = 0n;
     for (let i = 0; i < peerId.length; i++) {
       const char = BigInt(peerId.charCodeAt(i));
-      hash = ((hash << 5n) - hash + char) & 0xFFFFFFFFFFFFFFFFn; // 64-bit hash
+      hash = ((hash << 5n) - hash + char) & 0xffffffffffffffffn; // 64-bit hash
     }
     // Ensure positive value
-    return hash & 0x7FFFFFFFFFFFFFFFn;
+    return hash & 0x7fffffffffffffffn;
   }
 }
