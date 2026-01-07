@@ -9,6 +9,11 @@ build/
 .vite/
 *.tsbuildinfo
 
+# TypeScript compiled files (Vite handles TS compilation)
+packages/*/src/**/*.js
+packages/*/src/**/*.jsx
+packages/*/tests/**/*.js
+
 # Testing
 coverage/
 .nyc_output/

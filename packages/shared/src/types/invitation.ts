@@ -50,6 +50,8 @@ export interface EncryptedKeyPackage {
   groupId: string; // Which group these keys are for
   recipientPublicKeyHash: string; // Who this package is for
   senderPublicKeyHash: string; // Who encrypted and sent this package
+  senderPublicKey: string; // Sender's ECDH public key (Base64) for decryption
+  senderSigningPublicKey: string; // Sender's signing public key (Base64) for verification
   encryptedKeys: EncryptedGroupKeys; // The actual encrypted keys
   createdAt: number; // Unix timestamp
   signature: string; // Base64 ECDSA signature for verification

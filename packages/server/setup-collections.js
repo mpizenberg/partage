@@ -70,7 +70,7 @@ async function createGroupsCollection() {
     createRule: '', // Empty string = allow all
     updateRule: '', // Empty string = allow all (for lastActivityAt updates in MVP)
     deleteRule: null, // null = no access (disabled for MVP)
-    schema: [
+    fields: [
       {
         name: 'name',
         type: 'text',
@@ -177,7 +177,7 @@ async function createInvitationsCollection() {
     createRule: '', // Allow all (for MVP)
     updateRule: '', // Allow all (for revocation)
     deleteRule: null, // No deletes
-    schema: [
+    fields: [
       {
         name: 'groupId',
         type: 'text',
@@ -202,11 +202,17 @@ async function createInvitationsCollection() {
         name: 'maxUses',
         type: 'number',
         required: false,
+        options: {
+          min: 0,  // 0 could mean unlimited
+        },
       },
       {
         name: 'usedCount',
         type: 'number',
-        required: true,
+        required: false,  // Can't use required:true because it enforces nonzero
+        options: {
+          min: 0,  // Allow 0 and positive values
+        },
       },
       {
         name: 'status',
@@ -240,7 +246,7 @@ async function createJoinRequestsCollection() {
     createRule: '', // Allow all (anyone can request to join)
     updateRule: '', // Allow all (for approval/rejection)
     deleteRule: null, // No deletes
-    schema: [
+    fields: [
       {
         name: 'invitationId',
         type: 'text',
@@ -328,7 +334,7 @@ async function createKeyPackagesCollection() {
     createRule: '', // Allow all (members send keys)
     updateRule: null, // No updates
     deleteRule: null, // No deletes
-    schema: [
+    fields: [
       {
         name: 'joinRequestId',
         type: 'text',
@@ -346,6 +352,16 @@ async function createKeyPackagesCollection() {
       },
       {
         name: 'senderPublicKeyHash',
+        type: 'text',
+        required: true,
+      },
+      {
+        name: 'senderPublicKey',
+        type: 'text',
+        required: true,
+      },
+      {
+        name: 'senderSigningPublicKey',
         type: 'text',
         required: true,
       },

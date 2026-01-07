@@ -15,6 +15,7 @@
     "clean": "rm -rf dist node_modules .vite"
   },
   "dependencies": {
+    "@solidjs/router": "^0.15.4",
     "loro-crdt": "^1.1.6",
     "pocketbase": "^0.26.5",
     "solid-js": "^1.9.3"

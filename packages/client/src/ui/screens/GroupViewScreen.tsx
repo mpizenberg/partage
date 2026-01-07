@@ -2,9 +2,10 @@ import { Component, createSignal, Match, Switch } from 'solid-js'
 import { useAppContext } from '../context/AppContext'
 import { BalanceTab } from '../components/balance/BalanceTab'
 import { EntriesTab } from '../components/entries/EntriesTab'
+import { MembersTab } from '../components/members/MembersTab'
 import { AddEntryModal } from '../components/forms/AddEntryModal'
 
-type TabType = 'balance' | 'entries'
+type TabType = 'balance' | 'entries' | 'members'
 
 export const GroupViewScreen: Component = () => {
   const { activeGroup, deselectGroup, identity, balances, addExpense, addTransfer } = useAppContext()
@@ -89,6 +90,12 @@ export const GroupViewScreen: Component = () => {
             >
               Entries
             </button>
+            <button
+              class={`tab ${activeTab() === 'members' ? 'active' : ''}`}
+              onClick={() => setActiveTab('members')}
+            >
+              Members
+            </button>
           </div>
         </div>
       </div>
@@ -102,6 +109,9 @@ export const GroupViewScreen: Component = () => {
             </Match>
             <Match when={activeTab() === 'entries'}>
               <EntriesTab />
+            </Match>
+            <Match when={activeTab() === 'members'}>
+              <MembersTab />
             </Match>
           </Switch>
         </div>

@@ -17,7 +17,7 @@ import type {
   InviteLinkData,
 } from '@partage/shared';
 import type { UserKeypair } from '@partage/shared';
-import { exportPublicKey, hashPublicKey } from '../../core/crypto/keypair.js';
+import { exportPublicKey } from '../../core/crypto/keypair.js';
 import { createKeyPackage } from '../../core/crypto/key-exchange.js';
 
 /**
@@ -136,14 +136,13 @@ export async function processJoinRequest(
     senderSigningKeypair.privateKey
   );
 
-  // Export sender's verification key
-  const senderVerificationKeyBuffer = await crypto.subtle.exportKey(
-    'raw',
-    senderSigningKeypair.publicKey
-  );
-  const senderVerificationKey = btoa(
-    String.fromCharCode(...new Uint8Array(senderVerificationKeyBuffer))
-  );
+  // Export sender's ECDH public key for decryption
+  const senderPublicKeyBuffer = await crypto.subtle.exportKey('raw', senderKeypair.publicKey);
+  const senderPublicKey = btoa(String.fromCharCode(...new Uint8Array(senderPublicKeyBuffer)));
+
+  // Export sender's signing public key for verification
+  const senderSigningPublicKeyBuffer = await crypto.subtle.exportKey('raw', senderSigningKeypair.publicKey);
+  const senderSigningPublicKey = btoa(String.fromCharCode(...new Uint8Array(senderSigningPublicKeyBuffer)));
 
   const keyPackage: EncryptedKeyPackage = {
     id: crypto.randomUUID(),
@@ -151,6 +150,8 @@ export async function processJoinRequest(
     groupId: joinRequest.groupId,
     recipientPublicKeyHash: joinRequest.requesterPublicKeyHash,
     senderPublicKeyHash: senderKeypair.publicKeyHash,
+    senderPublicKey,
+    senderSigningPublicKey,
     encryptedKeys,
     createdAt: Date.now(),
     signature,

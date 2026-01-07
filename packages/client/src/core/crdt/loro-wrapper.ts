@@ -13,7 +13,7 @@
 
 import { Loro, LoroMap } from 'loro-crdt';
 import { encryptJSON, decryptJSON } from '../crypto/symmetric.js';
-import type { Entry, ExpenseEntry, TransferEntry } from '@partage/shared';
+import type { Entry, ExpenseEntry, TransferEntry, Member } from '@partage/shared';
 
 /**
  * Metadata stored in Loro (unencrypted)
@@ -75,15 +75,17 @@ interface TransferPayload {
 type EntryPayload = ExpensePayload | TransferPayload;
 
 /**
- * Loro CRDT wrapper for encrypted entry management
+ * Loro CRDT wrapper for encrypted entry management and member synchronization
  */
 export class LoroEntryStore {
   private loro: Loro;
   private entries: LoroMap;
+  private members: LoroMap;
 
   constructor() {
     this.loro = new Loro();
     this.entries = this.loro.getMap('entries');
+    this.members = this.loro.getMap('members');
   }
 
   /**
@@ -200,6 +202,64 @@ export class LoroEntryStore {
     return allEntries.filter((entry) => entry.status === 'active');
   }
 
+  // ==================== Member Management ====================
+
+  /**
+   * Add a new member to the group
+   */
+  addMember(member: Member): void {
+    const memberMap = this.members.setContainer(member.id, new LoroMap()) as LoroMap;
+    memberMap.set('id', member.id);
+    memberMap.set('name', member.name);
+    if (member.publicKey) memberMap.set('publicKey', member.publicKey);
+    memberMap.set('joinedAt', member.joinedAt);
+    if (member.leftAt) memberMap.set('leftAt', member.leftAt);
+    memberMap.set('status', member.status);
+    if (member.isVirtual) memberMap.set('isVirtual', member.isVirtual);
+    if (member.addedBy) memberMap.set('addedBy', member.addedBy);
+  }
+
+  /**
+   * Get all members from the CRDT
+   */
+  getMembers(): Member[] {
+    const members: Member[] = [];
+    const memberIds = this.members.keys();
+
+    for (const id of memberIds) {
+      const memberMap = this.members.get(id);
+      if (!memberMap || !(memberMap instanceof LoroMap)) continue;
+
+      members.push({
+        id: memberMap.get('id') as string,
+        name: memberMap.get('name') as string,
+        publicKey: memberMap.get('publicKey') as string | undefined,
+        joinedAt: memberMap.get('joinedAt') as number,
+        leftAt: memberMap.get('leftAt') as number | undefined,
+        status: (memberMap.get('status') as 'active' | 'departed') || 'active',
+        isVirtual: memberMap.get('isVirtual') as boolean | undefined,
+        addedBy: memberMap.get('addedBy') as string | undefined,
+      });
+    }
+
+    return members;
+  }
+
+  /**
+   * Update an existing member (e.g., status change, virtual member replacement)
+   */
+  updateMember(memberId: string, updates: Partial<Member>): void {
+    const memberMap = this.members.get(memberId);
+    if (!memberMap || !(memberMap instanceof LoroMap)) return;
+
+    if (updates.name !== undefined) memberMap.set('name', updates.name);
+    if (updates.publicKey !== undefined) memberMap.set('publicKey', updates.publicKey);
+    if (updates.leftAt !== undefined) memberMap.set('leftAt', updates.leftAt);
+    if (updates.status !== undefined) memberMap.set('status', updates.status);
+    if (updates.isVirtual !== undefined) memberMap.set('isVirtual', updates.isVirtual);
+    if (updates.addedBy !== undefined) memberMap.set('addedBy', updates.addedBy);
+  }
+
   /**
    * Export Loro snapshot as bytes (for storage/sync)
    */
@@ -213,6 +273,7 @@ export class LoroEntryStore {
   importSnapshot(snapshot: Uint8Array): void {
     this.loro.import(snapshot);
     this.entries = this.loro.getMap('entries');
+    this.members = this.loro.getMap('members');
   }
 
   /**

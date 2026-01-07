@@ -1285,3 +1285,19 @@
     justify-content: space-between;
   }
 }
+
+/* Members Tab */
+.members-tab {
+  /* Container styling */
+}
+
+.members-section {
+  margin-bottom: var(--space-xl);
+}
+
+.members-section-title {
+  font-size: var(--font-size-lg);
+  font-weight: var(--font-weight-semibold);
+  margin-bottom: var(--space-md);
+  color: var(--color-text);
+}

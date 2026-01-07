@@ -1,11 +1,13 @@
 import { Component, Show, Match, Switch } from 'solid-js'
+import { Router, Route } from '@solidjs/router'
 import { AppProvider, useAppContext } from './ui/context/AppContext'
 import { SetupScreen } from './ui/screens/SetupScreen'
 import { GroupSelectionScreen } from './ui/screens/GroupSelectionScreen'
 import { GroupViewScreen } from './ui/screens/GroupViewScreen'
+import { JoinGroupScreen } from './ui/screens/JoinGroupScreen'
 import { LoadingSpinner } from './ui/components/common/LoadingSpinner'
 
-const AppRouter: Component = () => {
+const MainApp: Component = () => {
   const { identity, activeGroup, isLoading } = useAppContext()
 
   return (
@@ -38,11 +40,12 @@ const AppRouter: Component = () => {
 }
 
 const App: Component = () => {
-  console.log('[App] App component rendering...')
-  console.log('[App] About to render AppProvider')
   return (
     <AppProvider>
-      <AppRouter />
+      <Router>
+        <Route path="/join/:inviteData" component={JoinGroupScreen} />
+        <Route path="/*" component={MainApp} />
+      </Router>
     </AppProvider>
   )
 }
