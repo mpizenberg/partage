@@ -23,6 +23,7 @@ export interface SyncManagerConfig {
   storage: PartageDB;
   apiClient?: PocketBaseClient;
   enableAutoSync?: boolean;
+  onUpdate?: (groupId: string) => void | Promise<void>; // Callback when updates are applied
 }
 
 export type SyncStatus = 'idle' | 'syncing' | 'error' | 'offline';
@@ -53,6 +54,7 @@ export class SyncManager {
   private storage: PartageDB;
   private apiClient: PocketBaseClient;
   private enableAutoSync: boolean;
+  private onUpdate?: (groupId: string) => void | Promise<void>;
 
   // Sync state
   private status: SyncStatus = 'idle';
@@ -76,6 +78,7 @@ export class SyncManager {
     this.storage = config.storage;
     this.apiClient = config.apiClient || new PocketBaseClient();
     this.enableAutoSync = config.enableAutoSync ?? true;
+    this.onUpdate = config.onUpdate;
 
     // Set up online/offline detection
     this.setupNetworkListeners();
@@ -349,7 +352,15 @@ export class SyncManager {
       // Update last sync timestamp
       this.lastSyncTimestamp.set(update.groupId, update.timestamp);
 
+      // Save updated snapshot
+      await this.saveSnapshot(update.groupId);
+
       console.log(`[SyncManager] Applied update from ${update.actorId}`);
+
+      // Notify listeners that data has changed
+      if (this.onUpdate) {
+        await this.onUpdate(update.groupId);
+      }
     } catch (error) {
       console.error('[SyncManager] Failed to apply remote update:', error);
       throw error;

@@ -82,8 +82,15 @@ export class LoroEntryStore {
   private entries: LoroMap;
   private members: LoroMap;
 
-  constructor() {
+  constructor(peerId?: string) {
+    // Create Loro with a peer ID if provided (important for multi-device sync)
     this.loro = new Loro();
+    if (peerId) {
+      // Convert string peer ID to a stable numeric value
+      // Use a simple hash function to convert the string to a BigInt
+      const numericPeerId = this.stringToPeerId(peerId);
+      this.loro.setPeerId(numericPeerId);
+    }
     this.entries = this.loro.getMap('entries');
     this.members = this.loro.getMap('members');
   }
@@ -470,5 +477,19 @@ export class LoroEntryStore {
       status: obj.status as 'active' | 'deleted',
       encryptedPayload: obj.encryptedPayload as string,
     };
+  }
+
+  /**
+   * Convert a string peer ID to a stable numeric value for Loro
+   * Uses a simple hash function to generate a consistent BigInt from the string
+   */
+  private stringToPeerId(peerId: string): bigint {
+    let hash = 0n;
+    for (let i = 0; i < peerId.length; i++) {
+      const char = BigInt(peerId.charCodeAt(i));
+      hash = ((hash << 5n) - hash + char) & 0xFFFFFFFFFFFFFFFFn; // 64-bit hash
+    }
+    // Ensure positive value
+    return hash & 0x7FFFFFFFFFFFFFFFn;
   }
 }

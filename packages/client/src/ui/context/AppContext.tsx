@@ -319,7 +319,7 @@ export const AppProvider: Component<{ children: JSX.Element }> = (props) => {
       }
 
       // Initialize Loro store and add initial members
-      const newLoroStore = new LoroEntryStore()
+      const newLoroStore = new LoroEntryStore(currentIdentity.publicKeyHash)
 
       // Add creator as first member
       newLoroStore.addMember({
@@ -402,7 +402,7 @@ export const AppProvider: Component<{ children: JSX.Element }> = (props) => {
 
       // Load Loro snapshot
       const snapshot = await db.getLoroSnapshot(groupId)
-      const store = new LoroEntryStore()
+      const store = new LoroEntryStore(currentIdentity.publicKeyHash)
 
       if (snapshot) {
         store.importSnapshot(snapshot)
@@ -425,6 +425,19 @@ export const AppProvider: Component<{ children: JSX.Element }> = (props) => {
         storage: db,
         apiClient: pbClient,
         enableAutoSync: autoSyncEnabled(),
+        onUpdate: async (updatedGroupId) => {
+          console.log('[AppContext] Received update for group:', updatedGroupId)
+          // Refresh entries and members when updates are received
+          if (updatedGroupId === groupId) {
+            await refreshEntries(groupId, group.currentKeyVersion)
+
+            // Update members from Loro
+            const updatedMembers = store.getMembers()
+            const refreshedGroup = { ...group, members: updatedMembers }
+            await db.saveGroup(refreshedGroup)
+            setActiveGroup(refreshedGroup)
+          }
+        },
       })
       setSyncManager(manager)
 
@@ -869,7 +882,7 @@ export const AppProvider: Component<{ children: JSX.Element }> = (props) => {
       const joinRequest = await pbClient.getJoinRequest(keyPackageRecord.joinRequestId)
 
       // Initialize or load Loro CRDT for this group
-      const loroStore = new LoroEntryStore()
+      const loroStore = new LoroEntryStore(currentIdentity.publicKeyHash)
       const existingSnapshot = await db.getLoroSnapshot(payload.groupId)
       if (existingSnapshot) {
         loroStore.importSnapshot(existingSnapshot)
@@ -921,6 +934,10 @@ export const AppProvider: Component<{ children: JSX.Element }> = (props) => {
         storage: db,
         apiClient: pbClient,
         enableAutoSync: true,
+        onUpdate: async (updatedGroupId) => {
+          console.log('[AppContext] New member received update for group:', updatedGroupId)
+          // Refresh will happen after redirect to home page
+        },
       })
       await manager.initialSync(group.id, currentIdentity.publicKeyHash)
       await manager.subscribeToGroup(group.id, currentIdentity.publicKeyHash)
