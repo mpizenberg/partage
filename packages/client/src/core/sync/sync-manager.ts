@@ -139,11 +139,18 @@ export class SyncManager {
     this.lastError = null;
 
     try {
-      console.log(`[SyncManager] Initial sync for group ${groupId}`);
+      console.log(`[SyncManager] Initial sync for group ${groupId}, local actorId=${actorId}`);
 
       // Fetch all updates from the server
       const updates = await this.apiClient.fetchAllUpdates(groupId);
       console.log(`[SyncManager] Fetched ${updates.length} updates from server`);
+
+      // Log each update's actorId to see who created them
+      for (const update of updates) {
+        console.log(
+          `[SyncManager] Update: id=${update.id}, actorId=${update.actorId}, timestamp=${update.timestamp}, bytes=${update.updateData.length}`
+        );
+      }
 
       // Apply updates in chronological order
       for (const update of updates) {

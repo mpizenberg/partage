@@ -229,19 +229,47 @@ export class LoroEntryStore {
    */
   async getEntry(entryId: string, groupKey: CryptoKey): Promise<Entry | null> {
     const entryMap = this.entries.get(entryId);
-    if (!entryMap || !(entryMap instanceof LoroMap)) {
+
+    // Debug: log what we got from the map
+    if (!entryMap) {
+      console.warn(`[LoroEntryStore] getEntry(${entryId}): entries.get() returned null/undefined`);
       return null;
     }
 
-    const metadata = this.getMetadataFromMap(entryMap);
+    // Check if it's a valid Loro container - use duck typing instead of instanceof
+    // because instanceof can fail across module boundaries or after serialization
+    const isLoroContainer =
+      entryMap instanceof LoroMap ||
+      (typeof entryMap === 'object' &&
+        entryMap !== null &&
+        typeof (entryMap as any).get === 'function' &&
+        typeof (entryMap as any).toJSON === 'function');
+
+    if (!isLoroContainer) {
+      console.warn(
+        `[LoroEntryStore] getEntry(${entryId}): got non-container type: ${typeof entryMap}, constructor: ${entryMap?.constructor?.name}`
+      );
+      return null;
+    }
+
+    // Cast to LoroMap for TypeScript (we've verified it has the right interface)
+    const entryMapTyped = entryMap as LoroMap;
+    const metadata = this.getMetadataFromMap(entryMapTyped);
+
+    console.log(
+      `[LoroEntryStore] getEntry(${entryId}): metadata.groupId=${metadata.groupId}, keyVersion=${metadata.keyVersion}, type=${metadata.type}`
+    );
 
     // 1) Try the provided key first (helps tests and non-rotating contexts).
     // If it fails, fall back to per-entry keyVersion lookup.
     try {
       const payload = await this.decryptPayload(metadata.encryptedPayload, groupKey);
+      console.log(`[LoroEntryStore] getEntry(${entryId}): decrypted successfully with provided key`);
       return this.mergeEntry(metadata, payload);
-    } catch {
-      // Ignore and fall back to keyVersion lookup below.
+    } catch (primaryError) {
+      console.log(
+        `[LoroEntryStore] getEntry(${entryId}): primary decryption failed, trying keyVersion lookup. Error: ${primaryError}`
+      );
     }
 
     // 2) Resolve the correct group key version for this entry.
@@ -278,14 +306,27 @@ export class LoroEntryStore {
   async getAllEntries(groupId: string, groupKey: CryptoKey): Promise<Entry[]> {
     const allEntries: Entry[] = [];
     const entriesObj = this.entries.toJSON();
+    const entryIds = Object.keys(entriesObj);
 
-    for (const [entryId, _] of Object.entries(entriesObj)) {
+    console.log(
+      `[LoroEntryStore] getAllEntries: found ${entryIds.length} entry IDs in Loro map for group=${groupId}`
+    );
+
+    for (const entryId of entryIds) {
       const entry = await this.getEntry(entryId, groupKey);
       // getEntry() may return null on decryption failure; skip those entries.
       if (entry && entry.groupId === groupId) {
         allEntries.push(entry);
+      } else if (entry && entry.groupId !== groupId) {
+        console.warn(
+          `[LoroEntryStore] Entry ${entryId} has groupId=${entry.groupId} but expected ${groupId}, skipping`
+        );
       }
     }
+
+    console.log(
+      `[LoroEntryStore] getAllEntries: returning ${allEntries.length} entries for group=${groupId}`
+    );
 
     return allEntries;
   }
@@ -388,6 +429,10 @@ export class LoroEntryStore {
    */
   applyUpdate(update: Uint8Array): void {
     this.loro.import(update);
+    // Re-acquire map handles after import to ensure they reflect the updated state
+    // (same as importSnapshot - critical for seeing entries created by other peers)
+    this.entries = this.loro.getMap('entries');
+    this.members = this.loro.getMap('members');
   }
 
   /**

@@ -935,6 +935,22 @@ export const AppProvider: Component<{ children: JSX.Element }> = (props) => {
       await manager.initialSync(payload.groupId, currentIdentity.publicKeyHash);
       console.log('[AppContext] New member initial sync completed');
 
+      // CRITICAL: Push our local state (including our member add) to the server
+      // This ensures other peers can properly import our future updates,
+      // since Loro updates may have causal dependencies on our local operations.
+      const versionAfterSync = newLoroStore.getVersion();
+      const ourStateUpdate = newLoroStore.exportSnapshot(); // Export full state to ensure compatibility
+      console.log(
+        '[AppContext] New member pushing local state to server, bytes:',
+        ourStateUpdate.byteLength
+      );
+      await manager.pushUpdate(
+        payload.groupId,
+        currentIdentity.publicKeyHash,
+        ourStateUpdate,
+        versionAfterSync
+      );
+
       // Now get all members from Loro (includes members from synced data)
       const allMembers = newLoroStore.getMembers();
       console.log('[AppContext] Members after sync:', allMembers.length);
