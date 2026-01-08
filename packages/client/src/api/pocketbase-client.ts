@@ -677,9 +677,17 @@ export class PocketBaseClient {
 
   /**
    * Convert Uint8Array to Base64 string (for storage)
+   * Uses chunked approach to avoid stack overflow with large arrays
    */
   static encodeUpdateData(updateBytes: Uint8Array): string {
-    return btoa(String.fromCharCode(...updateBytes));
+    // Use chunked approach to avoid stack overflow with spread operator
+    const CHUNK_SIZE = 8192;
+    let binaryString = '';
+    for (let i = 0; i < updateBytes.length; i += CHUNK_SIZE) {
+      const chunk = updateBytes.subarray(i, i + CHUNK_SIZE);
+      binaryString += String.fromCharCode(...chunk);
+    }
+    return btoa(binaryString);
   }
 
   /**

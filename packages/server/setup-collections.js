@@ -150,6 +150,7 @@ async function createLoroUpdatesCollection() {
         name: 'updateData',
         type: 'text',
         required: true,
+        max: 1000000, // 1MB limit for large CRDT updates
       },
       {
         name: 'version',

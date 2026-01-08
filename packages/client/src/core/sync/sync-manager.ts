@@ -254,12 +254,24 @@ export class SyncManager {
     }
 
     try {
+      // For PocketBase JSON fields, pass the actual object, not a stringified version
+      // Convert Map to plain object if needed (Loro versions might be Maps)
+      let versionObj: any = undefined;
+      if (version) {
+        if (version instanceof Map) {
+          versionObj = Object.fromEntries(version);
+        } else if (typeof version === 'object') {
+          versionObj = version;
+        }
+      }
+      console.log(`[SyncManager] pushUpdate data: groupId=${groupId}, actorId=${actorId}, updateData.length=${updateData.length}, version=${JSON.stringify(versionObj)}`);
+
       await this.apiClient.pushUpdate({
         groupId,
         timestamp,
         actorId,
         updateData,
-        version: PocketBaseClient.serializeVersion(version),
+        version: versionObj,
       });
 
       console.log(
@@ -273,6 +285,13 @@ export class SyncManager {
         `[SyncManager] Failed to push update group=${groupId} actor=${actorId} bytes=${updateBytes.byteLength}:`,
         error
       );
+      // Log PocketBase error details if available
+      if (error && typeof error === 'object' && 'data' in error) {
+        console.error('[SyncManager] PocketBase error data:', JSON.stringify((error as any).data, null, 2));
+      }
+      if (error && typeof error === 'object' && 'response' in error) {
+        console.error('[SyncManager] PocketBase response:', JSON.stringify((error as any).response, null, 2));
+      }
 
       // Queue for retry
       this.offlineQueue.push(operation);
