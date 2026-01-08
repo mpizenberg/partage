@@ -8,9 +8,29 @@ import { AddEntryModal } from '../components/forms/AddEntryModal'
 type TabType = 'balance' | 'entries' | 'members'
 
 export const GroupViewScreen: Component = () => {
-  const { activeGroup, deselectGroup, identity, balances, addExpense, addTransfer } = useAppContext()
+  const {
+    activeGroup,
+    deselectGroup,
+    identity,
+    balances,
+    addExpense,
+    addTransfer,
+    modifyExpense,
+    modifyTransfer,
+    editingEntry,
+    setEditingEntry,
+  } = useAppContext()
   const [activeTab, setActiveTab] = createSignal<TabType>('balance')
   const [showAddEntry, setShowAddEntry] = createSignal(false)
+
+  // Modal is open when adding new entry OR editing existing entry
+  const isModalOpen = () => showAddEntry() || editingEntry() !== null
+
+  // Close modal and clear edit state
+  const handleModalClose = () => {
+    setShowAddEntry(false)
+    setEditingEntry(null)
+  }
 
   const handleBack = () => {
     deselectGroup()
@@ -126,12 +146,15 @@ export const GroupViewScreen: Component = () => {
         +
       </button>
 
-      {/* Add Entry Modal */}
+      {/* Add/Edit Entry Modal */}
       <AddEntryModal
-        isOpen={showAddEntry()}
-        onClose={() => setShowAddEntry(false)}
+        isOpen={isModalOpen()}
+        onClose={handleModalClose}
         onAddExpense={addExpense}
         onAddTransfer={addTransfer}
+        editEntry={editingEntry()}
+        onModifyExpense={modifyExpense}
+        onModifyTransfer={modifyTransfer}
       />
     </div>
   )

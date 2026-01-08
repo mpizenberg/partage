@@ -20,7 +20,11 @@ export interface EntryCardProps {
 }
 
 export const EntryCard: Component<EntryCardProps> = (props) => {
-  const { members, identity } = useAppContext()
+  const { members, identity, setEditingEntry } = useAppContext()
+
+  const handleClick = () => {
+    setEditingEntry(props.entry)
+  }
 
   const formatCurrency = (amount: number, currency: string): string => {
     return new Intl.NumberFormat(undefined, {
@@ -135,7 +139,11 @@ export const EntryCard: Component<EntryCardProps> = (props) => {
   }
 
   return (
-    <div class={`entry-card card ${isUserInvolved() ? 'entry-card-involved' : ''}`}>
+    <div
+      class={`entry-card card ${isUserInvolved() ? 'entry-card-involved' : ''}`}
+      onClick={handleClick}
+      style={{ cursor: 'pointer' }}
+    >
       {/* Expense Entry */}
       <Show when={isExpense()}>
         <div class="entry-header">

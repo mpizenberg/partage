@@ -4,7 +4,7 @@ import { Input } from '../common/Input'
 import { Select } from '../common/Select'
 import { Button } from '../common/Button'
 import type { ExpenseFormData, FormErrors } from './types'
-import type { ExpenseCategory, SplitType, Payer, Beneficiary } from '@partage/shared'
+import type { ExpenseCategory, SplitType, Payer, Beneficiary, ExpenseEntry } from '@partage/shared'
 
 const CATEGORIES: { value: ExpenseCategory; label: string; emoji: string }[] = [
   { value: 'food', label: 'Food', emoji: '🍔' },
@@ -21,31 +21,82 @@ const CATEGORIES: { value: ExpenseCategory; label: string; emoji: string }[] = [
 export interface ExpenseFormProps {
   onSubmit: (data: ExpenseFormData) => Promise<void>
   onCancel: () => void
+  initialData?: ExpenseEntry
 }
 
 export const ExpenseForm: Component<ExpenseFormProps> = (props) => {
   const { members, activeGroup, identity } = useAppContext()
 
-  // Basic fields
-  const [amount, setAmount] = createSignal('')
-  const [description, setDescription] = createSignal('')
-  const [currency, setCurrency] = createSignal(activeGroup()?.defaultCurrency || 'USD')
-  const [date, setDate] = createSignal(new Date().toISOString().split('T')[0])
-  const [category, setCategory] = createSignal<ExpenseCategory | ''>('')
-  const [location, setLocation] = createSignal('')
-  const [notes, setNotes] = createSignal('')
-  const [showAdvanced, setShowAdvanced] = createSignal(false)
+  // Helper functions to extract initial data
+  const getInitialBeneficiaries = (): Set<string> => {
+    if (!props.initialData) {
+      return new Set([identity()?.publicKeyHash || ''])
+    }
+    return new Set(props.initialData.beneficiaries.map(b => b.memberId))
+  }
 
-  // Payers: Default to current user paying full amount
-  const [payerId, setPayerId] = createSignal(identity()?.publicKeyHash || '')
+  const getInitialSplitType = (): SplitType => {
+    if (!props.initialData || props.initialData.beneficiaries.length === 0) {
+      return 'shares'
+    }
+    return props.initialData.beneficiaries[0]?.splitType || 'shares'
+  }
+
+  const getInitialShares = (): Map<string, number> => {
+    const map = new Map<string, number>()
+    if (props.initialData) {
+      props.initialData.beneficiaries.forEach(b => {
+        if (b.splitType === 'shares' && b.shares !== undefined) {
+          map.set(b.memberId, b.shares)
+        }
+      })
+    }
+    return map
+  }
+
+  const getInitialAmounts = (): Map<string, number> => {
+    const map = new Map<string, number>()
+    if (props.initialData) {
+      props.initialData.beneficiaries.forEach(b => {
+        if (b.splitType === 'exact' && b.amount !== undefined) {
+          map.set(b.memberId, b.amount)
+        }
+      })
+    }
+    return map
+  }
+
+  const formatDateForInput = (timestamp: number): string => {
+    return new Date(timestamp).toISOString().split('T')[0] || ''
+  }
+
+  // Basic fields - initialized from props.initialData if present
+  const [amount, setAmount] = createSignal(props.initialData?.amount.toString() || '')
+  const [description, setDescription] = createSignal(props.initialData?.description || '')
+  const [currency, setCurrency] = createSignal(props.initialData?.currency || activeGroup()?.defaultCurrency || 'USD')
+  const [date, setDate] = createSignal(
+    props.initialData ? formatDateForInput(props.initialData.date) : new Date().toISOString().split('T')[0]
+  )
+  const [category, setCategory] = createSignal<ExpenseCategory | ''>(props.initialData?.category || '')
+  const [location, setLocation] = createSignal(props.initialData?.location || '')
+  const [notes, setNotes] = createSignal(props.initialData?.notes || '')
+  const [showAdvanced, setShowAdvanced] = createSignal(
+    !!(props.initialData?.category || props.initialData?.location || props.initialData?.notes)
+  )
+
+  // Payers: Default to current user paying full amount, or use initial data
+  const [payerId, setPayerId] = createSignal(
+    props.initialData?.payers[0]?.memberId || identity()?.publicKeyHash || ''
+  )
 
   // Beneficiaries: Track selected members and their shares/amounts
-  const [selectedBeneficiaries, setSelectedBeneficiaries] = createSignal<Set<string>>(
-    new Set([identity()?.publicKeyHash || ''])
-  )
-  const [splitType, setSplitType] = createSignal<SplitType>('shares')
-  const [beneficiaryShares, setBeneficiaryShares] = createSignal<Map<string, number>>(new Map())
-  const [beneficiaryAmounts, setBeneficiaryAmounts] = createSignal<Map<string, number>>(new Map())
+  const [selectedBeneficiaries, setSelectedBeneficiaries] = createSignal<Set<string>>(getInitialBeneficiaries())
+  const [splitType, setSplitType] = createSignal<SplitType>(getInitialSplitType())
+  const [beneficiaryShares, setBeneficiaryShares] = createSignal<Map<string, number>>(getInitialShares())
+  const [beneficiaryAmounts, setBeneficiaryAmounts] = createSignal<Map<string, number>>(getInitialAmounts())
+
+  // Check if we're in edit mode
+  const isEditMode = () => !!props.initialData
 
   const [errors, setErrors] = createSignal<FormErrors>({})
   const [isSubmitting, setIsSubmitting] = createSignal(false)
@@ -192,8 +243,8 @@ export const ExpenseForm: Component<ExpenseFormProps> = (props) => {
       await props.onSubmit(formData)
       props.onCancel() // Close modal on success
     } catch (error) {
-      console.error('Failed to create expense:', error)
-      setErrors({ submit: 'Failed to create expense. Please try again.' })
+      console.error(isEditMode() ? 'Failed to update expense:' : 'Failed to create expense:', error)
+      setErrors({ submit: isEditMode() ? 'Failed to update expense. Please try again.' : 'Failed to create expense. Please try again.' })
     } finally {
       setIsSubmitting(false)
     }
@@ -433,7 +484,10 @@ export const ExpenseForm: Component<ExpenseFormProps> = (props) => {
           Cancel
         </Button>
         <Button type="submit" variant="primary" disabled={isSubmitting()}>
-          {isSubmitting() ? 'Creating...' : 'Create Expense'}
+          {isSubmitting()
+            ? (isEditMode() ? 'Saving...' : 'Creating...')
+            : (isEditMode() ? 'Save Changes' : 'Create Expense')
+          }
         </Button>
       </div>
     </form>

@@ -99,6 +99,12 @@ interface AppContextValue {
   entries: Accessor<Entry[]>;
   addExpense: (data: ExpenseFormData) => Promise<void>;
   addTransfer: (data: TransferFormData) => Promise<void>;
+  modifyExpense: (originalId: string, data: ExpenseFormData) => Promise<void>;
+  modifyTransfer: (originalId: string, data: TransferFormData) => Promise<void>;
+
+  // Entry editing state
+  editingEntry: Accessor<Entry | null>;
+  setEditingEntry: (entry: Entry | null) => void;
 
   // Balances (derived from entries)
   balances: Accessor<Map<string, Balance>>;
@@ -140,6 +146,9 @@ export const AppProvider: Component<{ children: JSX.Element }> = (props) => {
   // Derived state
   const [entries, setEntries] = createSignal<Entry[]>([]);
   const [balances, setBalances] = createSignal<Map<string, Balance>>(new Map());
+
+  // Entry editing state
+  const [editingEntry, setEditingEntry] = createSignal<Entry | null>(null);
 
   // Phase 5: Invitations & Multi-User
   const [pendingJoinRequests, setPendingJoinRequests] = createSignal<JoinRequest[]>([]);
@@ -786,6 +795,189 @@ export const AppProvider: Component<{ children: JSX.Element }> = (props) => {
     }
   };
 
+  // Modify expense (creates new version)
+  const modifyExpense = async (originalId: string, data: ExpenseFormData) => {
+    try {
+      setIsLoading(true);
+      setError(null);
+
+      const currentIdentity = identity();
+      const group = activeGroup();
+      const store = loroStore();
+
+      if (!currentIdentity || !group || !store) {
+        throw new Error('Invalid state: missing identity, group, or store');
+      }
+
+      // Get group key
+      const keyString = await db.getGroupKey(group.id, group.currentKeyVersion);
+      if (!keyString) {
+        throw new Error('Group key not found');
+      }
+      const groupKey = await importSymmetricKey(keyString);
+
+      // Get original entry to preserve metadata and increment version
+      const originalEntry = await store.getEntry(originalId, groupKey);
+      if (!originalEntry) {
+        throw new Error('Original entry not found');
+      }
+
+      // Create updated expense entry with new version
+      const updatedEntry: ExpenseEntry & { keyVersion: number } = {
+        id: crypto.randomUUID(),
+        groupId: group.id,
+        type: 'expense',
+        version: originalEntry.version + 1,
+        keyVersion: group.currentKeyVersion,
+        previousVersionId: originalId,
+        createdAt: originalEntry.createdAt,
+        createdBy: originalEntry.createdBy,
+        modifiedAt: Date.now(),
+        modifiedBy: currentIdentity.publicKeyHash,
+        status: 'active',
+        amount: data.amount,
+        currency: data.currency,
+        date: data.date,
+        description: data.description,
+        category: data.category,
+        location: data.location,
+        notes: data.notes,
+        payers: data.payers,
+        beneficiaries: data.beneficiaries,
+        defaultCurrencyAmount: data.amount,
+        exchangeRate: data.currency === group.defaultCurrency ? 1 : undefined,
+      };
+
+      // Get version BEFORE modifying entry
+      const versionBefore = store.getVersion();
+
+      // Modify in Loro (creates new version with previousVersionId)
+      await store.modifyEntry(originalId, updatedEntry, groupKey, currentIdentity.publicKeyHash);
+
+      // Sync to server
+      const manager = syncManager();
+      if (manager && autoSyncEnabled()) {
+        try {
+          const updateBytes = store.exportFrom(versionBefore);
+          await manager.pushUpdate(
+            group.id,
+            currentIdentity.publicKeyHash,
+            updateBytes,
+            versionBefore
+          );
+          setSyncState(manager.getState());
+          console.log('[AppContext] Modified expense synced to server');
+        } catch (syncError) {
+          console.warn('[AppContext] Failed to sync modified expense:', syncError);
+        }
+      }
+
+      // Save snapshot
+      await db.saveLoroSnapshot(group.id, store.exportSnapshot());
+
+      // Refresh UI
+      await refreshEntries(group.id, group.currentKeyVersion);
+
+      // Clear editing state
+      setEditingEntry(null);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to modify expense');
+      throw err;
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Modify transfer (creates new version)
+  const modifyTransfer = async (originalId: string, data: TransferFormData) => {
+    try {
+      setIsLoading(true);
+      setError(null);
+
+      const currentIdentity = identity();
+      const group = activeGroup();
+      const store = loroStore();
+
+      if (!currentIdentity || !group || !store) {
+        throw new Error('Invalid state: missing identity, group, or store');
+      }
+
+      // Get group key
+      const keyString = await db.getGroupKey(group.id, group.currentKeyVersion);
+      if (!keyString) {
+        throw new Error('Group key not found');
+      }
+      const groupKey = await importSymmetricKey(keyString);
+
+      // Get original entry to preserve metadata and increment version
+      const originalEntry = await store.getEntry(originalId, groupKey);
+      if (!originalEntry) {
+        throw new Error('Original entry not found');
+      }
+
+      // Create updated transfer entry with new version
+      const updatedEntry: TransferEntry & { keyVersion: number } = {
+        id: crypto.randomUUID(),
+        groupId: group.id,
+        type: 'transfer',
+        version: originalEntry.version + 1,
+        keyVersion: group.currentKeyVersion,
+        previousVersionId: originalId,
+        createdAt: originalEntry.createdAt,
+        createdBy: originalEntry.createdBy,
+        modifiedAt: Date.now(),
+        modifiedBy: currentIdentity.publicKeyHash,
+        status: 'active',
+        amount: data.amount,
+        currency: data.currency,
+        date: data.date,
+        from: data.from,
+        to: data.to,
+        notes: data.notes,
+        defaultCurrencyAmount: data.amount,
+        exchangeRate: data.currency === group.defaultCurrency ? 1 : undefined,
+      };
+
+      // Get version BEFORE modifying entry
+      const versionBefore = store.getVersion();
+
+      // Modify in Loro (creates new version with previousVersionId)
+      await store.modifyEntry(originalId, updatedEntry, groupKey, currentIdentity.publicKeyHash);
+
+      // Sync to server
+      const manager = syncManager();
+      if (manager && autoSyncEnabled()) {
+        try {
+          const updateBytes = store.exportFrom(versionBefore);
+          await manager.pushUpdate(
+            group.id,
+            currentIdentity.publicKeyHash,
+            updateBytes,
+            versionBefore
+          );
+          setSyncState(manager.getState());
+          console.log('[AppContext] Modified transfer synced to server');
+        } catch (syncError) {
+          console.warn('[AppContext] Failed to sync modified transfer:', syncError);
+        }
+      }
+
+      // Save snapshot
+      await db.saveLoroSnapshot(group.id, store.exportSnapshot());
+
+      // Refresh UI
+      await refreshEntries(group.id, group.currentKeyVersion);
+
+      // Clear editing state
+      setEditingEntry(null);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to modify transfer');
+      throw err;
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   // Phase 5: Create invitation for a group
   const createInvitation = async (groupId: string, groupName: string) => {
     try {
@@ -1235,6 +1427,10 @@ export const AppProvider: Component<{ children: JSX.Element }> = (props) => {
     entries,
     addExpense,
     addTransfer,
+    modifyExpense,
+    modifyTransfer,
+    editingEntry,
+    setEditingEntry,
     balances,
     settlementPlan,
     createInvitation,

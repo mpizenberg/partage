@@ -4,21 +4,33 @@ import { Input } from '../common/Input'
 import { Select } from '../common/Select'
 import { Button } from '../common/Button'
 import type { TransferFormData, FormErrors } from './types'
+import type { TransferEntry } from '@partage/shared'
 
 export interface TransferFormProps {
   onSubmit: (data: TransferFormData) => Promise<void>
   onCancel: () => void
+  initialData?: TransferEntry
 }
 
 export const TransferForm: Component<TransferFormProps> = (props) => {
   const { members, activeGroup, identity } = useAppContext()
 
-  const [amount, setAmount] = createSignal('')
-  const [currency, setCurrency] = createSignal(activeGroup()?.defaultCurrency || 'USD')
-  const [from, setFrom] = createSignal('')
-  const [to, setTo] = createSignal('')
-  const [date, setDate] = createSignal(new Date().toISOString().split('T')[0])
-  const [notes, setNotes] = createSignal('')
+  const formatDateForInput = (timestamp: number): string => {
+    return new Date(timestamp).toISOString().split('T')[0] || ''
+  }
+
+  // Check if we're in edit mode
+  const isEditMode = () => !!props.initialData
+
+  // Initialize signals from initialData if present
+  const [amount, setAmount] = createSignal(props.initialData?.amount.toString() || '')
+  const [currency, setCurrency] = createSignal(props.initialData?.currency || activeGroup()?.defaultCurrency || 'USD')
+  const [from, setFrom] = createSignal(props.initialData?.from || '')
+  const [to, setTo] = createSignal(props.initialData?.to || '')
+  const [date, setDate] = createSignal(
+    props.initialData ? formatDateForInput(props.initialData.date) : new Date().toISOString().split('T')[0]
+  )
+  const [notes, setNotes] = createSignal(props.initialData?.notes || '')
   const [errors, setErrors] = createSignal<FormErrors>({})
   const [isSubmitting, setIsSubmitting] = createSignal(false)
 
@@ -66,8 +78,8 @@ export const TransferForm: Component<TransferFormProps> = (props) => {
       await props.onSubmit(formData)
       props.onCancel() // Close modal on success
     } catch (error) {
-      console.error('Failed to create transfer:', error)
-      setErrors({ submit: 'Failed to create transfer. Please try again.' })
+      console.error(isEditMode() ? 'Failed to update transfer:' : 'Failed to create transfer:', error)
+      setErrors({ submit: isEditMode() ? 'Failed to update transfer. Please try again.' : 'Failed to create transfer. Please try again.' })
     } finally {
       setIsSubmitting(false)
     }
@@ -177,7 +189,10 @@ export const TransferForm: Component<TransferFormProps> = (props) => {
           Cancel
         </Button>
         <Button type="submit" variant="primary" disabled={isSubmitting()}>
-          {isSubmitting() ? 'Creating...' : 'Create Transfer'}
+          {isSubmitting()
+            ? (isEditMode() ? 'Saving...' : 'Creating...')
+            : (isEditMode() ? 'Save Changes' : 'Create Transfer')
+          }
         </Button>
       </div>
     </form>
