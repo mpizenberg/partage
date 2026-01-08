@@ -332,11 +332,24 @@ export class LoroEntryStore {
   }
 
   /**
-   * Get all active (non-deleted) entries
+   * Get all active (non-deleted) entries, excluding superseded versions
+   * An entry is superseded if another entry has previousVersionId pointing to it
    */
   async getActiveEntries(groupId: string, groupKey: CryptoKey): Promise<Entry[]> {
     const allEntries = await this.getAllEntries(groupId, groupKey);
-    return allEntries.filter((entry) => entry.status === 'active');
+
+    // Collect all previousVersionId values - these entries have been superseded
+    const supersededIds = new Set<string>();
+    for (const entry of allEntries) {
+      if (entry.previousVersionId) {
+        supersededIds.add(entry.previousVersionId);
+      }
+    }
+
+    // Filter to only active entries that haven't been superseded
+    return allEntries.filter(
+      (entry) => entry.status === 'active' && !supersededIds.has(entry.id)
+    );
   }
 
   // ==================== Member Management ====================
