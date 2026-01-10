@@ -1,5 +1,7 @@
-import { Component, Show } from 'solid-js'
+import { Component, Show, createSignal } from 'solid-js'
 import { useAppContext } from '../../context/AppContext'
+import { Modal } from '../common/Modal'
+import { Button } from '../common/Button'
 import type { Entry, ExpenseEntry, TransferEntry, ExpenseCategory } from '@partage/shared'
 
 // Category emoji mapping
@@ -20,10 +22,47 @@ export interface EntryCardProps {
 }
 
 export const EntryCard: Component<EntryCardProps> = (props) => {
-  const { members, identity, setEditingEntry } = useAppContext()
+  const { members, identity, setEditingEntry, deleteEntry, undeleteEntry } = useAppContext()
+  const [showDeleteModal, setShowDeleteModal] = createSignal(false)
+  const [isDeleting, setIsDeleting] = createSignal(false)
+  const [isUndeleting, setIsUndeleting] = createSignal(false)
+
+  const isDeleted = () => props.entry.status === 'deleted'
 
   const handleClick = () => {
-    setEditingEntry(props.entry)
+    // Don't allow editing deleted entries
+    if (!isDeleted()) {
+      setEditingEntry(props.entry)
+    }
+  }
+
+  const handleDeleteClick = (e: MouseEvent) => {
+    e.stopPropagation()
+    setShowDeleteModal(true)
+  }
+
+  const handleConfirmDelete = async () => {
+    try {
+      setIsDeleting(true)
+      await deleteEntry(props.entry.id)
+      setShowDeleteModal(false)
+    } catch (err) {
+      console.error('Failed to delete entry:', err)
+    } finally {
+      setIsDeleting(false)
+    }
+  }
+
+  const handleUndeleteClick = async (e: MouseEvent) => {
+    e.stopPropagation()
+    try {
+      setIsUndeleting(true)
+      await undeleteEntry(props.entry.id)
+    } catch (err) {
+      console.error('Failed to undelete entry:', err)
+    } finally {
+      setIsUndeleting(false)
+    }
   }
 
   const formatCurrency = (amount: number, currency: string): string => {
@@ -139,83 +178,160 @@ export const EntryCard: Component<EntryCardProps> = (props) => {
   }
 
   return (
-    <div
-      class={`entry-card card ${isUserInvolved() ? 'entry-card-involved' : ''}`}
-      onClick={handleClick}
-      style={{ cursor: 'pointer' }}
-    >
-      {/* Expense Entry */}
-      <Show when={isExpense()}>
-        <div class="entry-header">
-          <div class="entry-icon">{getCategoryEmoji()}</div>
-          <div class="entry-main">
-            <h3 class="entry-description">{expenseEntry()!.description}</h3>
-            <div class="entry-amount">
-              {formatCurrency(props.entry.amount, props.entry.currency!)}
-              <Show when={expenseEntry()?.category}>
-                <span class="entry-category"> • {expenseEntry()?.category}</span>
-              </Show>
+    <>
+      <div
+        class={`entry-card card ${isUserInvolved() ? 'entry-card-involved' : ''} ${isDeleted() ? 'entry-card-deleted' : ''}`}
+        onClick={handleClick}
+        style={{ cursor: isDeleted() ? 'default' : 'pointer' }}
+      >
+        {/* Expense Entry */}
+        <Show when={isExpense()}>
+          <div class="entry-header">
+            <div class="entry-icon">{getCategoryEmoji()}</div>
+            <div class="entry-main">
+              <h3 class="entry-description">{expenseEntry()!.description}</h3>
+              <div class="entry-amount">
+                {formatCurrency(props.entry.amount, props.entry.currency!)}
+                <Show when={expenseEntry()?.category}>
+                  <span class="entry-category"> • {expenseEntry()?.category}</span>
+                </Show>
+              </div>
             </div>
+            <Show
+              when={!isDeleted()}
+              fallback={
+                <button
+                  class="entry-undelete-btn"
+                  onClick={handleUndeleteClick}
+                  aria-label="Restore entry"
+                  title="Restore entry"
+                  disabled={isUndeleting()}
+                >
+                  {isUndeleting() ? '⏳' : '↶'}
+                </button>
+              }
+            >
+              <button
+                class="entry-delete-btn"
+                onClick={handleDeleteClick}
+                aria-label="Delete entry"
+                title="Delete entry"
+              >
+                🗑️
+              </button>
+            </Show>
           </div>
-        </div>
 
-        <div class="entry-details">
-          <div class="entry-detail-row">
-            <span class="entry-detail-label">Paid by:</span>
-            <span class="entry-detail-value">{getPayersText()}</span>
-          </div>
-          <div class="entry-detail-row">
-            <span class="entry-detail-label">Split:</span>
-            <span class="entry-detail-value">{getBeneficiariesText()}</span>
-          </div>
-          <Show when={getUserShare() !== null}>
-            <div class="entry-detail-row entry-user-share">
-              <span class="entry-detail-label">Your share:</span>
-              <span class="entry-detail-value">
-                {formatCurrency(getUserShare()!, props.entry.currency!)}
-              </span>
-            </div>
-          </Show>
-        </div>
-
-        <div class="entry-footer">
-          <span class="entry-time">{formatRelativeTime(props.entry.createdAt)}</span>
-        </div>
-      </Show>
-
-      {/* Transfer Entry */}
-      <Show when={isTransfer()}>
-        <div class="entry-header">
-          <div class="entry-icon">💸</div>
-          <div class="entry-main">
-            <h3 class="entry-description">Transfer</h3>
-            <div class="entry-amount">
-              {formatCurrency(props.entry.amount, props.entry.currency!)}
-            </div>
-          </div>
-        </div>
-
-        <div class="entry-details">
-          <div class="entry-detail-row">
-            <span class="entry-detail-label">From:</span>
-            <span class="entry-detail-value">{getMemberName(transferEntry()!.from)}</span>
-          </div>
-          <div class="entry-detail-row">
-            <span class="entry-detail-label">To:</span>
-            <span class="entry-detail-value">{getMemberName(transferEntry()!.to)}</span>
-          </div>
-          <Show when={transferEntry()?.notes}>
+          <div class="entry-details">
             <div class="entry-detail-row">
-              <span class="entry-detail-label">Note:</span>
-              <span class="entry-detail-value">{transferEntry()?.notes}</span>
+              <span class="entry-detail-label">Paid by:</span>
+              <span class="entry-detail-value">{getPayersText()}</span>
             </div>
-          </Show>
-        </div>
+            <div class="entry-detail-row">
+              <span class="entry-detail-label">Split:</span>
+              <span class="entry-detail-value">{getBeneficiariesText()}</span>
+            </div>
+            <Show when={getUserShare() !== null}>
+              <div class="entry-detail-row entry-user-share">
+                <span class="entry-detail-label">Your share:</span>
+                <span class="entry-detail-value">
+                  {formatCurrency(getUserShare()!, props.entry.currency!)}
+                </span>
+              </div>
+            </Show>
+          </div>
 
-        <div class="entry-footer">
-          <span class="entry-time">{formatRelativeTime(props.entry.createdAt)}</span>
+          <div class="entry-footer">
+            <span class="entry-time">{formatRelativeTime(props.entry.createdAt)}</span>
+          </div>
+        </Show>
+
+        {/* Transfer Entry */}
+        <Show when={isTransfer()}>
+          <div class="entry-header">
+            <div class="entry-icon">💸</div>
+            <div class="entry-main">
+              <h3 class="entry-description">Transfer</h3>
+              <div class="entry-amount">
+                {formatCurrency(props.entry.amount, props.entry.currency!)}
+              </div>
+            </div>
+            <Show
+              when={!isDeleted()}
+              fallback={
+                <button
+                  class="entry-undelete-btn"
+                  onClick={handleUndeleteClick}
+                  aria-label="Restore entry"
+                  title="Restore entry"
+                  disabled={isUndeleting()}
+                >
+                  {isUndeleting() ? '⏳' : '↶'}
+                </button>
+              }
+            >
+              <button
+                class="entry-delete-btn"
+                onClick={handleDeleteClick}
+                aria-label="Delete entry"
+                title="Delete entry"
+              >
+                🗑️
+              </button>
+            </Show>
+          </div>
+
+          <div class="entry-details">
+            <div class="entry-detail-row">
+              <span class="entry-detail-label">From:</span>
+              <span class="entry-detail-value">{getMemberName(transferEntry()!.from)}</span>
+            </div>
+            <div class="entry-detail-row">
+              <span class="entry-detail-label">To:</span>
+              <span class="entry-detail-value">{getMemberName(transferEntry()!.to)}</span>
+            </div>
+            <Show when={transferEntry()?.notes}>
+              <div class="entry-detail-row">
+                <span class="entry-detail-label">Note:</span>
+                <span class="entry-detail-value">{transferEntry()?.notes}</span>
+              </div>
+            </Show>
+          </div>
+
+          <div class="entry-footer">
+            <span class="entry-time">{formatRelativeTime(props.entry.createdAt)}</span>
+          </div>
+        </Show>
+      </div>
+
+      {/* Delete Confirmation Modal */}
+      <Modal
+        isOpen={showDeleteModal()}
+        onClose={() => setShowDeleteModal(false)}
+        title="Delete Entry"
+      >
+        <div style={{ padding: '1rem' }}>
+          <p style={{ 'margin-bottom': '1.5rem' }}>
+            Are you sure you want to delete this entry? This action can be undone later.
+          </p>
+          <div style={{ display: 'flex', gap: '0.5rem', 'justify-content': 'flex-end' }}>
+            <Button
+              variant="secondary"
+              onClick={() => setShowDeleteModal(false)}
+              disabled={isDeleting()}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="danger"
+              onClick={handleConfirmDelete}
+              disabled={isDeleting()}
+            >
+              {isDeleting() ? 'Deleting...' : 'Delete'}
+            </Button>
+          </div>
         </div>
-      </Show>
-    </div>
+      </Modal>
+    </>
   )
 }

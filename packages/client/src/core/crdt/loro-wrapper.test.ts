@@ -138,7 +138,7 @@ describe('LoroEntryStore', () => {
   });
 
   describe('Entry Deletion', () => {
-    it('should soft delete an entry', async () => {
+    it('should soft delete an entry by creating a new version', async () => {
       const expense: ExpenseEntry = {
         id: 'expense-4',
         groupId,
@@ -156,13 +156,31 @@ describe('LoroEntryStore', () => {
       };
 
       await store.createEntry(expense, groupKey, actorId);
-      await store.deleteEntry('expense-4', actorId, groupKey);
+      const deletedVersionId = await store.deleteEntry('expense-4', actorId, groupKey, 1);
 
-      const retrieved = await store.getEntry('expense-4', groupKey);
-      expect(retrieved).toBeDefined();
-      expect(retrieved?.status).toBe('deleted');
-      expect(retrieved?.deletedBy).toBe(actorId);
-      expect(retrieved?.deletedAt).toBeDefined();
+      // Original should still exist with status=active
+      const original = await store.getEntry('expense-4', groupKey);
+      expect(original).toBeDefined();
+      expect(original?.status).toBe('active');
+
+      // New version should exist with status=deleted
+      const deletedVersion = await store.getEntry(deletedVersionId, groupKey);
+      expect(deletedVersion).toBeDefined();
+      expect(deletedVersion?.status).toBe('deleted');
+      expect(deletedVersion?.version).toBe(2);
+      expect(deletedVersion?.previousVersionId).toBe('expense-4');
+      expect(deletedVersion?.deletedBy).toBe(actorId);
+      expect(deletedVersion?.deletedAt).toBeDefined();
+
+      // getActiveEntries should only return active entries (original is superseded)
+      const activeEntries = await store.getActiveEntries(groupId, groupKey);
+      expect(activeEntries.length).toBe(0);
+
+      // getCurrentEntries should return the deleted version (latest in chain)
+      const currentEntries = await store.getCurrentEntries(groupId, groupKey);
+      expect(currentEntries.length).toBe(1);
+      expect(currentEntries[0]?.id).toBe(deletedVersionId);
+      expect(currentEntries[0]?.status).toBe('deleted');
     });
 
     it('should include deletion reason', async () => {
@@ -183,14 +201,21 @@ describe('LoroEntryStore', () => {
       };
 
       await store.createEntry(expense, groupKey, actorId);
-      await store.deleteEntry('expense-5', actorId, groupKey, 'Duplicate entry');
+      const deletedVersionId = await store.deleteEntry(
+        'expense-5',
+        actorId,
+        groupKey,
+        1,
+        'Duplicate entry'
+      );
 
-      const retrieved = await store.getEntry('expense-5', groupKey);
-      expect(retrieved?.deletionReason).toBe('Duplicate entry');
+      const deletedVersion = await store.getEntry(deletedVersionId, groupKey);
+      expect(deletedVersion?.deletionReason).toBe('Duplicate entry');
+      expect(deletedVersion?.status).toBe('deleted');
     });
 
     it('should throw error when deleting non-existent entry', async () => {
-      await expect(store.deleteEntry('non-existent', actorId, groupKey)).rejects.toThrow(
+      await expect(store.deleteEntry('non-existent', actorId, groupKey, 1)).rejects.toThrow(
         'Entry non-existent not found'
       );
     });
@@ -240,7 +265,7 @@ describe('LoroEntryStore', () => {
     });
 
     it('should get only active entries', async () => {
-      await store.deleteEntry('expense-6', actorId, groupKey);
+      await store.deleteEntry('expense-6', actorId, groupKey, 1);
 
       const activeEntries = await store.getActiveEntries(groupId, groupKey);
       expect(activeEntries.length).toBe(1);

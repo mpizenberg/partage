@@ -8,6 +8,7 @@ import {
   onCleanup,
   Accessor,
   createMemo,
+  createEffect,
 } from 'solid-js';
 import { PartageDB, getDB } from '../../core/storage/indexeddb';
 import { LoroEntryStore } from '../../core/crdt/loro-wrapper';
@@ -97,10 +98,14 @@ interface AppContextValue {
 
   // Entries (derived from Loro)
   entries: Accessor<Entry[]>;
+  showDeleted: Accessor<boolean>;
+  setShowDeleted: (show: boolean) => void;
   addExpense: (data: ExpenseFormData) => Promise<void>;
   addTransfer: (data: TransferFormData) => Promise<void>;
   modifyExpense: (originalId: string, data: ExpenseFormData) => Promise<void>;
   modifyTransfer: (originalId: string, data: TransferFormData) => Promise<void>;
+  deleteEntry: (entryId: string, reason?: string) => Promise<void>;
+  undeleteEntry: (entryId: string) => Promise<void>;
 
   // Entry editing state
   editingEntry: Accessor<Entry | null>;
@@ -147,6 +152,9 @@ export const AppProvider: Component<{ children: JSX.Element }> = (props) => {
   const [entries, setEntries] = createSignal<Entry[]>([]);
   const [balances, setBalances] = createSignal<Map<string, Balance>>(new Map());
 
+  // Show deleted entries toggle
+  const [showDeleted, setShowDeleted] = createSignal(false);
+
   // Entry editing state
   const [editingEntry, setEditingEntry] = createSignal<Entry | null>(null);
 
@@ -186,6 +194,16 @@ export const AppProvider: Component<{ children: JSX.Element }> = (props) => {
       return { transactions: [], totalTransactions: 0 };
     }
     return generateSettlementPlan(currentBalances);
+  });
+
+  // Refresh entries when showDeleted changes
+  createEffect(() => {
+    const group = activeGroup();
+    if (group) {
+      // Trigger refresh when showDeleted changes
+      showDeleted();
+      refreshEntries(group.id, group.currentKeyVersion);
+    }
   });
 
   // Initialize database and load data
@@ -602,13 +620,21 @@ export const AppProvider: Component<{ children: JSX.Element }> = (props) => {
       }
       const groupKey = await importSymmetricKey(keyString);
 
-      // Get all active entries (store will decrypt using the provided key when possible,
-      // and fall back to keyVersion-based lookup as needed).
-      const allEntries = await store.getActiveEntries(groupId, groupKey);
+      // Get entries based on showDeleted toggle
+      let allEntries: Entry[];
+      if (showDeleted()) {
+        // Get current versions of all entries including deleted (excludes superseded)
+        allEntries = await store.getCurrentEntries(groupId, groupKey);
+      } else {
+        // Get only active entries (excludes deleted and superseded)
+        allEntries = await store.getActiveEntries(groupId, groupKey);
+      }
+
       setEntries(allEntries);
 
-      // Calculate balances
-      const calculatedBalances = calculateBalances(allEntries);
+      // Calculate balances (always use only active entries for balance calculation)
+      const activeEntries = await store.getActiveEntries(groupId, groupKey);
+      const calculatedBalances = calculateBalances(activeEntries);
       setBalances(calculatedBalances);
     } catch (err) {
       console.error('Failed to refresh entries:', err);
@@ -972,6 +998,141 @@ export const AppProvider: Component<{ children: JSX.Element }> = (props) => {
       setEditingEntry(null);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to modify transfer');
+      throw err;
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Delete entry (soft delete - creates new version with status=deleted)
+  const deleteEntry = async (entryId: string, reason?: string) => {
+    try {
+      setIsLoading(true);
+      setError(null);
+
+      const currentIdentity = identity();
+      const group = activeGroup();
+      const store = loroStore();
+
+      if (!currentIdentity || !group || !store) {
+        throw new Error('Invalid state: missing identity, group, or store');
+      }
+
+      // Get group key
+      const keyString = await db.getGroupKey(group.id, group.currentKeyVersion);
+      if (!keyString) {
+        throw new Error('Group key not found');
+      }
+      const groupKey = await importSymmetricKey(keyString);
+
+      // Get version BEFORE deleting entry
+      const versionBefore = store.getVersion();
+
+      // Delete in Loro (creates new version with status=deleted)
+      const newVersionId = await store.deleteEntry(
+        entryId,
+        currentIdentity.publicKeyHash,
+        groupKey,
+        group.currentKeyVersion,
+        reason
+      );
+
+      console.log(
+        `[AppContext] Deleted entry ${entryId}, created new version ${newVersionId} with status=deleted`
+      );
+
+      // Sync to server
+      const manager = syncManager();
+      if (manager && autoSyncEnabled()) {
+        try {
+          const updateBytes = store.exportFrom(versionBefore);
+          await manager.pushUpdate(
+            group.id,
+            currentIdentity.publicKeyHash,
+            updateBytes,
+            versionBefore
+          );
+          setSyncState(manager.getState());
+          console.log('[AppContext] Deleted entry synced to server');
+        } catch (syncError) {
+          console.warn('[AppContext] Failed to sync deleted entry:', syncError);
+        }
+      }
+
+      // Save snapshot
+      await db.saveLoroSnapshot(group.id, store.exportSnapshot());
+
+      // Refresh UI
+      await refreshEntries(group.id, group.currentKeyVersion);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to delete entry');
+      throw err;
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Undelete entry (restore deleted entry - creates new version with status=active)
+  const undeleteEntry = async (entryId: string) => {
+    try {
+      setIsLoading(true);
+      setError(null);
+
+      const currentIdentity = identity();
+      const group = activeGroup();
+      const store = loroStore();
+
+      if (!currentIdentity || !group || !store) {
+        throw new Error('Invalid state: missing identity, group, or store');
+      }
+
+      // Get group key
+      const keyString = await db.getGroupKey(group.id, group.currentKeyVersion);
+      if (!keyString) {
+        throw new Error('Group key not found');
+      }
+      const groupKey = await importSymmetricKey(keyString);
+
+      // Get version BEFORE undeleting
+      const versionBefore = store.getVersion();
+
+      // Undelete in Loro (creates new version with status=active)
+      const newVersionId = await store.undeleteEntry(
+        entryId,
+        currentIdentity.publicKeyHash,
+        groupKey,
+        group.currentKeyVersion
+      );
+
+      console.log(
+        `[AppContext] Undeleted entry ${entryId}, created new version ${newVersionId} with status=active`
+      );
+
+      // Sync to server
+      const manager = syncManager();
+      if (manager && autoSyncEnabled()) {
+        try {
+          const updateBytes = store.exportFrom(versionBefore);
+          await manager.pushUpdate(
+            group.id,
+            currentIdentity.publicKeyHash,
+            updateBytes,
+            versionBefore
+          );
+          setSyncState(manager.getState());
+          console.log('[AppContext] Undeleted entry synced to server');
+        } catch (syncError) {
+          console.warn('[AppContext] Failed to sync undeleted entry:', syncError);
+        }
+      }
+
+      // Save snapshot
+      await db.saveLoroSnapshot(group.id, store.exportSnapshot());
+
+      // Refresh UI
+      await refreshEntries(group.id, group.currentKeyVersion);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to undelete entry');
       throw err;
     } finally {
       setIsLoading(false);
@@ -1425,10 +1586,14 @@ export const AppProvider: Component<{ children: JSX.Element }> = (props) => {
     deselectGroup,
     members,
     entries,
+    showDeleted,
+    setShowDeleted,
     addExpense,
     addTransfer,
     modifyExpense,
     modifyTransfer,
+    deleteEntry,
+    undeleteEntry,
     editingEntry,
     setEditingEntry,
     balances,

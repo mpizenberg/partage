@@ -181,39 +181,79 @@ export class LoroEntryStore {
   }
 
   /**
-   * Soft delete an entry
+   * Soft delete an entry by creating a new version with status='deleted'
+   * This maintains immutability - the original entry is never modified
    */
   async deleteEntry(
     entryId: string,
     actorId: string,
     groupKey: CryptoKey,
+    currentKeyVersion: number,
     reason?: string
-  ): Promise<void> {
+  ): Promise<string> {
     const entry = await this.getEntry(entryId, groupKey);
     if (!entry) {
       throw new Error(`Entry ${entryId} not found`);
     }
 
-    // Mark as deleted in metadata (transactional to ensure sync exports include it)
-    const entryMap = this.entries.get(entryId);
-    if (entryMap && entryMap instanceof LoroMap) {
-      this.transact(() => {
-        entryMap.set('status', 'deleted');
-        entryMap.set('deletedAt', Date.now());
-        entryMap.set('deletedBy', actorId);
-      });
+    // Create a new version with status='deleted'
+    // IMPORTANT: Don't spread the entire entry as it may contain old keyVersion
+    // Instead, explicitly construct with current keyVersion
+    const deletedEntry: Entry & { keyVersion: number } = {
+      ...entry,
+      id: crypto.randomUUID(), // New ID for the new version
+      keyVersion: currentKeyVersion, // Use CURRENT key version for encryption
+      version: entry.version + 1,
+      previousVersionId: entryId,
+      status: 'deleted',
+      deletedAt: Date.now(),
+      deletedBy: actorId,
+      deletionReason: reason,
+    };
 
-      // If there's a deletion reason, we need to re-encrypt the payload with it
-      if (reason) {
-        const { payload } = this.splitEntry(entry);
-        const updatedPayload = { ...payload, deletionReason: reason };
-        const encrypted = await encryptJSON(updatedPayload, groupKey);
-        const encryptedPayload = this.serializeEncryptedData(encrypted);
-        this.transact(() => {
-          entryMap.set('encryptedPayload', encryptedPayload);
-        });
-      }
+    // Create as new entry (doesn't modify original)
+    await this.createEntry(deletedEntry, groupKey, actorId);
+
+    return deletedEntry.id;
+  }
+
+  /**
+   * Undelete (restore) a deleted entry by creating a new version with status='active'
+   * This maintains immutability - the deleted entry is never modified
+   */
+  async undeleteEntry(
+    entryId: string,
+    actorId: string,
+    groupKey: CryptoKey,
+    currentKeyVersion: number
+  ): Promise<string> {
+    const entry = await this.getEntry(entryId, groupKey);
+    if (!entry) {
+      throw new Error(`Entry ${entryId} not found`);
     }
+
+    if (entry.status !== 'deleted') {
+      throw new Error(`Entry ${entryId} is not deleted (status=${entry.status})`);
+    }
+
+    // Create a new version with status='active', removing deletion metadata
+    // IMPORTANT: Use current keyVersion, not the one from the deleted entry
+    const restoredEntry: Entry & { keyVersion: number } = {
+      ...entry,
+      id: crypto.randomUUID(), // New ID for the new version
+      keyVersion: currentKeyVersion, // Use CURRENT key version for encryption
+      version: entry.version + 1,
+      previousVersionId: entryId,
+      status: 'active',
+      deletedAt: undefined,
+      deletedBy: undefined,
+      deletionReason: undefined,
+    };
+
+    // Create as new entry (doesn't modify original)
+    await this.createEntry(restoredEntry, groupKey, actorId);
+
+    return restoredEntry.id;
   }
 
   /**
@@ -329,6 +369,25 @@ export class LoroEntryStore {
     );
 
     return allEntries;
+  }
+
+  /**
+   * Get current versions of all entries (excluding superseded), including deleted entries
+   * An entry is superseded if another entry has previousVersionId pointing to it
+   */
+  async getCurrentEntries(groupId: string, groupKey: CryptoKey): Promise<Entry[]> {
+    const allEntries = await this.getAllEntries(groupId, groupKey);
+
+    // Collect all previousVersionId values - these entries have been superseded
+    const supersededIds = new Set<string>();
+    for (const entry of allEntries) {
+      if (entry.previousVersionId) {
+        supersededIds.add(entry.previousVersionId);
+      }
+    }
+
+    // Filter out superseded versions, but keep both active and deleted current versions
+    return allEntries.filter((entry) => !supersededIds.has(entry.id));
   }
 
   /**

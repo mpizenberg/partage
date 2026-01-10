@@ -3,10 +3,25 @@ import { useAppContext } from '../../context/AppContext'
 import { EntryList } from './EntryList'
 
 export const EntriesTab: Component = () => {
-  const { entries } = useAppContext()
+  const { entries, showDeleted, setShowDeleted } = useAppContext()
+
+  const handleToggleDeleted = () => {
+    setShowDeleted(!showDeleted())
+  }
 
   return (
     <div class="entries-tab">
+      <div class="entries-header">
+        <label class="show-deleted-toggle">
+          <input
+            type="checkbox"
+            checked={showDeleted()}
+            onChange={handleToggleDeleted}
+          />
+          <span>Show deleted entries</span>
+        </label>
+      </div>
+
       <Show
         when={entries().length > 0}
         fallback={
