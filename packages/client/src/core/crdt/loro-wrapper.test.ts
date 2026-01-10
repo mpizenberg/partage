@@ -385,7 +385,6 @@ describe('LoroEntryStore', () => {
         amount: 100,
         currency: 'EUR',
         defaultCurrencyAmount: 110,
-        exchangeRate: 1.1,
         date: Date.now(),
         payers: [{ memberId: 'member-1', amount: 100 }],
         beneficiaries: [{ memberId: 'member-1', splitType: 'exact', amount: 100 }],
@@ -396,7 +395,7 @@ describe('LoroEntryStore', () => {
       const retrieved = await store.getEntry('expense-11', groupKey);
       expect(retrieved?.currency).toBe('EUR');
       expect(retrieved?.defaultCurrencyAmount).toBe(110);
-      expect(retrieved?.exchangeRate).toBe(1.1);
+      // Exchange rate is not stored, it's computed as: 110 / 100 = 1.1
     });
   });
 

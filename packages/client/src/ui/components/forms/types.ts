@@ -10,6 +10,7 @@ export interface ExpenseFormData {
   notes?: string
   payers: Payer[]
   beneficiaries: Beneficiary[]
+  defaultCurrencyAmount?: number
 }
 
 export interface TransferFormData {
@@ -19,6 +20,7 @@ export interface TransferFormData {
   to: string
   date: number
   notes?: string
+  defaultCurrencyAmount?: number
 }
 
 export interface FormErrors {

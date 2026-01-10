@@ -335,11 +335,11 @@ Set up a monorepo structure for a fully encrypted, local-first bill-splitting PW
 **Goal**: Complete feature set
 
 **Tasks**:
-1. Entry modification with versioning
-2. Entry soft deletion
-3. Activity feed
-4. Filtering and search
-5. Multi-currency support with exchange rates
+1. ✅ Entry modification with versioning
+2. ✅ Entry soft deletion
+3. ✅ Activity feed
+4. ✅ Filtering and search
+5. ✅ Multi-currency support with exchange rates
 6. Settlement suggestions (debt optimization)
 7. Export functionality (JSON)
 8. PWA service worker for offline

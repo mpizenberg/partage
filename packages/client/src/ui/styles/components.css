@@ -1618,3 +1618,40 @@
   border-color: var(--color-primary);
   box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.1);
 }
+
+/* ============================================================================
+   Currency Conversion Display
+   ============================================================================ */
+
+.exchange-rate-display {
+  margin-top: var(--space-md);
+  padding: var(--space-md);
+  background: var(--color-background);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+}
+
+.exchange-rate-label {
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  color: var(--color-text-light);
+  margin-bottom: var(--space-xs);
+}
+
+.exchange-rate-values {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  flex-wrap: wrap;
+  font-size: var(--font-size-sm);
+  color: var(--color-text-light);
+}
+
+.exchange-rate-value {
+  font-family: var(--font-family-mono, monospace);
+}
+
+.exchange-rate-separator {
+  color: var(--color-border);
+  font-weight: var(--font-weight-bold);
+}

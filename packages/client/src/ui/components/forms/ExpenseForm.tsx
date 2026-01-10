@@ -74,6 +74,9 @@ export const ExpenseForm: Component<ExpenseFormProps> = (props) => {
   const [amount, setAmount] = createSignal(props.initialData?.amount.toString() || '')
   const [description, setDescription] = createSignal(props.initialData?.description || '')
   const [currency, setCurrency] = createSignal(props.initialData?.currency || activeGroup()?.defaultCurrency || 'USD')
+  const [defaultCurrencyAmount, setDefaultCurrencyAmount] = createSignal(
+    props.initialData?.defaultCurrencyAmount?.toString() || ''
+  )
   const [date, setDate] = createSignal(
     props.initialData ? formatDateForInput(props.initialData.date) : new Date().toISOString().split('T')[0]
   )
@@ -100,6 +103,42 @@ export const ExpenseForm: Component<ExpenseFormProps> = (props) => {
 
   const [errors, setErrors] = createSignal<FormErrors>({})
   const [isSubmitting, setIsSubmitting] = createSignal(false)
+
+  // Check if currency is different from default
+  const isNonDefaultCurrency = createMemo(() => {
+    const defaultCurrency = activeGroup()?.defaultCurrency || 'USD'
+    return currency() !== defaultCurrency
+  })
+
+  // Get default currency
+  const getDefaultCurrency = () => {
+    return activeGroup()?.defaultCurrency || 'USD'
+  }
+
+  // Calculate exchange rate (original to default)
+  const exchangeRate = createMemo(() => {
+    const amountNum = parseFloat(amount())
+    const defaultAmountNum = parseFloat(defaultCurrencyAmount())
+
+    if (isNaN(amountNum) || isNaN(defaultAmountNum) || amountNum === 0) {
+      return null
+    }
+
+    return defaultAmountNum / amountNum
+  })
+
+  // Calculate inverse exchange rate (default to original)
+  const inverseExchangeRate = createMemo(() => {
+    const rate = exchangeRate()
+    if (!rate || rate === 0) return null
+    return 1 / rate
+  })
+
+  // Format exchange rate display
+  const formatExchangeRate = (rate: number | null): string => {
+    if (!rate) return ''
+    return rate.toFixed(3)
+  }
 
   // Calculate shares for display
   const calculatedShares = createMemo(() => {
@@ -162,6 +201,14 @@ export const ExpenseForm: Component<ExpenseFormProps> = (props) => {
     const amountNum = parseFloat(amount())
     if (!amount() || isNaN(amountNum) || amountNum <= 0) {
       newErrors.amount = 'Amount must be greater than 0'
+    }
+
+    // Validate default currency amount for non-default currencies
+    if (isNonDefaultCurrency()) {
+      const defaultAmountNum = parseFloat(defaultCurrencyAmount())
+      if (!defaultCurrencyAmount() || isNaN(defaultAmountNum) || defaultAmountNum <= 0) {
+        newErrors.defaultCurrencyAmount = 'Default currency amount is required'
+      }
     }
 
     if (!payerId()) {
@@ -238,6 +285,9 @@ export const ExpenseForm: Component<ExpenseFormProps> = (props) => {
         notes: notes().trim() || undefined,
         payers,
         beneficiaries,
+        defaultCurrencyAmount: isNonDefaultCurrency()
+          ? parseFloat(defaultCurrencyAmount())
+          : undefined,
       }
 
       await props.onSubmit(formData)
@@ -294,6 +344,41 @@ export const ExpenseForm: Component<ExpenseFormProps> = (props) => {
             </Select>
           </div>
         </div>
+
+        {/* Currency Conversion - shown only for non-default currencies */}
+        <Show when={isNonDefaultCurrency()}>
+          <div class="form-field">
+            <label class="form-label">
+              Amount in {getDefaultCurrency()} (default currency)
+            </label>
+            <Input
+              type="number"
+              value={defaultCurrencyAmount()}
+              placeholder="0.00"
+              step={0.01}
+              min={0}
+              disabled={isSubmitting()}
+              error={!!errors().defaultCurrencyAmount}
+              onInput={(e) => setDefaultCurrencyAmount(e.currentTarget.value)}
+            />
+          </div>
+
+          {/* Exchange Rate Display */}
+          <Show when={exchangeRate() !== null}>
+            <div class="exchange-rate-display">
+              <div class="exchange-rate-label">Exchange rates:</div>
+              <div class="exchange-rate-values">
+                <span class="exchange-rate-value">
+                  1 {currency()} = {formatExchangeRate(exchangeRate())} {getDefaultCurrency()}
+                </span>
+                <span class="exchange-rate-separator">•</span>
+                <span class="exchange-rate-value">
+                  1 {getDefaultCurrency()} = {formatExchangeRate(inverseExchangeRate())} {currency()}
+                </span>
+              </div>
+            </div>
+          </Show>
+        </Show>
 
         <div class="form-field">
           <label class="form-label">Date</label>

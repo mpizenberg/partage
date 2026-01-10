@@ -67,6 +67,7 @@ export interface ExpenseFormData {
     shares?: number;
     amount?: number;
   }>;
+  defaultCurrencyAmount?: number;
 }
 
 // Transfer form data interface
@@ -77,6 +78,7 @@ export interface TransferFormData {
   to: string;
   date: number;
   notes?: string;
+  defaultCurrencyAmount?: number;
 }
 
 // App context interface
@@ -717,8 +719,7 @@ export const AppProvider: Component<{ children: JSX.Element }> = (props) => {
         payers: data.payers,
         beneficiaries: data.beneficiaries,
         // For multi-currency support (Phase 6)
-        defaultCurrencyAmount: data.amount, // For now, assume same currency
-        exchangeRate: data.currency === group.defaultCurrency ? 1 : undefined,
+        defaultCurrencyAmount: data.defaultCurrencyAmount ?? data.amount,
       };
 
       // Get group key
@@ -805,8 +806,7 @@ export const AppProvider: Component<{ children: JSX.Element }> = (props) => {
         to: data.to,
         notes: data.notes,
         // For multi-currency support
-        defaultCurrencyAmount: data.amount,
-        exchangeRate: data.currency === group.defaultCurrency ? 1 : undefined,
+        defaultCurrencyAmount: data.defaultCurrencyAmount ?? data.amount,
       };
 
       // Get group key
@@ -908,8 +908,7 @@ export const AppProvider: Component<{ children: JSX.Element }> = (props) => {
         notes: data.notes,
         payers: data.payers,
         beneficiaries: data.beneficiaries,
-        defaultCurrencyAmount: data.amount,
-        exchangeRate: data.currency === group.defaultCurrency ? 1 : undefined,
+        defaultCurrencyAmount: data.defaultCurrencyAmount ?? data.amount,
       };
 
       // Get version BEFORE modifying entry
@@ -998,8 +997,7 @@ export const AppProvider: Component<{ children: JSX.Element }> = (props) => {
         from: data.from,
         to: data.to,
         notes: data.notes,
-        defaultCurrencyAmount: data.amount,
-        exchangeRate: data.currency === group.defaultCurrency ? 1 : undefined,
+        defaultCurrencyAmount: data.defaultCurrencyAmount ?? data.amount,
       };
 
       // Get version BEFORE modifying entry

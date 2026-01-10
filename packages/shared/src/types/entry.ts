@@ -52,7 +52,6 @@ export interface BaseEntry {
 
   // Currency conversion
   defaultCurrencyAmount?: number; // Converted to group's default currency
-  exchangeRate?: number; // Rate used for conversion
 }
 
 export interface ExpenseEntry extends BaseEntry {
