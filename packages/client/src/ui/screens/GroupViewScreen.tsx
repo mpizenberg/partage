@@ -3,9 +3,10 @@ import { useAppContext } from '../context/AppContext'
 import { BalanceTab } from '../components/balance/BalanceTab'
 import { EntriesTab } from '../components/entries/EntriesTab'
 import { MembersTab } from '../components/members/MembersTab'
+import { ActivitiesTab } from '../components/activities/ActivitiesTab'
 import { AddEntryModal } from '../components/forms/AddEntryModal'
 
-type TabType = 'balance' | 'entries' | 'members'
+type TabType = 'balance' | 'entries' | 'members' | 'activities'
 
 export const GroupViewScreen: Component = () => {
   const {
@@ -116,6 +117,12 @@ export const GroupViewScreen: Component = () => {
             >
               Members
             </button>
+            <button
+              class={`tab ${activeTab() === 'activities' ? 'active' : ''}`}
+              onClick={() => setActiveTab('activities')}
+            >
+              Activity
+            </button>
           </div>
         </div>
       </div>
@@ -132,6 +139,9 @@ export const GroupViewScreen: Component = () => {
             </Match>
             <Match when={activeTab() === 'members'}>
               <MembersTab />
+            </Match>
+            <Match when={activeTab() === 'activities'}>
+              <ActivitiesTab />
             </Match>
           </Switch>
         </div>

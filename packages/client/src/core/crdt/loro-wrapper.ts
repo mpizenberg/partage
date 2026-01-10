@@ -199,6 +199,7 @@ export class LoroEntryStore {
     // Create a new version with status='deleted'
     // IMPORTANT: Don't spread the entire entry as it may contain old keyVersion
     // Instead, explicitly construct with current keyVersion
+    const now = Date.now();
     const deletedEntry: Entry & { keyVersion: number } = {
       ...entry,
       id: crypto.randomUUID(), // New ID for the new version
@@ -206,9 +207,11 @@ export class LoroEntryStore {
       version: entry.version + 1,
       previousVersionId: entryId,
       status: 'deleted',
-      deletedAt: Date.now(),
+      deletedAt: now,
       deletedBy: actorId,
       deletionReason: reason,
+      modifiedAt: now,
+      modifiedBy: actorId,
     };
 
     // Create as new entry (doesn't modify original)
@@ -238,6 +241,7 @@ export class LoroEntryStore {
 
     // Create a new version with status='active', removing deletion metadata
     // IMPORTANT: Use current keyVersion, not the one from the deleted entry
+    const now = Date.now();
     const restoredEntry: Entry & { keyVersion: number } = {
       ...entry,
       id: crypto.randomUUID(), // New ID for the new version
@@ -248,6 +252,8 @@ export class LoroEntryStore {
       deletedAt: undefined,
       deletedBy: undefined,
       deletionReason: undefined,
+      modifiedAt: now,
+      modifiedBy: actorId,
     };
 
     // Create as new entry (doesn't modify original)

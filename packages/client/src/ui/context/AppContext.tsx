@@ -16,6 +16,7 @@ import {
   calculateBalances,
   generateSettlementPlan,
 } from '../../domain/calculations/balance-calculator';
+import { generateAllActivities, filterActivities } from '../../domain/calculations/activity-generator';
 import { SyncManager, type SyncState } from '../../core/sync';
 import { pbClient } from '../../api';
 import {
@@ -39,6 +40,8 @@ import type {
   SettlementPlan,
   GroupSettings,
   JoinRequest,
+  Activity,
+  ActivityFilter,
 } from '@partage/shared';
 import { createJoinRequest as createJoinRequestUtil } from '../../domain/invitations/invite-manager';
 import { processJoinRequest as processJoinRequestUtil } from '../../domain/invitations/invite-manager';
@@ -115,6 +118,11 @@ interface AppContextValue {
   balances: Accessor<Map<string, Balance>>;
   settlementPlan: Accessor<SettlementPlan>;
 
+  // Activities (derived from entries and members)
+  activities: Accessor<Activity[]>;
+  activityFilter: Accessor<ActivityFilter>;
+  setActivityFilter: (filter: ActivityFilter) => void;
+
   // Invitations & Multi-User (Phase 5)
   createInvitation: (groupId: string, groupName: string) => Promise<{ inviteLink: string }>;
   submitJoinRequest: (invitationId: string, groupId: string, userName: string) => Promise<void>;
@@ -158,6 +166,10 @@ export const AppProvider: Component<{ children: JSX.Element }> = (props) => {
   // Entry editing state
   const [editingEntry, setEditingEntry] = createSignal<Entry | null>(null);
 
+  // Activities state
+  const [allActivities, setAllActivities] = createSignal<Activity[]>([]);
+  const [activityFilter, setActivityFilter] = createSignal<ActivityFilter>({});
+
   // Phase 5: Invitations & Multi-User
   const [pendingJoinRequests, setPendingJoinRequests] = createSignal<JoinRequest[]>([]);
 
@@ -194,6 +206,16 @@ export const AppProvider: Component<{ children: JSX.Element }> = (props) => {
       return { transactions: [], totalTransactions: 0 };
     }
     return generateSettlementPlan(currentBalances);
+  });
+
+  // Filtered activities (memoized)
+  const activities = createMemo(() => {
+    const filter = activityFilter();
+    const all = allActivities();
+    if (Object.keys(filter).length === 0) {
+      return all;
+    }
+    return filterActivities(all, filter);
   });
 
   // Refresh entries when showDeleted changes
@@ -636,6 +658,16 @@ export const AppProvider: Component<{ children: JSX.Element }> = (props) => {
       const activeEntries = await store.getActiveEntries(groupId, groupKey);
       const calculatedBalances = calculateBalances(activeEntries);
       setBalances(calculatedBalances);
+
+      // Generate activities from ALL entries (including all versions for audit trail)
+      const allEntriesForActivities = await store.getAllEntries(groupId, groupKey);
+      const currentMembers = members();
+      const generatedActivities = generateAllActivities(
+        allEntriesForActivities,
+        currentMembers,
+        groupId
+      );
+      setAllActivities(generatedActivities);
     } catch (err) {
       console.error('Failed to refresh entries:', err);
       setError(err instanceof Error ? err.message : 'Failed to load entries');
@@ -1598,6 +1630,9 @@ export const AppProvider: Component<{ children: JSX.Element }> = (props) => {
     setEditingEntry,
     balances,
     settlementPlan,
+    activities,
+    activityFilter,
+    setActivityFilter,
     createInvitation,
     submitJoinRequest,
     pendingJoinRequests,
