@@ -1,4 +1,4 @@
-import { Component, For, Show, createSignal } from 'solid-js';
+import { Component, For, Show } from 'solid-js';
 import { useAppContext } from '../../context/AppContext';
 import type { EntryFilter, EntryCategory, DatePreset, DateRange } from '@partage/shared';
 import { datePresetToRange } from '../../../domain/calculations/entry-filter';
@@ -33,9 +33,6 @@ const DATE_PRESETS: { value: DatePreset; label: string }[] = [
 
 export const EntriesFilter: Component<EntriesFilterProps> = (props) => {
   const { members } = useAppContext();
-  const [showCustomDateRange, setShowCustomDateRange] = createSignal(false);
-  const [customStartDate, setCustomStartDate] = createSignal('');
-  const [customEndDate, setCustomEndDate] = createSignal('');
 
   // Toggle person filter
   const togglePerson = (personId: string) => {
@@ -96,42 +93,109 @@ export const EntriesFilter: Component<EntriesFilterProps> = (props) => {
     });
   };
 
-  // Apply custom date range
-  const applyCustomDateRange = () => {
-    if (!customStartDate() || !customEndDate()) {
-      return;
-    }
-
-    const startDate = new Date(customStartDate()).getTime();
-    const endDate = new Date(customEndDate()).setHours(23, 59, 59, 999);
-
-    const currentRanges = props.filter.dateRanges || [];
-    const newRange: DateRange = { startDate, endDate };
-
-    props.onFilterChange({
-      ...props.filter,
-      dateRanges: [...currentRanges, newRange],
+  // Check if a range is a preset range
+  const isPresetRange = (range: DateRange): boolean => {
+    return DATE_PRESETS.some((preset) => {
+      const presetRange = datePresetToRange(preset.value);
+      return presetRange.startDate === range.startDate && presetRange.endDate === range.endDate;
     });
-
-    setCustomStartDate('');
-    setCustomEndDate('');
-    setShowCustomDateRange(false);
   };
 
-  // Clear custom date ranges
-  const clearCustomDateRanges = () => {
-    const presetRanges = DATE_PRESETS.map((preset) => datePresetToRange(preset.value));
+  // Get custom range if it exists
+  const getCustomRange = (): DateRange | null => {
+    const currentRanges = props.filter.dateRanges || [];
+    const customRange = currentRanges.find((range) => !isPresetRange(range));
+    return customRange || null;
+  };
+
+  // Check if custom range is enabled
+  const isCustomRangeEnabled = (): boolean => {
+    return getCustomRange() !== null;
+  };
+
+  // Toggle custom range on/off
+  const toggleCustomRange = () => {
     const currentRanges = props.filter.dateRanges || [];
 
-    // Keep only preset ranges
-    const newRanges = currentRanges.filter((range) =>
-      presetRanges.some((pr) => pr.startDate === range.startDate && pr.endDate === range.endDate)
+    if (isCustomRangeEnabled()) {
+      // Remove custom range
+      const newRanges = currentRanges.filter((range) => isPresetRange(range));
+      props.onFilterChange({
+        ...props.filter,
+        dateRanges: newRanges.length > 0 ? newRanges : undefined,
+      });
+    } else {
+      // Add default custom range (yesterday to today - a range that doesn't match any preset)
+      const today = new Date();
+      const startOfToday = new Date(today.getFullYear(), today.getMonth(), today.getDate()).getTime();
+      const startDate = startOfToday - 24 * 60 * 60 * 1000; // Yesterday at 00:00:00
+      const endDate = startOfToday + 24 * 60 * 60 * 1000 - 1; // Today at 23:59:59
+
+      const newRange: DateRange = { startDate, endDate };
+      props.onFilterChange({
+        ...props.filter,
+        dateRanges: [...currentRanges, newRange],
+      });
+    }
+  };
+
+  // Update custom range dates
+  const updateCustomRangeStart = (dateString: string) => {
+    if (!dateString) return;
+
+    const currentRanges = props.filter.dateRanges || [];
+    const customRange = getCustomRange();
+    if (!customRange) return;
+
+    const startDate = new Date(dateString).getTime();
+    const newRange: DateRange = { startDate, endDate: customRange.endDate };
+
+    const newRanges = currentRanges.map((range) =>
+      isPresetRange(range) ? range : newRange
     );
 
     props.onFilterChange({
       ...props.filter,
-      dateRanges: newRanges.length > 0 ? newRanges : undefined,
+      dateRanges: newRanges,
     });
+  };
+
+  const updateCustomRangeEnd = (dateString: string) => {
+    if (!dateString) return;
+
+    const currentRanges = props.filter.dateRanges || [];
+    const customRange = getCustomRange();
+    if (!customRange) return;
+
+    // End date is inclusive - set to end of day
+    const endDate = new Date(dateString).setHours(23, 59, 59, 999);
+    const newRange: DateRange = { startDate: customRange.startDate, endDate };
+
+    const newRanges = currentRanges.map((range) =>
+      isPresetRange(range) ? range : newRange
+    );
+
+    props.onFilterChange({
+      ...props.filter,
+      dateRanges: newRanges,
+    });
+  };
+
+  // Get custom range dates as strings for inputs
+  const getCustomStartDateString = (): string => {
+    const customRange = getCustomRange();
+    if (!customRange) return '';
+
+    const date = new Date(customRange.startDate);
+    return date.toISOString().split('T')[0] || '';
+  };
+
+  const getCustomEndDateString = (): string => {
+    const customRange = getCustomRange();
+    if (!customRange) return '';
+
+    const date = new Date(customRange.endDate);
+    return date.toISOString().split('T')[0] || '';
   };
 
   // Toggle currency filter
@@ -268,54 +332,39 @@ export const EntriesFilter: Component<EntriesFilterProps> = (props) => {
               </label>
             )}
           </For>
+
+          {/* Custom Date Range */}
+          <label class="filter-checkbox">
+            <input
+              type="checkbox"
+              checked={isCustomRangeEnabled()}
+              onChange={toggleCustomRange}
+            />
+            <span>Custom Range</span>
+          </label>
         </div>
 
-        {/* Custom Date Range */}
-        <Show when={!showCustomDateRange()}>
-          <button
-            class="custom-date-btn"
-            onClick={() => setShowCustomDateRange(true)}
-            title="Add custom date range"
-          >
-            + Custom Range
-          </button>
-        </Show>
-
-        <Show when={showCustomDateRange()}>
+        <Show when={isCustomRangeEnabled()}>
           <div class="custom-date-range">
-            <input
-              type="date"
-              class="date-input"
-              value={customStartDate()}
-              onInput={(e) => setCustomStartDate(e.currentTarget.value)}
-              placeholder="Start date"
-            />
-            <input
-              type="date"
-              class="date-input"
-              value={customEndDate()}
-              onInput={(e) => setCustomEndDate(e.currentTarget.value)}
-              placeholder="End date"
-            />
-            <div class="custom-date-actions">
-              <button
-                class="apply-btn"
-                onClick={applyCustomDateRange}
-                disabled={!customStartDate() || !customEndDate()}
-              >
-                Apply
-              </button>
-              <button class="cancel-btn" onClick={() => setShowCustomDateRange(false)}>
-                Cancel
-              </button>
+            <div class="custom-date-field">
+              <label class="custom-date-label">Start</label>
+              <input
+                type="date"
+                class="date-input"
+                value={getCustomStartDateString()}
+                onInput={(e) => updateCustomRangeStart(e.currentTarget.value)}
+              />
+            </div>
+            <div class="custom-date-field">
+              <label class="custom-date-label">End</label>
+              <input
+                type="date"
+                class="date-input"
+                value={getCustomEndDateString()}
+                onInput={(e) => updateCustomRangeEnd(e.currentTarget.value)}
+              />
             </div>
           </div>
-        </Show>
-
-        <Show when={(props.filter.dateRanges?.length || 0) > DATE_PRESETS.length}>
-          <button class="clear-custom-btn" onClick={clearCustomDateRanges}>
-            Clear Custom Ranges
-          </button>
         </Show>
       </div>
 
