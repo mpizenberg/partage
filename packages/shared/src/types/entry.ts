@@ -71,3 +71,38 @@ export interface TransferEntry extends BaseEntry {
 }
 
 export type Entry = ExpenseEntry | TransferEntry;
+
+/**
+ * Entry filtering types
+ */
+
+export type EntryCategory = 'transfer' | ExpenseCategory;
+
+export interface DateRange {
+  startDate: number; // Unix timestamp
+  endDate: number; // Unix timestamp
+}
+
+export type DatePreset =
+  | 'today'
+  | 'yesterday'
+  | 'last7days'
+  | 'last30days'
+  | 'thisMonth'
+  | 'lastMonth'
+  | 'custom';
+
+export interface EntryFilter {
+  // Entries involving these people (AND logic)
+  personIds?: string[];
+
+  // Entries matching these categories (OR logic)
+  // Can include 'transfer' or any ExpenseCategory
+  categories?: EntryCategory[];
+
+  // Entries within these date ranges (OR logic)
+  dateRanges?: DateRange[];
+
+  // Entries with these original currencies (OR logic)
+  currencies?: string[];
+}

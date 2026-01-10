@@ -241,6 +241,7 @@ All filters combinable:
 - "Entries where Alice owes"
 
 **By Category**:
+- Transfer or one of the expenses categories
 - Select one or multiple
 - Applies to expenses only
 
@@ -251,13 +252,7 @@ All filters combinable:
 - Custom range (start/end date)
 
 **By Currency**:
-- Original currency
-- "Show only USD entries"
-
-**By Type**:
-- Expenses only
-- Transfers only
-- Both
+- Original currency ("Show only USD entries")
 
 #### Search
 - Search by description, notes or location

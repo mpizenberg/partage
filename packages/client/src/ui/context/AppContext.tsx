@@ -42,6 +42,7 @@ import type {
   JoinRequest,
   Activity,
   ActivityFilter,
+  EntryFilter,
 } from '@partage/shared';
 import { createJoinRequest as createJoinRequestUtil } from '../../domain/invitations/invite-manager';
 import { processJoinRequest as processJoinRequestUtil } from '../../domain/invitations/invite-manager';
@@ -103,6 +104,8 @@ interface AppContextValue {
   entries: Accessor<Entry[]>;
   showDeleted: Accessor<boolean>;
   setShowDeleted: (show: boolean) => void;
+  entryFilter: Accessor<EntryFilter>;
+  setEntryFilter: (filter: EntryFilter) => void;
   addExpense: (data: ExpenseFormData) => Promise<void>;
   addTransfer: (data: TransferFormData) => Promise<void>;
   modifyExpense: (originalId: string, data: ExpenseFormData) => Promise<void>;
@@ -162,6 +165,9 @@ export const AppProvider: Component<{ children: JSX.Element }> = (props) => {
 
   // Show deleted entries toggle
   const [showDeleted, setShowDeleted] = createSignal(false);
+
+  // Entry filter state
+  const [entryFilter, setEntryFilter] = createSignal<EntryFilter>({});
 
   // Entry editing state
   const [editingEntry, setEditingEntry] = createSignal<Entry | null>(null);
@@ -1620,6 +1626,8 @@ export const AppProvider: Component<{ children: JSX.Element }> = (props) => {
     entries,
     showDeleted,
     setShowDeleted,
+    entryFilter,
+    setEntryFilter,
     addExpense,
     addTransfer,
     modifyExpense,
