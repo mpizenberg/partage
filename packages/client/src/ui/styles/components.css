@@ -722,6 +722,12 @@
   color: var(--color-text);
 }
 
+.balance-card-actions {
+  margin-top: var(--space-md);
+  display: flex;
+  justify-content: center;
+}
+
 /* Settlement Plan */
 .settlement-plan {
   background-color: var(--color-bg-secondary);

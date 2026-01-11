@@ -6,10 +6,17 @@ import { Button } from '../common/Button'
 import type { TransferFormData, FormErrors } from './types'
 import type { TransferEntry } from '@partage/shared'
 
+export interface TransferInitialData {
+  from?: string
+  to?: string
+  amount?: number
+  currency?: string
+}
+
 export interface TransferFormProps {
   onSubmit: (data: TransferFormData) => Promise<void>
   onCancel: () => void
-  initialData?: TransferEntry
+  initialData?: TransferEntry | TransferInitialData
 }
 
 export const TransferForm: Component<TransferFormProps> = (props) => {
@@ -19,21 +26,33 @@ export const TransferForm: Component<TransferFormProps> = (props) => {
     return new Date(timestamp).toISOString().split('T')[0] || ''
   }
 
-  // Check if we're in edit mode
-  const isEditMode = () => !!props.initialData
+  // Check if we're in edit mode (initialData is a full TransferEntry with id)
+  const isEditMode = () => !!(props.initialData && 'id' in props.initialData)
+
+  // Helper to check if initialData has a specific field
+  const getInitialValue = <K extends keyof TransferEntry>(key: K, defaultValue: any): any => {
+    if (!props.initialData) return defaultValue
+    return (props.initialData as any)[key] ?? defaultValue
+  }
 
   // Initialize signals from initialData if present
-  const [amount, setAmount] = createSignal(props.initialData?.amount.toString() || '')
-  const [currency, setCurrency] = createSignal(props.initialData?.currency || activeGroup()?.defaultCurrency || 'USD')
+  const [amount, setAmount] = createSignal(
+    getInitialValue('amount', 0) ? getInitialValue('amount', '').toString() : ''
+  )
+  const [currency, setCurrency] = createSignal(
+    getInitialValue('currency', activeGroup()?.defaultCurrency || 'USD')
+  )
   const [defaultCurrencyAmount, setDefaultCurrencyAmount] = createSignal(
-    props.initialData?.defaultCurrencyAmount?.toString() || ''
+    getInitialValue('defaultCurrencyAmount', null)?.toString() || ''
   )
-  const [from, setFrom] = createSignal(props.initialData?.from || '')
-  const [to, setTo] = createSignal(props.initialData?.to || '')
+  const [from, setFrom] = createSignal(getInitialValue('from', ''))
+  const [to, setTo] = createSignal(getInitialValue('to', ''))
   const [date, setDate] = createSignal(
-    props.initialData ? formatDateForInput(props.initialData.date) : new Date().toISOString().split('T')[0]
+    props.initialData && 'date' in props.initialData
+      ? formatDateForInput(props.initialData.date)
+      : new Date().toISOString().split('T')[0]
   )
-  const [notes, setNotes] = createSignal(props.initialData?.notes || '')
+  const [notes, setNotes] = createSignal(getInitialValue('notes', ''))
   const [errors, setErrors] = createSignal<FormErrors>({})
   const [isSubmitting, setIsSubmitting] = createSignal(false)
 

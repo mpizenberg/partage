@@ -4,7 +4,7 @@ import { BalanceTab } from '../components/balance/BalanceTab'
 import { EntriesTab } from '../components/entries/EntriesTab'
 import { MembersTab } from '../components/members/MembersTab'
 import { ActivitiesTab } from '../components/activities/ActivitiesTab'
-import { AddEntryModal } from '../components/forms/AddEntryModal'
+import { AddEntryModal, type TransferInitialData } from '../components/forms/AddEntryModal'
 
 type TabType = 'balance' | 'entries' | 'members' | 'activities'
 
@@ -23,14 +23,31 @@ export const GroupViewScreen: Component = () => {
   } = useAppContext()
   const [activeTab, setActiveTab] = createSignal<TabType>('balance')
   const [showAddEntry, setShowAddEntry] = createSignal(false)
+  const [transferInitialData, setTransferInitialData] = createSignal<TransferInitialData | null>(null)
 
-  // Modal is open when adding new entry OR editing existing entry
-  const isModalOpen = () => showAddEntry() || editingEntry() !== null
+  // Modal is open when adding new entry OR editing existing entry OR quick settlement
+  const isModalOpen = () => showAddEntry() || editingEntry() !== null || transferInitialData() !== null
 
-  // Close modal and clear edit state
+  // Close modal and clear all states
   const handleModalClose = () => {
     setShowAddEntry(false)
     setEditingEntry(null)
+    setTransferInitialData(null)
+  }
+
+  // Handle "Pay [member]" button click from BalanceCard
+  const handlePayMember = (memberId: string, _memberName: string, amount: number) => {
+    const currentUserId = identity()?.publicKeyHash
+    if (!currentUserId) return
+
+    const currency = activeGroup()?.defaultCurrency || 'USD'
+
+    setTransferInitialData({
+      from: currentUserId,
+      to: memberId,
+      amount: amount,
+      currency: currency,
+    })
   }
 
   const handleBack = () => {
@@ -132,7 +149,7 @@ export const GroupViewScreen: Component = () => {
         <div class="container">
           <Switch>
             <Match when={activeTab() === 'balance'}>
-              <BalanceTab />
+              <BalanceTab onPayMember={handlePayMember} />
             </Match>
             <Match when={activeTab() === 'entries'}>
               <EntriesTab />
@@ -165,6 +182,7 @@ export const GroupViewScreen: Component = () => {
         editEntry={editingEntry()}
         onModifyExpense={modifyExpense}
         onModifyTransfer={modifyTransfer}
+        transferInitialData={transferInitialData()}
       />
     </div>
   )

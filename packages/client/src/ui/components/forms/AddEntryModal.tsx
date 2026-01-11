@@ -5,6 +5,13 @@ import { TransferForm } from './TransferForm'
 import type { ExpenseFormData, TransferFormData } from './types'
 import type { Entry, ExpenseEntry, TransferEntry } from '@partage/shared'
 
+export interface TransferInitialData {
+  from?: string
+  to?: string
+  amount?: number
+  currency?: string
+}
+
 export interface AddEntryModalProps {
   isOpen: boolean
   onClose: () => void
@@ -14,6 +21,8 @@ export interface AddEntryModalProps {
   editEntry?: Entry | null
   onModifyExpense?: (originalId: string, data: ExpenseFormData) => Promise<void>
   onModifyTransfer?: (originalId: string, data: TransferFormData) => Promise<void>
+  // Pre-fill transfer data (for quick settlement)
+  transferInitialData?: TransferInitialData | null
 }
 
 type TabType = 'expense' | 'transfer'
@@ -24,10 +33,12 @@ export const AddEntryModal: Component<AddEntryModalProps> = (props) => {
   // Check if we're in edit mode
   const isEditMode = () => !!props.editEntry
 
-  // Auto-select correct tab when editing
+  // Auto-select correct tab when editing or when transfer initial data is provided
   createEffect(() => {
     if (props.editEntry) {
       setActiveTab(props.editEntry.type as TabType)
+    } else if (props.transferInitialData) {
+      setActiveTab('transfer')
     }
   })
 
@@ -65,10 +76,25 @@ export const AddEntryModal: Component<AddEntryModalProps> = (props) => {
   }
 
   // Get transfer data for edit mode
-  const transferInitialData = () => {
+  const transferEditData = () => {
     if (props.editEntry?.type === 'transfer') {
       return props.editEntry as TransferEntry
     }
+    return undefined
+  }
+
+  // Combine edit data with pre-fill data for transfer form
+  const getTransferInitialData = () => {
+    // Edit mode takes priority
+    if (transferEditData()) {
+      return transferEditData()
+    }
+
+    // Otherwise use pre-fill data if available
+    if (props.transferInitialData) {
+      return props.transferInitialData
+    }
+
     return undefined
   }
 
@@ -82,8 +108,8 @@ export const AddEntryModal: Component<AddEntryModalProps> = (props) => {
           </button>
         </div>
 
-        {/* Hide tabs in edit mode - can't change entry type */}
-        <Show when={!isEditMode()}>
+        {/* Hide tabs in edit mode or when pre-filling transfer data - can't change entry type */}
+        <Show when={!isEditMode() && !props.transferInitialData}>
           <div class="modal-tabs">
             <button
               class={`modal-tab ${activeTab() === 'expense' ? 'active' : ''}`}
@@ -112,7 +138,7 @@ export const AddEntryModal: Component<AddEntryModalProps> = (props) => {
             <TransferForm
               onSubmit={handleTransferSubmit}
               onCancel={handleClose}
-              initialData={transferInitialData()}
+              initialData={getTransferInitialData()}
             />
           </Show>
         </div>

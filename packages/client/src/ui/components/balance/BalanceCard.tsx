@@ -1,11 +1,14 @@
 import { Component, Show } from 'solid-js'
+import { Button } from '../common/Button'
 import type { Balance } from '@partage/shared'
 
 export interface BalanceCardProps {
   balance: Balance
   memberName: string
+  memberId: string
   currency: string
   isCurrentUser?: boolean
+  onPayMember?: (memberId: string, memberName: string, amount: number) => void
 }
 
 export const BalanceCard: Component<BalanceCardProps> = (props) => {
@@ -35,6 +38,22 @@ export const BalanceCard: Component<BalanceCardProps> = (props) => {
     }
   }
 
+  const getBalanceSign = (): string => {
+    if (isSettled()) return ''
+    return props.balance.netBalance > 0 ? '+' : '-'
+  }
+
+  // Show "Pay" button for non-current user members with positive balance (owed money)
+  const showPayButton = (): boolean => {
+    return !props.isCurrentUser && props.balance.netBalance > 0.01 && !!props.onPayMember
+  }
+
+  const handlePayClick = () => {
+    if (props.onPayMember) {
+      props.onPayMember(props.memberId, props.memberName, Math.abs(props.balance.netBalance))
+    }
+  }
+
   return (
     <div class={`balance-card card ${props.isCurrentUser ? 'balance-card-current' : ''}`}>
       <div class="balance-card-header">
@@ -48,23 +67,21 @@ export const BalanceCard: Component<BalanceCardProps> = (props) => {
 
       <div class="balance-card-amount">
         <div class={`balance-net ${getBalanceClass()}`}>
-          {formatCurrency(Math.abs(props.balance.netBalance))}
+          {getBalanceSign()}{formatCurrency(Math.abs(props.balance.netBalance))}
         </div>
         <div class="balance-status text-muted">
           {getBalanceText()}
         </div>
       </div>
 
-      <div class="balance-card-details">
-        <div class="balance-detail">
-          <span class="balance-detail-label">Paid:</span>
-          <span class="balance-detail-value">{formatCurrency(props.balance.totalPaid)}</span>
+      {/* Pay button for members who are owed money */}
+      <Show when={showPayButton()}>
+        <div class="balance-card-actions">
+          <Button variant="primary" onClick={handlePayClick}>
+            Pay {props.memberName}
+          </Button>
         </div>
-        <div class="balance-detail">
-          <span class="balance-detail-label">Owed:</span>
-          <span class="balance-detail-value">{formatCurrency(props.balance.totalOwed)}</span>
-        </div>
-      </div>
+      </Show>
     </div>
   )
 }

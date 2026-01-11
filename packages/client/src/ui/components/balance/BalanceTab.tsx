@@ -3,7 +3,11 @@ import { useAppContext } from '../../context/AppContext'
 import { BalanceCard } from './BalanceCard'
 import { SettlementPlan } from './SettlementPlan'
 
-export const BalanceTab: Component = () => {
+export interface BalanceTabProps {
+  onPayMember?: (memberId: string, memberName: string, amount: number) => void
+}
+
+export const BalanceTab: Component<BalanceTabProps> = (props) => {
   const { balances, settlementPlan, activeGroup, members, identity, entries } = useAppContext()
 
   const getMemberName = (memberId: string): string => {
@@ -16,6 +20,10 @@ export const BalanceTab: Component = () => {
     const userId = identity()?.publicKeyHash
     if (!userId) return null
     return balances().get(userId)
+  })
+
+  const myUserId = createMemo(() => {
+    return identity()?.publicKeyHash || ''
   })
 
   const otherBalances = createMemo(() => {
@@ -52,6 +60,7 @@ export const BalanceTab: Component = () => {
             <BalanceCard
               balance={myBalance()!}
               memberName="You"
+              memberId={myUserId()}
               currency={currency()}
               isCurrentUser={true}
             />
@@ -68,7 +77,9 @@ export const BalanceTab: Component = () => {
                   <BalanceCard
                     balance={balance}
                     memberName={getMemberName(memberId)}
+                    memberId={memberId}
                     currency={currency()}
+                    onPayMember={props.onPayMember}
                   />
                 )}
               </For>
