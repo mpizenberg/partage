@@ -591,6 +591,7 @@ Progressive Web App (PWA) for modern browsers (Chrome, Firefox, Safari, Edge).
 
 ### Web App Tech Choices
 Using SolidJS, with Vite, making the app mobile first.
+Using Pnpm for package management.
 
 ## Appendix: Example Use Cases
 
