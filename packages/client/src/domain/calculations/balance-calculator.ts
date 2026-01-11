@@ -13,6 +13,7 @@ import type {
   DebtEdge,
   SettlementPlan,
   SettlementConstraint,
+  SettlementPreference,
 } from '@partage/shared';
 
 /**
@@ -169,8 +170,18 @@ function processTransfer(transfer: TransferEntry, amount: number, balances: Map<
 /**
  * Build a debt graph from balances
  * Returns edges representing who owes whom
+ * Optionally uses settlement preferences to prioritize certain payment routes
+ *
+ * Algorithm:
+ * 1. First pass: Process debtors with preferences, matching to preferred creditors
+ * 2. Second pass: Process remaining debts with greedy algorithm (largest first)
+ *
+ * This ensures preferences are honored before optimizing for transaction count.
  */
-export function buildDebtGraph(balances: Map<string, Balance>): DebtEdge[] {
+export function buildDebtGraph(
+  balances: Map<string, Balance>,
+  preferences: SettlementPreference[] = []
+): DebtEdge[] {
   const edges: DebtEdge[] = [];
 
   // Separate creditors (owed money) and debtors (owe money)
@@ -187,31 +198,74 @@ export function buildDebtGraph(balances: Map<string, Balance>): DebtEdge[] {
     }
   });
 
-  // Sort for consistent results
+  // Build preference map for quick lookup
+  const preferenceMap = new Map<string, string[]>();
+  preferences.forEach((pref) => {
+    preferenceMap.set(pref.userId, pref.preferredRecipients);
+  });
+
+  // Separate debtors into those with preferences and those without
+  const debtorsWithPreferences = debtors.filter((d) => {
+    const prefs = preferenceMap.get(d.memberId);
+    return prefs && prefs.length > 0;
+  });
+  const debtorsWithoutPreferences = debtors.filter((d) => {
+    const prefs = preferenceMap.get(d.memberId);
+    return !prefs || prefs.length === 0;
+  });
+
+  // FIRST PASS: Process debtors with preferences
+  // Sort by amount (smallest first) so small preferred payments happen first
+  debtorsWithPreferences.sort((a, b) => a.amount - b.amount);
+
+  for (const debtor of debtorsWithPreferences) {
+    const preferredRecipients = preferenceMap.get(debtor.memberId) || [];
+
+    // Try preferred creditors in order
+    for (const preferredId of preferredRecipients) {
+      if (debtor.amount < 0.01) break;
+
+      const creditor = creditors.find((c) => c.memberId === preferredId && c.amount > 0.01);
+      if (!creditor) continue;
+
+      const amount = Math.min(debtor.amount, creditor.amount);
+      edges.push({
+        from: debtor.memberId,
+        to: creditor.memberId,
+        amount: Math.round(amount * 100) / 100,
+      });
+
+      debtor.amount -= amount;
+      creditor.amount -= amount;
+    }
+  }
+
+  // SECOND PASS: Process all remaining debts with greedy algorithm
+  // Combine remaining debt from preferred debtors + all non-preferred debtors
+  const remainingDebtors = [
+    ...debtorsWithPreferences.filter((d) => d.amount >= 0.01),
+    ...debtorsWithoutPreferences,
+  ];
+
+  // Sort by amount (largest first) for greedy optimization
+  remainingDebtors.sort((a, b) => b.amount - a.amount);
   creditors.sort((a, b) => b.amount - a.amount);
-  debtors.sort((a, b) => b.amount - a.amount);
 
-  // Use greedy algorithm to match debtors to creditors
-  let i = 0;
-  let j = 0;
+  for (const debtor of remainingDebtors) {
+    for (const creditor of creditors) {
+      if (debtor.amount < 0.01) break;
+      if (creditor.amount < 0.01) continue;
 
-  while (i < debtors.length && j < creditors.length) {
-    const debtor = debtors[i]!;
-    const creditor = creditors[j]!;
+      const amount = Math.min(debtor.amount, creditor.amount);
+      edges.push({
+        from: debtor.memberId,
+        to: creditor.memberId,
+        amount: Math.round(amount * 100) / 100,
+      });
 
-    const amount = Math.min(debtor.amount, creditor.amount);
-
-    edges.push({
-      from: debtor.memberId,
-      to: creditor.memberId,
-      amount: Math.round(amount * 100) / 100, // Round to 2 decimals
-    });
-
-    debtor.amount -= amount;
-    creditor.amount -= amount;
-
-    if (debtor.amount < 0.01) i++;
-    if (creditor.amount < 0.01) j++;
+      debtor.amount -= amount;
+      creditor.amount -= amount;
+    }
   }
 
   return edges;
@@ -220,12 +274,14 @@ export function buildDebtGraph(balances: Map<string, Balance>): DebtEdge[] {
 /**
  * Generate an optimized settlement plan
  * Uses a greedy algorithm to minimize number of transactions
+ * Optionally uses settlement preferences to prioritize payment routes
  */
 export function generateSettlementPlan(
   balances: Map<string, Balance>,
-  constraints: SettlementConstraint[] = []
+  constraints: SettlementConstraint[] = [],
+  preferences: SettlementPreference[] = []
 ): SettlementPlan {
-  const debtGraph = buildDebtGraph(balances);
+  const debtGraph = buildDebtGraph(balances, preferences);
 
   // Apply constraints (simplified - could be more sophisticated)
   const filteredEdges = applyConstraints(debtGraph, constraints);

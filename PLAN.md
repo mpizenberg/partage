@@ -340,7 +340,7 @@ Set up a monorepo structure for a fully encrypted, local-first bill-splitting PW
 3. ✅ Activity feed
 4. ✅ Filtering and search
 5. ✅ Multi-currency support with exchange rates
-6. Settlement suggestions (debt optimization)
+6. ✅ Settlement suggestions (debt optimization)
 7. Export functionality (JSON)
 8. PWA service worker for offline
 

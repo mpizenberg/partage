@@ -4,9 +4,10 @@ import { BalanceTab } from '../components/balance/BalanceTab'
 import { EntriesTab } from '../components/entries/EntriesTab'
 import { MembersTab } from '../components/members/MembersTab'
 import { ActivitiesTab } from '../components/activities/ActivitiesTab'
+import { SettleTab } from '../components/settle/SettleTab'
 import { AddEntryModal, type TransferInitialData } from '../components/forms/AddEntryModal'
 
-type TabType = 'balance' | 'entries' | 'members' | 'activities'
+type TabType = 'balance' | 'entries' | 'settle' | 'members' | 'activities'
 
 export const GroupViewScreen: Component = () => {
   const {
@@ -129,6 +130,12 @@ export const GroupViewScreen: Component = () => {
               Entries
             </button>
             <button
+              class={`tab ${activeTab() === 'settle' ? 'active' : ''}`}
+              onClick={() => setActiveTab('settle')}
+            >
+              Settle
+            </button>
+            <button
               class={`tab ${activeTab() === 'members' ? 'active' : ''}`}
               onClick={() => setActiveTab('members')}
             >
@@ -153,6 +160,9 @@ export const GroupViewScreen: Component = () => {
             </Match>
             <Match when={activeTab() === 'entries'}>
               <EntriesTab />
+            </Match>
+            <Match when={activeTab() === 'settle'}>
+              <SettleTab />
             </Match>
             <Match when={activeTab() === 'members'}>
               <MembersTab />

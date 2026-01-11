@@ -100,6 +100,7 @@ export class LoroEntryStore {
   private loro: Loro;
   private entries: LoroMap;
   private members: LoroMap;
+  private settlementPreferences: LoroMap;
 
   constructor(peerId?: string) {
     // Create Loro with a peer ID if provided (important for multi-device sync)
@@ -112,6 +113,7 @@ export class LoroEntryStore {
     }
     this.entries = this.loro.getMap('entries');
     this.members = this.loro.getMap('members');
+    this.settlementPreferences = this.loro.getMap('settlementPreferences');
   }
 
   /**
@@ -480,6 +482,52 @@ export class LoroEntryStore {
   }
 
   /**
+   * Set settlement preference for a user
+   * Latest preference simply overrides any previous ones
+   * To delete a preference, pass an empty preferredRecipients array
+   */
+  setSettlementPreference(userId: string, preferredRecipients: string[]): void {
+    this.transact(() => {
+      if (preferredRecipients.length === 0) {
+        // Delete the preference by removing from map
+        this.settlementPreferences.delete(userId);
+      } else {
+        // Store as a Loro list container
+        const prefList = this.settlementPreferences.setContainer(userId, new LoroMap()) as LoroMap;
+        // Store the array as a JSON string for simplicity
+        // (Loro lists can be complex, and we don't need CRDT list operations for preferences)
+        prefList.set('preferredRecipients', JSON.stringify(preferredRecipients));
+        prefList.set('updatedAt', Date.now());
+      }
+    });
+  }
+
+  /**
+   * Get all settlement preferences from the CRDT
+   */
+  getSettlementPreferences(): Array<{ userId: string; preferredRecipients: string[] }> {
+    const preferences: Array<{ userId: string; preferredRecipients: string[] }> = [];
+    const userIds = this.settlementPreferences.keys();
+
+    for (const userId of userIds) {
+      const prefMap = this.settlementPreferences.get(userId);
+      if (!prefMap || !(prefMap instanceof LoroMap)) continue;
+
+      const recipientsJson = prefMap.get('preferredRecipients') as string | undefined;
+      if (!recipientsJson) continue;
+
+      try {
+        const preferredRecipients = JSON.parse(recipientsJson) as string[];
+        preferences.push({ userId, preferredRecipients });
+      } catch (err) {
+        console.error(`Failed to parse settlement preference for ${userId}:`, err);
+      }
+    }
+
+    return preferences;
+  }
+
+  /**
    * Export Loro snapshot as bytes (for storage/sync)
    */
   exportSnapshot(): Uint8Array {
@@ -493,6 +541,7 @@ export class LoroEntryStore {
     this.loro.import(snapshot);
     this.entries = this.loro.getMap('entries');
     this.members = this.loro.getMap('members');
+    this.settlementPreferences = this.loro.getMap('settlementPreferences');
   }
 
   /**

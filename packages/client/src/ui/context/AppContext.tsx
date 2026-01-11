@@ -139,6 +139,10 @@ interface AppContextValue {
   manualSync: () => Promise<void>;
   toggleAutoSync: () => void;
 
+  // Settlement preferences
+  updateSettlementPreferences: (userId: string, preferredRecipients: string[]) => Promise<void>;
+  preferencesVersion: Accessor<number>; // Version counter to force reactivity
+
   // UI state
   isLoading: Accessor<boolean>;
   error: Accessor<string | null>;
@@ -164,6 +168,7 @@ export const AppProvider: Component<{ children: JSX.Element }> = (props) => {
   // Derived state
   const [entries, setEntries] = createSignal<Entry[]>([]);
   const [balances, setBalances] = createSignal<Map<string, Balance>>(new Map());
+  const [preferencesVersion, setPreferencesVersion] = createSignal(0);
 
   // Show deleted entries toggle
   const [showDeleted, setShowDeleted] = createSignal(false);
@@ -207,13 +212,17 @@ export const AppProvider: Component<{ children: JSX.Element }> = (props) => {
     return membersList;
   });
 
-  // Settlement plan (memoized)
+  // Settlement plan (memoized) - uses preferences from Loro
   const settlementPlan = createMemo(() => {
     const currentBalances = balances();
     if (currentBalances.size === 0) {
       return { transactions: [], totalTransactions: 0 };
     }
-    return generateSettlementPlan(currentBalances);
+    const store = loroStore();
+    // Read version to ensure recalculation when preferences change
+    preferencesVersion();
+    const preferences = store?.getSettlementPreferences() || [];
+    return generateSettlementPlan(currentBalances, [], preferences);
   });
 
   // Filtered activities (memoized)
@@ -500,6 +509,11 @@ export const AppProvider: Component<{ children: JSX.Element }> = (props) => {
             const refreshedGroup = { ...group, members: updatedMembers };
             await db.saveGroup(refreshedGroup);
             setActiveGroup(refreshedGroup);
+
+            // IMPORTANT: Trigger reactive update for settlement preferences and other Loro data
+            // Increment version counter to force settlement plan recalculation
+            setPreferencesVersion((v) => v + 1);
+            setLoroStore(store);
           }
         },
       });
@@ -1609,6 +1623,67 @@ export const AppProvider: Component<{ children: JSX.Element }> = (props) => {
 
   const clearError = () => setError(null);
 
+  // Update settlement preferences for a user (uses Loro for sync)
+  const updateSettlementPreferences = async (userId: string, preferredRecipients: string[]) => {
+    try {
+      setIsLoading(true);
+      setError(null);
+
+      const currentIdentity = identity();
+      const group = activeGroup();
+      const store = loroStore();
+      const manager = syncManager();
+
+      if (!currentIdentity || !group || !store) {
+        throw new Error('Invalid state: missing identity, group, or store');
+      }
+
+      // Get version BEFORE updating preference
+      const versionBefore = store.getVersion();
+
+      // Update preference in Loro
+      store.setSettlementPreference(userId, preferredRecipients);
+
+      // IMPORTANT: Trigger reactive update IMMEDIATELY after Loro modification
+      // Increment version counter to force settlement plan recalculation
+      setPreferencesVersion((v) => v + 1);
+      setLoroStore(store);
+
+      console.log('[AppContext] Updated settlement preferences for user:', userId);
+
+      // Sync to server (async, happens in background)
+      if (manager && autoSyncEnabled()) {
+        try {
+          // Export incremental update (changes since versionBefore)
+          const updateBytes = store.exportFrom(versionBefore);
+
+          // Push to server
+          await manager.pushUpdate(
+            group.id,
+            currentIdentity.publicKeyHash,
+            updateBytes,
+            versionBefore
+          );
+
+          // Update sync state
+          setSyncState(manager.getState());
+
+          console.log('[AppContext] Settlement preference synced to server');
+        } catch (syncError) {
+          console.warn('[AppContext] Failed to sync preference, queued for later:', syncError);
+        }
+      }
+
+      // Save snapshot to IndexedDB (async, happens in background)
+      await db.saveLoroSnapshot(group.id, store.exportSnapshot());
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to update preferences');
+      throw err;
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   const value: AppContextValue = {
     db,
     loroStore,
@@ -1646,6 +1721,8 @@ export const AppProvider: Component<{ children: JSX.Element }> = (props) => {
     syncState,
     manualSync,
     toggleAutoSync,
+    updateSettlementPreferences,
+    preferencesVersion,
     isLoading,
     error,
     clearError,

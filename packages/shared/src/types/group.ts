@@ -4,6 +4,15 @@
 
 import type { Member } from './member';
 
+/**
+ * Settlement preferences for a user
+ * Lists members this user prefers to send money to (in priority order)
+ */
+export interface SettlementPreference {
+  userId: string; // The user who has this preference
+  preferredRecipients: string[]; // Member IDs in order of preference
+}
+
 export interface Group {
   id: string;
   name: string;
