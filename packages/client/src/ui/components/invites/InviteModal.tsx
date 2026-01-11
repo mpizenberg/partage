@@ -3,9 +3,10 @@
  * Allows group members to generate and share invite links
  */
 
-import { Component, createSignal, Show } from 'solid-js';
+import { Component, createSignal, Show, createEffect } from 'solid-js';
 import { Modal } from '../common/Modal';
 import { Button } from '../common/Button';
+import QRCode from 'qrcode';
 
 export interface InviteModalProps {
   isOpen: boolean;
@@ -18,6 +19,26 @@ export interface InviteModalProps {
 export const InviteModal: Component<InviteModalProps> = (props) => {
   const [copied, setCopied] = createSignal(false);
   const [generating, setGenerating] = createSignal(false);
+  let canvasRef: HTMLCanvasElement | undefined;
+
+  // Generate QR code when invite link changes
+  createEffect(() => {
+    const link = props.inviteLink;
+    if (link && canvasRef) {
+      QRCode.toCanvas(canvasRef, link, {
+        width: 256,
+        margin: 2,
+        color: {
+          dark: '#000000',
+          light: '#FFFFFF'
+        }
+      }, (error) => {
+        if (error) {
+          console.error('QR Code generation failed:', error);
+        }
+      });
+    }
+  });
 
   const handleGenerateLink = async () => {
     setGenerating(true);
@@ -64,15 +85,10 @@ export const InviteModal: Component<InviteModalProps> = (props) => {
   return (
     <Modal isOpen={props.isOpen} onClose={props.onClose} title="Invite Members">
       <div class="invite-modal">
-        <p class="invite-description">
-          Share this link with people you want to add to <strong>{props.groupName}</strong>.
-        </p>
-
         <Show
           when={props.inviteLink}
           fallback={
             <div class="invite-generate">
-              <p class="text-secondary">Generate an invite link to share with others.</p>
               <Button
                 variant="primary"
                 onClick={handleGenerateLink}
@@ -85,6 +101,13 @@ export const InviteModal: Component<InviteModalProps> = (props) => {
           }
         >
           <div class="invite-link-container">
+            <div class="invite-qr-code">
+              <canvas
+                ref={canvasRef}
+                style="display: block; margin: 0 auto; max-width: 100%;"
+              />
+            </div>
+
             <div class="invite-link-box">
               <code class="invite-link">{props.inviteLink}</code>
             </div>
@@ -102,13 +125,6 @@ export const InviteModal: Component<InviteModalProps> = (props) => {
             </div>
           </div>
         </Show>
-
-        <div class="invite-info">
-          <p class="text-secondary text-small">
-            Anyone with this link can request to join your group. The link doesn't expire, but you
-            can revoke it at any time.
-          </p>
-        </div>
       </div>
     </Modal>
   );

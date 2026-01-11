@@ -1,21 +1,30 @@
-import { Component, Show, createSignal, createMemo } from 'solid-js'
-import { useAppContext } from '../../context/AppContext'
-import { EntryList } from './EntryList'
-import { EntriesFilter } from './EntriesFilter'
-import { filterEntries, getUniqueCurrencies, getUniqueCategories } from '../../../domain/calculations/entry-filter'
+import { Component, Show, createSignal, createMemo } from 'solid-js';
+import { useAppContext } from '../../context/AppContext';
+import { EntryList } from './EntryList';
+import { EntriesFilter } from './EntriesFilter';
+import { Button } from '../common/Button';
+import {
+  filterEntries,
+  getUniqueCurrencies,
+  getUniqueCategories,
+} from '../../../domain/calculations/entry-filter';
 
-export const EntriesTab: Component = () => {
-  const { entries, showDeleted, setShowDeleted, entryFilter, setEntryFilter } = useAppContext()
-  const [showFilters, setShowFilters] = createSignal(false)
+export interface EntriesTabProps {
+  onAddEntry?: () => void;
+}
+
+export const EntriesTab: Component<EntriesTabProps> = (props) => {
+  const { entries, showDeleted, setShowDeleted, entryFilter, setEntryFilter } = useAppContext();
+  const [showFilters, setShowFilters] = createSignal(false);
 
   const handleToggleDeleted = () => {
-    setShowDeleted(!showDeleted())
-  }
+    setShowDeleted(!showDeleted());
+  };
 
   // Filter entries based on current filter
   const filteredEntries = createMemo(() => {
-    const currentEntries = entries()
-    const currentFilter = entryFilter()
+    const currentEntries = entries();
+    const currentFilter = entryFilter();
 
     // If no filters are applied, return all entries
     if (
@@ -24,41 +33,45 @@ export const EntriesTab: Component = () => {
       !currentFilter.dateRanges?.length &&
       !currentFilter.currencies?.length
     ) {
-      return currentEntries
+      return currentEntries;
     }
 
-    return filterEntries(currentEntries, currentFilter)
-  })
+    return filterEntries(currentEntries, currentFilter);
+  });
 
   // Get available categories and currencies from all entries
-  const availableCategories = createMemo(() => getUniqueCategories(entries()))
-  const availableCurrencies = createMemo(() => getUniqueCurrencies(entries()))
+  const availableCategories = createMemo(() => getUniqueCategories(entries()));
+  const availableCurrencies = createMemo(() => getUniqueCurrencies(entries()));
 
   // Check if any filters are active
   const hasActiveFilters = createMemo(() => {
-    const filter = entryFilter()
+    const filter = entryFilter();
     return Boolean(
       (filter.personIds && filter.personIds.length > 0) ||
       (filter.categories && filter.categories.length > 0) ||
       (filter.dateRanges && filter.dateRanges.length > 0) ||
       (filter.currencies && filter.currencies.length > 0)
-    )
-  })
+    );
+  });
 
   const clearFilters = () => {
-    setEntryFilter({})
-  }
+    setEntryFilter({});
+  };
 
   return (
     <div class="entries-tab">
+      {/* Add Entry Button */}
+      <Show when={props.onAddEntry}>
+        <div style="text-align: center; margin-bottom: var(--space-md);">
+          <Button variant="primary" onClick={props.onAddEntry}>
+            + Add new entry
+          </Button>
+        </div>
+      </Show>
       <div class="entries-header">
         <div class="entries-controls">
           <label class="show-deleted-toggle">
-            <input
-              type="checkbox"
-              checked={showDeleted()}
-              onChange={handleToggleDeleted}
-            />
+            <input type="checkbox" checked={showDeleted()} onChange={handleToggleDeleted} />
             <span>Show deleted entries</span>
           </label>
 
@@ -108,5 +121,5 @@ export const EntriesTab: Component = () => {
         <EntryList entries={filteredEntries()} />
       </Show>
     </div>
-  )
-}
+  );
+};

@@ -121,31 +121,36 @@ export const GroupViewScreen: Component = () => {
               class={`tab ${activeTab() === 'balance' ? 'active' : ''}`}
               onClick={() => setActiveTab('balance')}
             >
-              Balance
+              <span class="tab-icon">⚖️</span>
+              <span>Balance</span>
             </button>
             <button
               class={`tab ${activeTab() === 'entries' ? 'active' : ''}`}
               onClick={() => setActiveTab('entries')}
             >
-              Entries
+              <span class="tab-icon">📒</span>
+              <span>Entries</span>
             </button>
             <button
               class={`tab ${activeTab() === 'settle' ? 'active' : ''}`}
               onClick={() => setActiveTab('settle')}
             >
-              Settle
+              <span class="tab-icon">✅</span>
+              <span>Settle</span>
             </button>
             <button
               class={`tab ${activeTab() === 'members' ? 'active' : ''}`}
               onClick={() => setActiveTab('members')}
             >
-              Members
+              <span class="tab-icon">👥</span>
+              <span>Members</span>
             </button>
             <button
               class={`tab ${activeTab() === 'activities' ? 'active' : ''}`}
               onClick={() => setActiveTab('activities')}
             >
-              Activity
+              <span class="tab-icon">⚡</span>
+              <span>Activity</span>
             </button>
           </div>
         </div>
@@ -159,7 +164,7 @@ export const GroupViewScreen: Component = () => {
               <BalanceTab onPayMember={handlePayMember} />
             </Match>
             <Match when={activeTab() === 'entries'}>
-              <EntriesTab />
+              <EntriesTab onAddEntry={() => setShowAddEntry(true)} />
             </Match>
             <Match when={activeTab() === 'settle'}>
               <SettleTab />

@@ -3,7 +3,7 @@
  * Shows real members (with public keys) vs virtual members (name only)
  */
 
-import { Component, For, Show } from 'solid-js';
+import { Component, For, Show, createSignal, createMemo } from 'solid-js';
 import type { Member } from '@partage/shared';
 
 export interface MemberListProps {
@@ -12,27 +12,20 @@ export interface MemberListProps {
   showStatus?: boolean;
 }
 
+type SortMode = 'name' | 'date';
+
 export const MemberList: Component<MemberListProps> = (props) => {
-  const getMemberBadges = (member: Member) => {
-    const badges: string[] = [];
+  const [sortMode, setSortMode] = createSignal<SortMode>('name');
 
-    // Current user badge
-    if (props.currentUserPublicKeyHash && member.id === props.currentUserPublicKeyHash) {
-      badges.push('You');
+  const sortedMembers = createMemo(() => {
+    const membersCopy = [...props.members];
+    if (sortMode() === 'name') {
+      return membersCopy.sort((a, b) => a.name.localeCompare(b.name));
+    } else {
+      // Sort by date joined (newer first)
+      return membersCopy.sort((a, b) => b.joinedAt - a.joinedAt);
     }
-
-    // Virtual member badge
-    if (member.isVirtual) {
-      badges.push('Virtual');
-    }
-
-    // Status badge (if member has left)
-    if (props.showStatus && member.status === 'departed') {
-      badges.push('Left');
-    }
-
-    return badges;
-  };
+  });
 
   const formatJoinedDate = (timestamp: number) => {
     const date = new Date(timestamp);
@@ -43,73 +36,77 @@ export const MemberList: Component<MemberListProps> = (props) => {
     });
   };
 
+  const truncateId = (id: string): string => {
+    return id.length > 16 ? id.substring(0, 16) + '...' : id;
+  };
+
+  const getAddedByName = (addedById: string | undefined): string => {
+    if (!addedById) return 'Unknown';
+    const member = props.members.find(m => m.id === addedById);
+    return member?.name || 'Unknown';
+  };
+
   return (
-    <div class="member-list">
-      <For each={props.members}>
-        {(member) => (
-          <div
-            class="member-item"
-            classList={{
-              'member-current': member.id === props.currentUserPublicKeyHash,
-              'member-departed': member.status === 'departed',
-            }}
+    <div>
+      {/* Sort Toggle */}
+      <div class="member-list-controls">
+        <div class="sort-toggle">
+          <button
+            class={`sort-toggle-btn ${sortMode() === 'name' ? 'active' : ''}`}
+            onClick={() => setSortMode('name')}
           >
-            <div class="member-avatar">
-              <div class="avatar-circle">
-                {member.name.charAt(0).toUpperCase()}
-              </div>
-            </div>
+            By Name
+          </button>
+          <button
+            class={`sort-toggle-btn ${sortMode() === 'date' ? 'active' : ''}`}
+            onClick={() => setSortMode('date')}
+          >
+            By Date Joined
+          </button>
+        </div>
+      </div>
 
-            <div class="member-info">
-              <div class="member-name-row">
-                <span class="member-name">{member.name}</span>
-                <Show when={getMemberBadges(member).length > 0}>
-                  <div class="member-badges">
-                    <For each={getMemberBadges(member)}>
-                      {(badge) => (
-                        <span
-                          class="badge"
-                          classList={{
-                            'badge-primary': badge === 'You',
-                            'badge-secondary': badge === 'Virtual',
-                            'badge-danger': badge === 'Left',
-                          }}
-                        >
-                          {badge}
-                        </span>
-                      )}
-                    </For>
+      <div class="member-list">
+        <For each={sortedMembers()}>
+          {(member) => (
+            <div
+              class="member-item"
+              classList={{
+                'member-current': member.id === props.currentUserPublicKeyHash,
+                'member-departed': member.status === 'departed',
+              }}
+            >
+              <div class="member-info">
+                <div class="member-row-1">
+                  <div class="member-name-wrapper">
+                    <span class="member-name">{member.name}</span>
+                    <Show when={member.id === props.currentUserPublicKeyHash}>
+                      <span class="member-badge">You</span>
+                    </Show>
+                    <Show when={member.isVirtual}>
+                      <span class="member-badge-virtual-small">Virtual</span>
+                    </Show>
                   </div>
-                </Show>
-              </div>
+                  <span class="member-joined-date">{formatJoinedDate(member.joinedAt)}</span>
+                </div>
 
-              <div class="member-details">
-                <p class="text-secondary text-small">
-                  Joined {formatJoinedDate(member.joinedAt)}
-                </p>
-
-                <Show when={member.leftAt}>
-                  <p class="text-secondary text-small">
-                    Left {formatJoinedDate(member.leftAt!)}
-                  </p>
-                </Show>
-
-                <Show when={!member.isVirtual && member.publicKey}>
-                  <p class="text-secondary text-small">
-                    ID: <code class="member-id">{member.id.slice(0, 12)}...</code>
-                  </p>
-                </Show>
-
-                <Show when={member.isVirtual && member.addedBy}>
-                  <p class="text-secondary text-small">
-                    Added by: <code class="member-id">{member.addedBy!.slice(0, 12)}...</code>
-                  </p>
-                </Show>
+                <div class="member-row-2">
+                  <Show
+                    when={!member.isVirtual && member.id}
+                    fallback={
+                      <span class="member-id-text">
+                        Added by: {getAddedByName(member.addedBy)} ({member.addedBy ? truncateId(member.addedBy) : 'Unknown'})
+                      </span>
+                    }
+                  >
+                    <span class="member-id-text">ID: {member.id}</span>
+                  </Show>
+                </div>
               </div>
             </div>
-          </div>
-        )}
-      </For>
+          )}
+        </For>
+      </div>
     </div>
   );
 };

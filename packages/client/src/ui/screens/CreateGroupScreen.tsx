@@ -41,13 +41,14 @@ export const CreateGroupScreen: Component<CreateGroupScreenProps> = (props) => {
   // Form state
   const [groupName, setGroupName] = createSignal('')
   const [currency, setCurrency] = createSignal('USD')
+  const [myName, setMyName] = createSignal('You')
   const [members, setMembers] = createSignal<Member[]>([])
   const [validationError, setValidationError] = createSignal<string | null>(null)
 
   // Initialize with current user
   const currentUser = (): Member => ({
     id: identity()?.publicKeyHash || '',
-    name: 'You',
+    name: myName(),
     publicKey: identity()?.publicKey || '',
     joinedAt: Date.now(),
     status: 'active',
@@ -143,6 +144,24 @@ export const CreateGroupScreen: Component<CreateGroupScreenProps> = (props) => {
               />
             </div>
 
+            {/* My name */}
+            <div class="form-group">
+              <label class="form-label" for="my-name">
+                Your Name *
+              </label>
+              <Input
+                id="my-name"
+                type="text"
+                value={myName()}
+                placeholder="e.g., Alice"
+                onInput={(e) => {
+                  setMyName(e.currentTarget.value)
+                  setValidationError(null)
+                }}
+                required
+              />
+            </div>
+
             {/* Currency */}
             <div class="form-group">
               <label class="form-label" for="currency">
@@ -164,7 +183,7 @@ export const CreateGroupScreen: Component<CreateGroupScreenProps> = (props) => {
           {/* Members */}
           <div class="card mb-lg">
             <MemberManager
-              currentUserName="You"
+              currentUserName={myName()}
               currentUserId={identity()?.publicKeyHash || ''}
               members={allMembers()}
               onAddMember={handleAddMember}

@@ -3,6 +3,7 @@ import { useAppContext } from '../../context/AppContext'
 import { MemberList } from './MemberList'
 import { PendingRequestsList } from '../invites/PendingRequestsList'
 import { InviteModal } from '../invites/InviteModal'
+import { Button } from '../common/Button'
 
 export const MembersTab: Component = () => {
   const { members, pendingJoinRequests, activeGroup, createInvitation, approveJoinRequest } = useAppContext()
@@ -34,10 +35,10 @@ export const MembersTab: Component = () => {
   return (
     <div class="members-tab">
       {/* Invite Button */}
-      <div class="members-section">
-        <button class="btn btn-primary btn-full-width" onClick={handleInvite}>
+      <div class="members-section" style="text-align: center;">
+        <Button variant="primary" onClick={handleInvite}>
           Invite Members
-        </button>
+        </Button>
       </div>
 
       {/* Pending Join Requests */}

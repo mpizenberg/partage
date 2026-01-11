@@ -116,12 +116,12 @@ export const JoinGroupScreen: Component = () => {
   };
 
   return (
-    <div class="screen">
-      <div class="screen-header">
-        <h1 class="screen-title">Join Group</h1>
+    <div class="container" style="padding-top: var(--space-xl); max-width: 500px; margin: 0 auto;">
+      <div style="margin-bottom: var(--space-xl);">
+        <h1 style="font-size: var(--font-size-2xl); font-weight: var(--font-weight-bold); margin-bottom: var(--space-sm);">Join Group</h1>
       </div>
 
-      <div class="screen-content">
+      <div>
         <Show
           when={status() !== 'loading'}
           fallback={
@@ -141,10 +141,12 @@ export const JoinGroupScreen: Component = () => {
           </Show>
 
           <Show when={status() === 'ready'}>
-            <div class="join-group-form">
-              <div class="group-info">
-                <h2 class="group-name">{linkData()?.groupName}</h2>
-                <p class="text-secondary">You've been invited to join this group!</p>
+            <div class="card" style="padding: var(--space-lg);">
+              <div style="margin-bottom: var(--space-lg); text-align: center;">
+                <h2 style="font-size: var(--font-size-xl); font-weight: var(--font-weight-bold); color: var(--color-text); margin-bottom: var(--space-sm);">
+                  {linkData()?.groupName}
+                </h2>
+                <p style="color: var(--color-text-light);">You've been invited to join this group!</p>
               </div>
 
               <form onSubmit={handleJoinGroup}>
@@ -163,7 +165,7 @@ export const JoinGroupScreen: Component = () => {
                   <p class="error-message">{error()}</p>
                 </Show>
 
-                <div class="form-actions">
+                <div style="display: flex; flex-direction: column; gap: var(--space-sm); margin-top: var(--space-lg);">
                   <Button
                     type="submit"
                     variant="primary"

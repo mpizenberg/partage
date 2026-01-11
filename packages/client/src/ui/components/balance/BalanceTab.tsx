@@ -16,23 +16,24 @@ export const BalanceTab: Component<BalanceTabProps> = (props) => {
     return member?.name || 'Unknown'
   }
 
-  const myBalance = createMemo(() => {
-    const userId = identity()?.publicKeyHash
-    if (!userId) return null
-    return balances().get(userId)
-  })
-
   const myUserId = createMemo(() => {
     return identity()?.publicKeyHash || ''
   })
 
-  const otherBalances = createMemo(() => {
+  const allBalances = createMemo(() => {
     const userId = identity()?.publicKeyHash
     if (!userId) return []
 
-    return Array.from(balances().entries())
+    // Put current user first, then others sorted by absolute balance
+    const userBalance = balances().get(userId)
+    const otherBalances = Array.from(balances().entries())
       .filter(([memberId]) => memberId !== userId)
       .sort((a, b) => Math.abs(b[1].netBalance) - Math.abs(a[1].netBalance))
+
+    if (userBalance) {
+      return [[userId, userBalance] as [string, typeof userBalance], ...otherBalances]
+    }
+    return otherBalances
   })
 
   const currency = () => activeGroup()?.defaultCurrency || 'USD'
@@ -53,39 +54,23 @@ export const BalanceTab: Component<BalanceTabProps> = (props) => {
           </div>
         }
       >
-        {/* Your Balance */}
-        <Show when={myBalance()}>
-          <div class="balance-section">
-            <h2 class="balance-section-title">Your Balance</h2>
-            <BalanceCard
-              balance={myBalance()!}
-              memberName="You"
-              memberId={myUserId()}
-              currency={currency()}
-              isCurrentUser={true}
-            />
+        {/* All Balances */}
+        <div class="balance-section">
+          <div class="balance-list">
+            <For each={allBalances()}>
+              {([memberId, balance]) => (
+                <BalanceCard
+                  balance={balance}
+                  memberName={getMemberName(memberId)}
+                  memberId={memberId}
+                  currency={currency()}
+                  isCurrentUser={memberId === myUserId()}
+                  onPayMember={props.onPayMember}
+                />
+              )}
+            </For>
           </div>
-        </Show>
-
-        {/* All Member Balances */}
-        <Show when={otherBalances().length > 0}>
-          <div class="balance-section">
-            <h2 class="balance-section-title">Member Balances</h2>
-            <div class="balance-list">
-              <For each={otherBalances()}>
-                {([memberId, balance]) => (
-                  <BalanceCard
-                    balance={balance}
-                    memberName={getMemberName(memberId)}
-                    memberId={memberId}
-                    currency={currency()}
-                    onPayMember={props.onPayMember}
-                  />
-                )}
-              </For>
-            </div>
-          </div>
-        </Show>
+        </div>
 
         {/* Settlement Plan */}
         <div class="balance-section">

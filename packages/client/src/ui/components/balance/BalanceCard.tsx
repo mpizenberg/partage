@@ -28,16 +28,6 @@ export const BalanceCard: Component<BalanceCardProps> = (props) => {
     return props.balance.netBalance > 0 ? 'balance-positive' : 'balance-negative'
   }
 
-  const getBalanceText = (): string => {
-    if (isSettled()) return 'Settled up'
-    const amount = Math.abs(props.balance.netBalance)
-    if (props.balance.netBalance > 0) {
-      return `is owed ${formatCurrency(amount)}`
-    } else {
-      return `owes ${formatCurrency(amount)}`
-    }
-  }
-
   const getBalanceSign = (): string => {
     if (isSettled()) return ''
     return props.balance.netBalance > 0 ? '+' : '-'
@@ -56,32 +46,29 @@ export const BalanceCard: Component<BalanceCardProps> = (props) => {
 
   return (
     <div class={`balance-card card ${props.isCurrentUser ? 'balance-card-current' : ''}`}>
-      <div class="balance-card-header">
+      <div class="balance-card-row">
         <div class="balance-card-member">
           <span class="balance-card-name">{props.memberName}</span>
           <Show when={props.isCurrentUser}>
             <span class="member-badge">You</span>
           </Show>
         </div>
-      </div>
 
-      <div class="balance-card-amount">
-        <div class={`balance-net ${getBalanceClass()}`}>
-          {getBalanceSign()}{formatCurrency(Math.abs(props.balance.netBalance))}
+        <div class="balance-card-amount">
+          <span class={`balance-net ${getBalanceClass()}`}>
+            {getBalanceSign()}{formatCurrency(Math.abs(props.balance.netBalance))}
+          </span>
         </div>
-        <div class="balance-status text-muted">
-          {getBalanceText()}
-        </div>
-      </div>
 
-      {/* Pay button for members who are owed money */}
-      <Show when={showPayButton()}>
-        <div class="balance-card-actions">
-          <Button variant="primary" onClick={handlePayClick}>
-            Pay {props.memberName}
-          </Button>
-        </div>
-      </Show>
+        {/* Pay button for members who are owed money */}
+        <Show when={showPayButton()}>
+          <div class="balance-card-actions">
+            <Button variant="primary" size="small" onClick={handlePayClick}>
+              Pay them
+            </Button>
+          </div>
+        </Show>
+      </div>
     </div>
   )
 }

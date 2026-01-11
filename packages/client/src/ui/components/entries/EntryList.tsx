@@ -28,8 +28,14 @@ export const EntryList: Component<EntryListProps> = (props) => {
 
     const groups: Map<string, Entry[]> = new Map()
 
-    // Sort entries by date (newest first)
-    const sorted = [...entries].sort((a, b) => b.date - a.date)
+    // Sort entries by date (newest first), then by creation time (newest first) within same day
+    const sorted = [...entries].sort((a, b) => {
+      if (a.date !== b.date) {
+        return b.date - a.date
+      }
+      // Same date, sort by creation time
+      return b.createdAt - a.createdAt
+    })
 
     sorted.forEach(entry => {
       const entryDate = new Date(entry.date)

@@ -268,14 +268,12 @@ export const GroupSelectionScreen: Component = () => {
                             <h3 class="text-lg font-semibold">{group.name}</h3>
                             <span class="currency-badge">{group.defaultCurrency}</span>
                           </div>
-                          <div class="group-meta">
-                            <p class="text-sm text-muted">
-                              {group.members?.length || 0} member{(group.members?.length || 0) !== 1 ? 's' : ''}
-                            </p>
-                            <p class="text-sm text-muted">
-                              Created {formatDate(group.createdAt)}
-                            </p>
-                          </div>
+                          <p class="text-sm text-muted mb-xs">
+                            Created at: {formatDate(group.createdAt)}
+                          </p>
+                          <p class="text-sm text-muted">
+                            {group.members?.length || 0} member{(group.members?.length || 0) !== 1 ? 's' : ''}: {(group.members || []).map(m => m.name).join(', ')}
+                          </p>
                         </div>
                       </div>
                     </div>
@@ -329,18 +327,20 @@ export const GroupSelectionScreen: Component = () => {
       <Show when={groupToDelete()}>
         <div class="modal-overlay" onClick={cancelDelete}>
           <div class="modal-content" onClick={(e) => e.stopPropagation()}>
-            <h2 class="text-xl font-bold mb-md">Delete Group?</h2>
-            <p class="mb-lg">
-              Are you sure you want to delete this group? This will remove all local data
-              including entries, members, and keys. This action cannot be undone.
-            </p>
-            <div class="modal-actions">
-              <Button variant="secondary" onClick={cancelDelete}>
-                Cancel
-              </Button>
-              <Button variant="danger" onClick={confirmDelete}>
-                Delete Group
-              </Button>
+            <div class="modal-body">
+              <h2 class="text-xl font-bold mb-md">Delete Group?</h2>
+              <p class="mb-lg">
+                Are you sure you want to delete this group? This will remove all local data
+                including entries, members, and keys. This action cannot be undone.
+              </p>
+              <div class="modal-actions">
+                <Button variant="secondary" onClick={cancelDelete}>
+                  Cancel
+                </Button>
+                <Button variant="danger" onClick={confirmDelete}>
+                  Delete Group
+                </Button>
+              </div>
             </div>
           </div>
         </div>

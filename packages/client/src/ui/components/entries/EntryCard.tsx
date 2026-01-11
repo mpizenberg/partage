@@ -72,28 +72,32 @@ export const EntryCard: Component<EntryCardProps> = (props) => {
     }).format(amount)
   }
 
-  const formatRelativeTime = (timestamp: number): string => {
+  const formatRelativeTime = (timestamp: number): string | null => {
     const now = Date.now()
     const diff = now - timestamp
-    const seconds = Math.floor(diff / 1000)
-    const minutes = Math.floor(seconds / 60)
-    const hours = Math.floor(minutes / 60)
-    const days = Math.floor(hours / 24)
+    const hours = Math.floor(diff / (1000 * 60 * 60))
 
-    if (days > 7) {
-      return new Date(timestamp).toLocaleDateString(undefined, {
-        month: 'short',
-        day: 'numeric',
-      })
-    } else if (days > 0) {
-      return `${days} day${days > 1 ? 's' : ''} ago`
-    } else if (hours > 0) {
+    // Only show time if created within last 24 hours
+    if (hours >= 24) {
+      return null
+    }
+
+    const minutes = Math.floor(diff / (1000 * 60))
+
+    if (hours > 0) {
       return `${hours} hour${hours > 1 ? 's' : ''} ago`
     } else if (minutes > 0) {
       return `${minutes} minute${minutes > 1 ? 's' : ''} ago`
     } else {
       return 'Just now'
     }
+  }
+
+  const shouldShowTime = (timestamp: number): boolean => {
+    const now = Date.now()
+    const diff = now - timestamp
+    const hours = Math.floor(diff / (1000 * 60 * 60))
+    return hours < 24
   }
 
   const getMemberName = (memberId: string): string => {
@@ -241,20 +245,29 @@ export const EntryCard: Component<EntryCardProps> = (props) => {
             </Show>
           </div>
 
-          <div class="entry-footer">
-            <span class="entry-time">{formatRelativeTime(props.entry.createdAt)}</span>
-          </div>
+          <Show when={shouldShowTime(props.entry.createdAt)}>
+            <div class="entry-footer">
+              <span class="entry-time">{formatRelativeTime(props.entry.createdAt)}</span>
+            </div>
+          </Show>
         </Show>
 
         {/* Transfer Entry */}
         <Show when={isTransfer()}>
-          <div class="entry-header">
+          <div class="entry-transfer-row">
             <div class="entry-icon">💸</div>
-            <div class="entry-main">
-              <h3 class="entry-description">Transfer</h3>
-              <div class="entry-amount">
-                {formatCurrency(props.entry.amount, props.entry.currency!)}
+            <div class="entry-transfer-info">
+              <div class="entry-transfer-flow">
+                <span class="transfer-amount">{formatCurrency(props.entry.amount, props.entry.currency!)}</span>
+                <span class="transfer-members">
+                  <span class="transfer-from">{getMemberName(transferEntry()!.from)}</span>
+                  <span class="transfer-arrow">→</span>
+                  <span class="transfer-to">{getMemberName(transferEntry()!.to)}</span>
+                </span>
               </div>
+              <Show when={shouldShowTime(props.entry.createdAt)}>
+                <span class="entry-time">{formatRelativeTime(props.entry.createdAt)}</span>
+              </Show>
             </div>
             <Show
               when={!isDeleted()}
@@ -279,27 +292,6 @@ export const EntryCard: Component<EntryCardProps> = (props) => {
                 🗑️
               </button>
             </Show>
-          </div>
-
-          <div class="entry-details">
-            <div class="entry-detail-row">
-              <span class="entry-detail-label">From:</span>
-              <span class="entry-detail-value">{getMemberName(transferEntry()!.from)}</span>
-            </div>
-            <div class="entry-detail-row">
-              <span class="entry-detail-label">To:</span>
-              <span class="entry-detail-value">{getMemberName(transferEntry()!.to)}</span>
-            </div>
-            <Show when={transferEntry()?.notes}>
-              <div class="entry-detail-row">
-                <span class="entry-detail-label">Note:</span>
-                <span class="entry-detail-value">{transferEntry()?.notes}</span>
-              </div>
-            </Show>
-          </div>
-
-          <div class="entry-footer">
-            <span class="entry-time">{formatRelativeTime(props.entry.createdAt)}</span>
           </div>
         </Show>
       </div>

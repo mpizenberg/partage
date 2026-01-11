@@ -465,7 +465,7 @@ export const ExpenseForm: Component<ExpenseFormProps> = (props) => {
                           −
                         </button>
                         <span class="control-value">
-                          {beneficiaryShares().get(member.id) || 1} share{(beneficiaryShares().get(member.id) || 1) > 1 ? 's' : ''}
+                          {beneficiaryShares().get(member.id) || 1}<span class="control-value-label"> share{(beneficiaryShares().get(member.id) || 1) > 1 ? 's' : ''}</span>
                         </span>
                         <button
                           type="button"
