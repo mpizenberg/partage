@@ -143,10 +143,41 @@ interface AppContextValue {
   updateSettlementPreferences: (userId: string, preferredRecipients: string[]) => Promise<void>;
   preferencesVersion: Accessor<number>; // Version counter to force reactivity
 
+  // Export/Import/Delete
+  exportGroups: (groupIds?: string[]) => Promise<string>;
+  importGroups: (exportedData: string) => Promise<ImportAnalysis>;
+  confirmImport: (importData: ExportData, mergeExisting: boolean) => Promise<void>;
+  deleteGroup: (groupId: string) => Promise<void>;
+
   // UI state
   isLoading: Accessor<boolean>;
   error: Accessor<string | null>;
   clearError: () => void;
+}
+
+// Export data format
+export interface ExportData {
+  version: string; // Export format version
+  exportedAt: number;
+  groups: GroupExport[];
+}
+
+export interface GroupExport {
+  group: Group;
+  keys: Map<number, string>; // All group key versions
+  loroSnapshot: Uint8Array;
+}
+
+// Import analysis result
+export interface ImportAnalysis {
+  groups: Array<{
+    group: Group;
+    exists: boolean;
+    relationship: 'new' | 'local_subset' | 'import_subset' | 'diverged';
+    localVersion?: string; // Loro version vector
+    importVersion?: string; // Loro version vector
+  }>;
+  exportData: ExportData;
 }
 
 // Create context
@@ -1623,6 +1654,303 @@ export const AppProvider: Component<{ children: JSX.Element }> = (props) => {
 
   const clearError = () => setError(null);
 
+  // Export groups (all groups if groupIds not specified)
+  const exportGroups = async (groupIds?: string[]): Promise<string> => {
+    try {
+      // Don't set isLoading - let the calling component manage loading state
+      setError(null);
+
+      // Get all groups or specified groups
+      const allGroups = await db.getAllGroups();
+      const groupsToExport = groupIds
+        ? allGroups.filter((g) => groupIds.includes(g.id))
+        : allGroups;
+
+      if (groupsToExport.length === 0) {
+        throw new Error('No groups to export');
+      }
+
+      const groupExports: GroupExport[] = [];
+
+      for (const group of groupsToExport) {
+        // Get all keys for this group
+        const keys = await db.getAllGroupKeys(group.id);
+
+        // Get Loro snapshot
+        const snapshot = await db.getLoroSnapshot(group.id);
+        if (!snapshot) {
+          console.warn(`No snapshot found for group ${group.id}, skipping`);
+          continue;
+        }
+
+        groupExports.push({
+          group,
+          keys,
+          loroSnapshot: snapshot,
+        });
+      }
+
+      const exportData: ExportData = {
+        version: '1.0.0',
+        exportedAt: Date.now(),
+        groups: groupExports,
+      };
+
+      // Serialize to JSON (convert Uint8Arrays and Maps to plain objects)
+      const serialized = JSON.stringify(exportData, (_key, value) => {
+        if (value instanceof Uint8Array) {
+          return { __type: 'Uint8Array', data: Array.from(value) };
+        }
+        if (value instanceof Map) {
+          return { __type: 'Map', entries: Array.from(value.entries()) };
+        }
+        return value;
+      }, 2);
+
+      return serialized;
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to export groups');
+      throw err;
+    }
+  };
+
+  // Analyze imported data and compare with local groups
+  const importGroups = async (exportedData: string): Promise<ImportAnalysis> => {
+    try {
+      // Don't set isLoading here - it causes the component to unmount!
+      // The calling component should manage its own loading state
+      setError(null);
+
+      console.log('[importGroups] Starting import analysis...');
+
+      // Deserialize JSON (restore Uint8Arrays and Maps)
+      let parsed: any;
+      try {
+        parsed = JSON.parse(exportedData, (_key, value) => {
+          if (value && value.__type === 'Uint8Array') {
+            return new Uint8Array(value.data);
+          }
+          if (value && value.__type === 'Map') {
+            return new Map(value.entries);
+          }
+          return value;
+        });
+        console.log('[importGroups] JSON parsed successfully');
+      } catch (parseError) {
+        console.error('[importGroups] JSON parse failed:', parseError);
+        throw new Error('Failed to parse import file: ' + (parseError instanceof Error ? parseError.message : 'Invalid JSON'));
+      }
+
+      const importData: ExportData = parsed;
+
+      if (!importData.version || !importData.groups) {
+        console.error('[importGroups] Invalid export data:', importData);
+        throw new Error('Invalid export data format: missing version or groups');
+      }
+
+      console.log('[importGroups] Found', importData.groups.length, 'groups to analyze');
+
+      // Analyze each group
+      const analysis: ImportAnalysis['groups'] = [];
+
+      for (const groupExport of importData.groups) {
+        const existingGroup = await db.getGroup(groupExport.group.id);
+
+        if (!existingGroup) {
+          // New group
+          analysis.push({
+            group: groupExport.group,
+            exists: false,
+            relationship: 'new',
+          });
+        } else {
+          // Group exists - compare Loro versions
+          const existingSnapshot = await db.getLoroSnapshot(groupExport.group.id);
+
+          if (!existingSnapshot) {
+            // Local group has no snapshot - import is superset
+            analysis.push({
+              group: groupExport.group,
+              exists: true,
+              relationship: 'import_subset',
+            });
+          } else {
+            // Compare snapshots using Loro
+            const currentIdentity = identity();
+            if (!currentIdentity) {
+              throw new Error('No identity found');
+            }
+
+            // Test 1: Does import have new data for us?
+            // Load local snapshot, compare snapshot sizes after importing remote
+            const testStoreLocal = new LoroEntryStore(currentIdentity.publicKeyHash);
+            testStoreLocal.importSnapshot(existingSnapshot);
+            const localSnapshotBefore = testStoreLocal.exportSnapshot();
+            console.log(`[importGroups] ${groupExport.group.name} - Local snapshot size before:`, localSnapshotBefore.byteLength);
+
+            testStoreLocal.importSnapshot(groupExport.loroSnapshot);
+            const localSnapshotAfter = testStoreLocal.exportSnapshot();
+            console.log(`[importGroups] ${groupExport.group.name} - Local snapshot size after importing remote:`, localSnapshotAfter.byteLength);
+
+            const importHasNewData = localSnapshotBefore.byteLength !== localSnapshotAfter.byteLength;
+            console.log(`[importGroups] ${groupExport.group.name} - Import has new data:`, importHasNewData);
+
+            // Test 2: Does local have new data not in import?
+            // Load import snapshot, compare snapshot sizes after importing local
+            const testStoreImport = new LoroEntryStore(currentIdentity.publicKeyHash);
+            testStoreImport.importSnapshot(groupExport.loroSnapshot);
+            const importSnapshotBefore = testStoreImport.exportSnapshot();
+            console.log(`[importGroups] ${groupExport.group.name} - Import snapshot size before:`, importSnapshotBefore.byteLength);
+
+            testStoreImport.importSnapshot(existingSnapshot);
+            const importSnapshotAfter = testStoreImport.exportSnapshot();
+            console.log(`[importGroups] ${groupExport.group.name} - Import snapshot size after loading local:`, importSnapshotAfter.byteLength);
+
+            const localHasNewData = importSnapshotBefore.byteLength !== importSnapshotAfter.byteLength;
+            console.log(`[importGroups] ${groupExport.group.name} - Local has new data:`, localHasNewData);
+
+            let relationship: 'local_subset' | 'import_subset' | 'diverged';
+
+            if (!importHasNewData && !localHasNewData) {
+              // Both snapshots are identical
+              relationship = 'import_subset';
+            } else if (importHasNewData && !localHasNewData) {
+              // Import has new data, local doesn't - local is subset of import
+              relationship = 'local_subset';
+            } else if (!importHasNewData && localHasNewData) {
+              // Local has new data, import doesn't - import is subset of local
+              relationship = 'import_subset';
+            } else {
+              // Both have unique data - diverged
+              relationship = 'diverged';
+            }
+
+            console.log(`[importGroups] Group ${groupExport.group.name}: importHasNewData=${importHasNewData}, localHasNewData=${localHasNewData}, relationship=${relationship}`);
+
+            analysis.push({
+              group: groupExport.group,
+              exists: true,
+              relationship,
+              localVersion: `${localSnapshotBefore.byteLength} bytes`,
+              importVersion: `${groupExport.loroSnapshot.byteLength} bytes`,
+            });
+          }
+        }
+      }
+
+      console.log('[importGroups] Analysis complete, returning', analysis.length, 'groups');
+
+      const result = {
+        groups: analysis,
+        exportData: importData,
+      };
+
+      console.log('[importGroups] Returning result:', result);
+      return result;
+    } catch (err) {
+      console.error('[importGroups] Error during analysis:', err);
+      setError(err instanceof Error ? err.message : 'Failed to analyze import');
+      throw err;
+    }
+  };
+
+  // Confirm and execute import
+  const confirmImport = async (importData: ExportData, mergeExisting: boolean) => {
+    try {
+      // Don't set isLoading - let the calling component manage loading state
+      setError(null);
+
+      const currentIdentity = identity();
+      if (!currentIdentity) {
+        throw new Error('No identity found');
+      }
+
+      for (const groupExport of importData.groups) {
+        const existingGroup = await db.getGroup(groupExport.group.id);
+
+        if (!existingGroup) {
+          // New group - import directly
+          await db.saveGroup(groupExport.group);
+
+          // Save all keys
+          for (const [version, keyString] of groupExport.keys.entries()) {
+            await db.saveGroupKey(groupExport.group.id, version, keyString);
+          }
+
+          // Save Loro snapshot
+          await db.saveLoroSnapshot(groupExport.group.id, groupExport.loroSnapshot);
+
+          console.log(`[AppContext] Imported new group: ${groupExport.group.name}`);
+        } else if (mergeExisting) {
+          // Merge with existing group
+          const existingSnapshot = await db.getLoroSnapshot(groupExport.group.id);
+
+          if (existingSnapshot) {
+            // Merge Loro snapshots
+            const mergedStore = new LoroEntryStore(currentIdentity.publicKeyHash);
+            mergedStore.importSnapshot(existingSnapshot);
+            mergedStore.importSnapshot(groupExport.loroSnapshot);
+
+            const mergedSnapshot = mergedStore.exportSnapshot();
+            await db.saveLoroSnapshot(groupExport.group.id, mergedSnapshot);
+
+            // Update members from merged Loro
+            const mergedMembers = mergedStore.getMembers();
+            const updatedGroup = { ...existingGroup, members: mergedMembers };
+            await db.saveGroup(updatedGroup);
+          } else {
+            // No existing snapshot - just import
+            await db.saveLoroSnapshot(groupExport.group.id, groupExport.loroSnapshot);
+          }
+
+          // Import any missing keys
+          for (const [version, keyString] of groupExport.keys.entries()) {
+            const existingKey = await db.getGroupKey(groupExport.group.id, version);
+            if (!existingKey) {
+              await db.saveGroupKey(groupExport.group.id, version, keyString);
+            }
+          }
+
+          console.log(`[AppContext] Merged group: ${groupExport.group.name}`);
+        }
+      }
+
+      // Refresh groups list
+      const allGroups = await db.getAllGroups();
+      setGroups(allGroups);
+
+      console.log(`[AppContext] Successfully imported ${importData.groups.length} group(s)`);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to import groups');
+      throw err;
+    }
+  };
+
+  // Delete a group
+  const deleteGroup = async (groupId: string) => {
+    try {
+      // Don't set isLoading - let the calling component manage loading state
+      setError(null);
+
+      // If this is the active group, deselect it first
+      if (activeGroup()?.id === groupId) {
+        await deselectGroup();
+      }
+
+      // Delete from database
+      await db.deleteGroup(groupId);
+
+      // Refresh groups list
+      const allGroups = await db.getAllGroups();
+      setGroups(allGroups);
+
+      console.log(`[AppContext] Deleted group: ${groupId}`);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to delete group');
+      throw err;
+    }
+  };
+
   // Update settlement preferences for a user (uses Loro for sync)
   const updateSettlementPreferences = async (userId: string, preferredRecipients: string[]) => {
     try {
@@ -1723,6 +2051,10 @@ export const AppProvider: Component<{ children: JSX.Element }> = (props) => {
     toggleAutoSync,
     updateSettlementPreferences,
     preferencesVersion,
+    exportGroups,
+    importGroups,
+    confirmImport,
+    deleteGroup,
     isLoading,
     error,
     clearError,
