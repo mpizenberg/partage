@@ -4,11 +4,13 @@ import { VitePWA } from 'vite-plugin-pwa';
 import wasm from 'vite-plugin-wasm';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import basicSsl from '@vitejs/plugin-basic-ssl';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 export default defineConfig({
   plugins: [
+    basicSsl(),
     solid(),
     wasm(),
     VitePWA({
@@ -64,5 +66,24 @@ export default defineConfig({
   },
   build: {
     target: 'esnext',
+  },
+  server: {
+    host: '0.0.0.0',
+    // host: true, // equivalent to --host
+    port: 5173,
+    https: true,
+    proxy: {
+      '/api': {
+        target: 'http://127.0.0.1:8090', // PocketBase on HTTP
+        changeOrigin: true,
+        secure: false,
+      },
+      '/_/': {
+        target: 'http://127.0.0.1:8090', // PocketBase realtime endpoint
+        changeOrigin: true,
+        secure: false,
+        ws: true, // WebSocket support for real-time subscriptions
+      },
+    },
   },
 });

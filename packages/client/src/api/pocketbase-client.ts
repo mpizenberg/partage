@@ -9,7 +9,9 @@
 
 import PocketBase, { type RecordSubscription } from 'pocketbase';
 
-const POCKETBASE_URL = import.meta.env.VITE_POCKETBASE_URL || 'http://127.0.0.1:8090';
+// const POCKETBASE_URL = import.meta.env.VITE_POCKETBASE_URL || 'http://127.0.0.1:8090';
+const POCKETBASE_URL = import.meta.env.VITE_POCKETBASE_URL || '';
+console.log('POCKETBASE_URL', POCKETBASE_URL);
 
 /**
  * Group record schema (matches PocketBase collection)
@@ -303,9 +305,9 @@ export class PocketBaseClient {
     // Only create the PocketBase subscription once
     if (!this.loroSubscriptionActive) {
       console.log('[PocketBase] Creating loro_updates subscription');
-      await this.pb.collection('loro_updates').subscribe<LoroUpdateRecord>(
-        '*',
-        (e: RecordSubscription<LoroUpdateRecord>) => {
+      await this.pb
+        .collection('loro_updates')
+        .subscribe<LoroUpdateRecord>('*', (e: RecordSubscription<LoroUpdateRecord>) => {
           // Route to the appropriate callback based on groupId
           if (e.action === 'create') {
             const callback = this.loroUpdateCallbacks.get(e.record.groupId);
@@ -316,11 +318,12 @@ export class PocketBaseClient {
               console.log(`[PocketBase] No callback registered for group ${e.record.groupId}`);
             }
           }
-        }
-      );
+        });
       this.loroSubscriptionActive = true;
     } else {
-      console.log(`[PocketBase] Reusing existing loro_updates subscription, adding callback for group ${groupId}`);
+      console.log(
+        `[PocketBase] Reusing existing loro_updates subscription, adding callback for group ${groupId}`
+      );
     }
 
     // Create unsubscribe function that only removes the callback, not the subscription
@@ -584,9 +587,9 @@ export class PocketBaseClient {
     // Only create the PocketBase subscription once
     if (!this.joinRequestSubscriptionActive) {
       console.log('[PocketBase] Creating join_requests subscription');
-      await this.pb.collection('join_requests').subscribe<JoinRequestRecord>(
-        '*',
-        (e: RecordSubscription<JoinRequestRecord>) => {
+      await this.pb
+        .collection('join_requests')
+        .subscribe<JoinRequestRecord>('*', (e: RecordSubscription<JoinRequestRecord>) => {
           if (e.action === 'create') {
             const callback = this.joinRequestCallbacks.get(e.record.groupId);
             if (callback) {
@@ -594,8 +597,7 @@ export class PocketBaseClient {
               callback(e.record);
             }
           }
-        }
-      );
+        });
       this.joinRequestSubscriptionActive = true;
     } else {
       console.log(`[PocketBase] Reusing existing join_requests subscription for group ${groupId}`);
@@ -636,21 +638,24 @@ export class PocketBaseClient {
     // Only create the PocketBase subscription once
     if (!this.keyPackageSubscriptionActive) {
       console.log('[PocketBase] Creating key_packages subscription');
-      await this.pb.collection('key_packages').subscribe<KeyPackageRecord>(
-        '*',
-        (e: RecordSubscription<KeyPackageRecord>) => {
+      await this.pb
+        .collection('key_packages')
+        .subscribe<KeyPackageRecord>('*', (e: RecordSubscription<KeyPackageRecord>) => {
           if (e.action === 'create') {
             const callback = this.keyPackageCallbacks.get(e.record.recipientPublicKeyHash);
             if (callback) {
-              console.log(`[PocketBase] Routing key package for recipient ${e.record.recipientPublicKeyHash}`);
+              console.log(
+                `[PocketBase] Routing key package for recipient ${e.record.recipientPublicKeyHash}`
+              );
               callback(e.record);
             }
           }
-        }
-      );
+        });
       this.keyPackageSubscriptionActive = true;
     } else {
-      console.log(`[PocketBase] Reusing existing key_packages subscription for ${recipientPublicKeyHash}`);
+      console.log(
+        `[PocketBase] Reusing existing key_packages subscription for ${recipientPublicKeyHash}`
+      );
     }
 
     const unsubscribe = async () => {
