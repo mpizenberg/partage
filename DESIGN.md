@@ -540,6 +540,44 @@ For any entry:
 - Per-member balances
 - Settlement suggestions
 
+### 5.4 Internationalization (i18n)
+
+**Supported Languages**:
+- English (en) - Default
+- French (fr)
+
+**Language Detection**:
+- Auto-detect browser locale on first launch via `navigator.language`
+- Fall back to English if locale not supported
+- Persist user preference in `localStorage` (key: `partage-locale`)
+
+**Language Switching**:
+- Language selector available in:
+  - Setup screen (before identity generation)
+  - Group settings (header dropdown menu)
+- Switching language updates UI immediately without page reload
+
+**Implementation**:
+- Library: `@solid-primitives/i18n` (~2KB, SolidJS-native)
+- Locale files: JSON format with dot-notation keys (e.g., `"setup.title"`, `"balance.youOwe"`)
+- Dynamic imports: Only active language loaded (lazy-load locale files)
+- Interpolation support: `"You owe {amount}"` with parameter substitution
+- Pluralization: Separate keys for singular/plural forms to handle language-specific rules
+
+**Formatting**:
+- Currency: Locale-aware via `Intl.NumberFormat` (e.g., €1,234.56 vs €1 234,56)
+- Dates: Locale-aware via `Intl.DateTimeFormat` (e.g., Jan 15, 2024 vs 15 janv. 2024)
+- Relative time: Locale-aware (e.g., "5 minutes ago" vs "il y a 5 minutes")
+
+**Key Namespaces**:
+- `common`: Shared UI strings (Cancel, Save, Delete, etc.)
+- `setup`: Onboarding flow
+- `groups`: Group management
+- `balance`, `entries`, `settle`: Tab-specific strings
+- `expenseForm`, `transferForm`: Form labels and validation
+- `categories`: Expense categories
+- `time`: Relative time expressions
+
 ## 6. Miscellaneous
 
 ### Currency exchange rates
