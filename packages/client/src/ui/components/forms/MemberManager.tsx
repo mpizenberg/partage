@@ -1,46 +1,46 @@
-import { Component, For, createSignal, Show } from 'solid-js'
-import { Input } from '../common/Input'
-import { Button } from '../common/Button'
-import type { Member } from '@partage/shared'
+import { Component, For, createSignal, Show } from 'solid-js';
+import { Input } from '../common/Input';
+import { Button } from '../common/Button';
+import type { Member } from '@partage/shared';
 
 export interface MemberManagerProps {
-  currentUserName: string
-  currentUserId: string
-  members: Member[]
-  onAddMember: (name: string) => void
-  onRemoveMember: (id: string) => void
+  currentUserName: string;
+  currentUserId: string;
+  members: Member[];
+  onAddMember: (name: string) => void;
+  onRemoveMember: (id: string) => void;
 }
 
 export const MemberManager: Component<MemberManagerProps> = (props) => {
-  const [newMemberName, setNewMemberName] = createSignal('')
-  const [error, setError] = createSignal<string | null>(null)
+  const [newMemberName, setNewMemberName] = createSignal('');
+  const [error, setError] = createSignal<string | null>(null);
 
   const handleAddMember = () => {
-    const name = newMemberName().trim()
+    const name = newMemberName().trim();
 
     if (!name) {
-      setError('Member name cannot be empty')
-      return
+      setError('Member name cannot be empty');
+      return;
     }
 
     // Check for duplicate names
-    const duplicate = props.members.some(m => m.name.toLowerCase() === name.toLowerCase())
+    const duplicate = props.members.some((m) => m.name.toLowerCase() === name.toLowerCase());
     if (duplicate) {
-      setError('A member with this name already exists')
-      return
+      setError('A member with this name already exists');
+      return;
     }
 
-    props.onAddMember(name)
-    setNewMemberName('')
-    setError(null)
-  }
+    props.onAddMember(name);
+    setNewMemberName('');
+    setError(null);
+  };
 
   const handleKeyDown = (e: KeyboardEvent) => {
     if (e.key === 'Enter') {
-      e.preventDefault()
-      handleAddMember()
+      e.preventDefault();
+      handleAddMember();
     }
-  }
+  };
 
   return (
     <div class="member-manager">
@@ -52,6 +52,14 @@ export const MemberManager: Component<MemberManagerProps> = (props) => {
           {(member) => (
             <div class="member-item">
               <div class="member-info">
+                <div class="member-row">
+                  <span class="member-name">{member.name}</span>
+                  <Show when={member.isVirtual}>
+                    <span class="member-badge-virtual">Virtual</span>
+                  </Show>
+                </div>
+              </div>
+              {/*<div class="member-info">
                 <span class="member-name">{member.name}</span>
                 <Show when={member.id === props.currentUserId}>
                   <span class="member-badge">You</span>
@@ -59,7 +67,7 @@ export const MemberManager: Component<MemberManagerProps> = (props) => {
                 <Show when={member.isVirtual}>
                   <span class="member-badge-virtual">Virtual</span>
                 </Show>
-              </div>
+              </div>*/}
               <Show when={member.id !== props.currentUserId}>
                 <button
                   type="button"
@@ -87,8 +95,8 @@ export const MemberManager: Component<MemberManagerProps> = (props) => {
             value={newMemberName()}
             placeholder="Enter name..."
             onInput={(e) => {
-              setNewMemberName(e.currentTarget.value)
-              setError(null)
+              setNewMemberName(e.currentTarget.value);
+              setError(null);
             }}
             onKeyPress={handleKeyDown}
             error={!!error()}
@@ -110,5 +118,5 @@ export const MemberManager: Component<MemberManagerProps> = (props) => {
         </p>
       </div>
     </div>
-  )
-}
+  );
+};
