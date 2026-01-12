@@ -71,13 +71,15 @@ export function calculateBalances(entries: Entry[]): Map<string, Balance> {
  * Process an expense entry
  */
 function processExpense(expense: ExpenseEntry, totalAmount: number, balances: Map<string, Balance>): void {
+  // Calculate payer amounts (with currency conversion if needed)
+  const payerSplits = expense.defaultCurrencyAmount
+    ? calculatePayerSplits(expense.payers, expense.defaultCurrencyAmount)
+    : new Map(expense.payers.map(p => [p.memberId, p.amount]));
+
   // Record who paid
-  for (const payer of expense.payers) {
-    const balance = balances.get(payer.memberId)!;
-    const payerAmount = expense.defaultCurrencyAmount
-      ? payer.amount * (expense.defaultCurrencyAmount / expense.amount)
-      : payer.amount;
-    balance.totalPaid += payerAmount;
+  for (const [memberId, amount] of payerSplits.entries()) {
+    const balance = balances.get(memberId)!;
+    balance.totalPaid += amount;
   }
 
   // Calculate split amounts
@@ -88,6 +90,59 @@ function processExpense(expense: ExpenseEntry, totalAmount: number, balances: Ma
     const balance = balances.get(memberId)!;
     balance.totalOwed += amount;
   }
+}
+
+/**
+ * Calculate payer amounts in default currency
+ *
+ * When payers paid in a non-default currency, we need to convert their amounts
+ * to the default currency. This function ensures the sum equals the total
+ * default currency amount using integer arithmetic to avoid rounding errors.
+ *
+ * Example: 3 people each paid 5€ (15€ total) = $10 total
+ * Simple conversion: 5€ * (10/15) = $3.33 each -> sum is $9.99 (missing 1 cent)
+ * This function distributes the missing cent deterministically.
+ */
+function calculatePayerSplits(
+  payers: ExpenseEntry['payers'],
+  totalDefaultCurrencyAmount: number
+): Map<string, number> {
+  const splits = new Map<string, number>();
+
+  if (payers.length === 0) {
+    return splits;
+  }
+
+  // Calculate the total amount paid in original currency
+  const totalOriginalAmount = payers.reduce((sum, p) => sum + p.amount, 0);
+
+  // Convert to cents for integer arithmetic
+  const totalDefaultCents = Math.round(totalDefaultCurrencyAmount * 100);
+
+  // Sort payers by member ID for deterministic distribution
+  const sortedPayers = [...payers].sort((a, b) =>
+    a.memberId.localeCompare(b.memberId)
+  );
+
+  // Calculate each payer's proportional share in cents
+  let distributedCents = 0;
+  for (let i = 0; i < sortedPayers.length; i++) {
+    const payer = sortedPayers[i]!; // Safe because we're iterating up to length
+
+    if (i === sortedPayers.length - 1) {
+      // Last payer gets the remainder to ensure exact sum
+      const remainingCents = totalDefaultCents - distributedCents;
+      splits.set(payer.memberId, remainingCents / 100);
+    } else {
+      // Calculate proportional amount in cents
+      const proportion = payer.amount / totalOriginalAmount;
+      const payerCents = Math.round(proportion * totalDefaultCents);
+      splits.set(payer.memberId, payerCents / 100);
+      distributedCents += payerCents;
+    }
+  }
+
+  return splits;
 }
 
 /**

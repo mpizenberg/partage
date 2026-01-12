@@ -109,10 +109,36 @@ export const ExpenseForm: Component<ExpenseFormProps> = (props) => {
     !!(props.initialData?.category || props.initialData?.location || props.initialData?.notes)
   )
 
-  // Payers: Default to current user paying full amount, or use initial data
+  // Payers: Single payer mode (default) and multiple payers mode
+  const [multiplePayers, setMultiplePayers] = createSignal(
+    props.initialData ? props.initialData.payers.length > 1 : false
+  )
+
+  // Single payer mode
   const [payerId, setPayerId] = createSignal(
     props.initialData?.payers[0]?.memberId || identity()?.publicKeyHash || ''
   )
+
+  // Multiple payers mode
+  const getInitialPayers = (): Set<string> => {
+    if (!props.initialData) {
+      return new Set([identity()?.publicKeyHash || ''])
+    }
+    return new Set(props.initialData.payers.map(p => p.memberId))
+  }
+
+  const getInitialPayerAmounts = (): Map<string, number> => {
+    const map = new Map<string, number>()
+    if (props.initialData) {
+      props.initialData.payers.forEach(p => {
+        map.set(p.memberId, p.amount)
+      })
+    }
+    return map
+  }
+
+  const [selectedPayers, setSelectedPayers] = createSignal<Set<string>>(getInitialPayers())
+  const [payerAmounts, setPayerAmounts] = createSignal<Map<string, number>>(getInitialPayerAmounts())
 
   // Beneficiaries: Track selected members and their shares/amounts
   const [selectedBeneficiaries, setSelectedBeneficiaries] = createSignal<Set<string>>(getInitialBeneficiaries())
@@ -184,6 +210,27 @@ export const ExpenseForm: Component<ExpenseFormProps> = (props) => {
     return result
   })
 
+  const togglePayer = (memberId: string) => {
+    const newSet = new Set(selectedPayers())
+    if (newSet.has(memberId)) {
+      newSet.delete(memberId)
+    } else {
+      newSet.add(memberId)
+    }
+    setSelectedPayers(newSet)
+  }
+
+  const updatePayerAmount = (memberId: string, value: string) => {
+    const newAmounts = new Map(payerAmounts())
+    const numValue = parseFloat(value)
+    if (!isNaN(numValue) && numValue >= 0) {
+      newAmounts.set(memberId, numValue)
+    } else {
+      newAmounts.delete(memberId)
+    }
+    setPayerAmounts(newAmounts)
+  }
+
   const toggleBeneficiary = (memberId: string) => {
     const newSet = new Set(selectedBeneficiaries())
     if (newSet.has(memberId)) {
@@ -233,8 +280,39 @@ export const ExpenseForm: Component<ExpenseFormProps> = (props) => {
       }
     }
 
-    if (!payerId()) {
-      newErrors.payer = 'Please select who paid'
+    // Validate payers
+    if (multiplePayers()) {
+      // Multiple payers mode
+      if (selectedPayers().size === 0) {
+        newErrors.payers = 'Please select at least one payer'
+      } else {
+        const selectedPayerIds = Array.from(selectedPayers())
+
+        // Check all payers have amounts
+        for (const id of selectedPayerIds) {
+          const amt = payerAmounts().get(id)
+          if (amt === undefined || amt <= 0) {
+            newErrors.payers = 'All payers must have a valid amount'
+            break
+          }
+        }
+
+        // Validate payer amounts sum to total
+        if (!newErrors.payers) {
+          const totalPaid = selectedPayerIds.reduce((sum, id) => {
+            return sum + (payerAmounts().get(id) || 0)
+          }, 0)
+
+          if (Math.abs(totalPaid - amountNum) > 0.01) {
+            newErrors.payers = `Total paid (${totalPaid.toFixed(2)}) must equal expense amount (${amountNum.toFixed(2)})`
+          }
+        }
+      }
+    } else {
+      // Single payer mode
+      if (!payerId()) {
+        newErrors.payer = 'Please select who paid'
+      }
     }
 
     if (selectedBeneficiaries().size === 0) {
@@ -274,12 +352,17 @@ export const ExpenseForm: Component<ExpenseFormProps> = (props) => {
     setIsSubmitting(true)
 
     try {
-      const payers: Payer[] = [
-        {
-          memberId: payerId(),
-          amount: parseFloat(amount()),
-        },
-      ]
+      const payers: Payer[] = multiplePayers()
+        ? Array.from(selectedPayers()).map((memberId) => ({
+            memberId,
+            amount: payerAmounts().get(memberId) || 0,
+          }))
+        : [
+            {
+              memberId: payerId(),
+              amount: parseFloat(amount()),
+            },
+          ]
 
       const beneficiaries: Beneficiary[] = Array.from(selectedBeneficiaries()).map((memberId) => {
         if (splitType() === 'exact') {
@@ -415,33 +498,143 @@ export const ExpenseForm: Component<ExpenseFormProps> = (props) => {
 
       {/* Payer Section */}
       <div class="form-section">
-        <h3 class="form-section-title">Who Paid?</h3>
-        <Select
-          value={payerId()}
-          disabled={isSubmitting()}
-          error={errors().payer}
-          onChange={(e) => setPayerId(e.currentTarget.value)}
-        >
-          <option value="">Select member</option>
-          <For each={sortedActiveMembers()}>
-            {(member) => (
-              <option value={member.id}>
-                {member.id === identity()?.publicKeyHash ? 'You' : member.name}
-              </option>
-            )}
-          </For>
-          <Show when={sortedDepartedMembers().length > 0}>
-            <optgroup label="Past members">
-              <For each={sortedDepartedMembers()}>
-                {(member) => (
-                  <option value={member.id}>
-                    {member.name}
-                  </option>
-                )}
-              </For>
-            </optgroup>
-          </Show>
-        </Select>
+        <div class="form-section-header">
+          <h3 class="form-section-title">Who Paid?</h3>
+          <button
+            type="button"
+            class="form-toggle-btn"
+            onClick={() => setMultiplePayers(!multiplePayers())}
+            disabled={isSubmitting()}
+            style="font-size: var(--font-size-sm); padding: var(--space-xs) var(--space-sm);"
+          >
+            {multiplePayers() ? 'Single payer' : 'Multiple payers'}
+          </button>
+        </div>
+
+        <Show when={!multiplePayers()}>
+          {/* Single payer mode */}
+          <Select
+            value={payerId()}
+            disabled={isSubmitting()}
+            error={errors().payer}
+            onChange={(e) => setPayerId(e.currentTarget.value)}
+          >
+            <option value="">Select member</option>
+            <For each={sortedActiveMembers()}>
+              {(member) => (
+                <option value={member.id}>
+                  {member.id === identity()?.publicKeyHash ? 'You' : member.name}
+                </option>
+              )}
+            </For>
+            <Show when={sortedDepartedMembers().length > 0}>
+              <optgroup label="Past members">
+                <For each={sortedDepartedMembers()}>
+                  {(member) => (
+                    <option value={member.id}>
+                      {member.name}
+                    </option>
+                  )}
+                </For>
+              </optgroup>
+            </Show>
+          </Select>
+        </Show>
+
+        <Show when={multiplePayers()}>
+          {/* Multiple payers mode */}
+          <div class="beneficiaries-list">
+            <For each={sortedActiveMembers()}>
+              {(member) => {
+                const isSelected = () => selectedPayers().has(member.id)
+                const memberName = () => member.id === identity()?.publicKeyHash ? 'You' : member.name
+
+                return (
+                  <div class={`beneficiary-item ${isSelected() ? 'selected' : ''}`}>
+                    <label class="beneficiary-checkbox">
+                      <input
+                        type="checkbox"
+                        checked={isSelected()}
+                        disabled={isSubmitting()}
+                        onChange={() => togglePayer(member.id)}
+                      />
+                      <span>{memberName()}</span>
+                    </label>
+
+                    <Show when={isSelected()}>
+                      <div class="beneficiary-control">
+                        <Input
+                          type="number"
+                          value={(payerAmounts().get(member.id) || 0).toString()}
+                          placeholder="0.00"
+                          step={0.01}
+                          min={0}
+                          disabled={isSubmitting()}
+                          onInput={(e) => updatePayerAmount(member.id, e.currentTarget.value)}
+                        />
+                      </div>
+                    </Show>
+                  </div>
+                )
+              }}
+            </For>
+
+            {/* Departed Members Section */}
+            <Show when={sortedDepartedMembers().length > 0}>
+              <div style="margin-top: var(--space-md); padding-top: var(--space-md); border-top: 1px solid var(--color-border);">
+                <button
+                  type="button"
+                  class="form-toggle-btn"
+                  onClick={() => setShowDepartedMembers(!showDepartedMembers())}
+                  style="width: 100%; text-align: left; padding: var(--space-sm); background: var(--color-bg-secondary); border: none; border-radius: var(--border-radius); cursor: pointer; font-size: var(--font-size-sm); color: var(--color-text-light);"
+                >
+                  {showDepartedMembers() ? '▼' : '▶'} Past members ({sortedDepartedMembers().length})
+                </button>
+                <Show when={showDepartedMembers()}>
+                  <div style="margin-top: var(--space-sm);">
+                    <For each={sortedDepartedMembers()}>
+                      {(member) => {
+                        const isSelected = () => selectedPayers().has(member.id)
+
+                        return (
+                          <div class={`beneficiary-item ${isSelected() ? 'selected' : ''}`}>
+                            <label class="beneficiary-checkbox">
+                              <input
+                                type="checkbox"
+                                checked={isSelected()}
+                                disabled={isSubmitting()}
+                                onChange={() => togglePayer(member.id)}
+                              />
+                              <span>{member.name}</span>
+                            </label>
+
+                            <Show when={isSelected()}>
+                              <div class="beneficiary-control">
+                                <Input
+                                  type="number"
+                                  value={(payerAmounts().get(member.id) || 0).toString()}
+                                  placeholder="0.00"
+                                  step={0.01}
+                                  min={0}
+                                  disabled={isSubmitting()}
+                                  onInput={(e) => updatePayerAmount(member.id, e.currentTarget.value)}
+                                />
+                              </div>
+                            </Show>
+                          </div>
+                        )
+                      }}
+                    </For>
+                  </div>
+                </Show>
+              </div>
+            </Show>
+          </div>
+
+          {errors().payers && (
+            <div class="form-field-error">{errors().payers}</div>
+          )}
+        </Show>
       </div>
 
       {/* Beneficiaries Section */}
