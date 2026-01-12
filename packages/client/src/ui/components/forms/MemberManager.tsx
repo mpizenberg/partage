@@ -59,15 +59,6 @@ export const MemberManager: Component<MemberManagerProps> = (props) => {
                   </Show>
                 </div>
               </div>
-              {/*<div class="member-info">
-                <span class="member-name">{member.name}</span>
-                <Show when={member.id === props.currentUserId}>
-                  <span class="member-badge">You</span>
-                </Show>
-                <Show when={member.isVirtual}>
-                  <span class="member-badge-virtual">Virtual</span>
-                </Show>
-              </div>*/}
               <Show when={member.id !== props.currentUserId}>
                 <button
                   type="button"
