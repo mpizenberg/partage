@@ -16,6 +16,7 @@
     "clean": "rm -rf dist node_modules .vite"
   },
   "dependencies": {
+    "@solid-primitives/i18n": "^2.2.1",
     "@solidjs/router": "^0.15.4",
     "loro-crdt": "^1.1.6",
     "pocketbase": "^0.26.5",
