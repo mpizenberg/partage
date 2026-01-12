@@ -1,11 +1,11 @@
-import { Component, Show, For, createSignal, createEffect } from 'solid-js';
+import { Component, Show, For, createSignal, createEffect, createResource } from 'solid-js';
 import { useAppContext, type ImportAnalysis } from '../context/AppContext';
 import { Button } from '../components/common/Button';
 import { CreateGroupScreen } from './CreateGroupScreen';
 import { ImportPreviewModal } from '../components/import/ImportPreviewModal';
 
 export const GroupSelectionScreen: Component = () => {
-  const { groups, selectGroup, identity, exportGroups, importGroups, confirmImport, deleteGroup } =
+  const { groups, selectGroup, identity, exportGroups, importGroups, confirmImport, deleteGroup, getGroupBalance } =
     useAppContext();
   const [showCreateGroup, setShowCreateGroup] = createSignal(false);
   const [importAnalysis, setImportAnalysis] = createSignal<ImportAnalysis | null>(null);
@@ -166,6 +166,49 @@ export const GroupSelectionScreen: Component = () => {
     setGroupToDelete(null);
   };
 
+  // Helper component to display group balance as badge (replaces currency badge)
+  const GroupBalanceBadge: Component<{ groupId: string; currency: string }> = (props) => {
+    const [balance] = createResource(
+      () => props.groupId,
+      (id) => getGroupBalance(id)
+    );
+
+    return (
+      <Show
+        when={!balance.loading && balance()}
+        fallback={<span class="currency-badge">{props.currency}</span>}
+      >
+        {(bal) => {
+          const netBalance = bal().netBalance;
+          const absBalance = Math.abs(netBalance);
+          const isPositive = netBalance > 0.01;
+          const isSettled = Math.abs(netBalance) < 0.01;
+
+          return (
+            <Show
+              when={!isSettled}
+              fallback={<span class="currency-badge">{props.currency}</span>}
+            >
+              <span
+                class="currency-badge"
+                style={{
+                  'background-color': isPositive
+                    ? 'var(--color-success-bg)'
+                    : 'var(--color-danger-bg)',
+                  'color': isPositive
+                    ? 'var(--color-success)'
+                    : 'var(--color-danger)',
+                }}
+              >
+                {isPositive ? '+' : '-'}{props.currency} {absBalance.toFixed(2)}
+              </span>
+            </Show>
+          );
+        }}
+      </Show>
+    );
+  };
+
   return (
     <>
       <Show
@@ -255,7 +298,7 @@ export const GroupSelectionScreen: Component = () => {
                           <div class="clickable" onClick={() => handleSelectGroup(group.id)}>
                             <div class="flex-between mb-sm">
                               <h3 class="text-lg font-semibold">{group.name}</h3>
-                              <span class="currency-badge">{group.defaultCurrency}</span>
+                              <GroupBalanceBadge groupId={group.id} currency={group.defaultCurrency} />
                             </div>
                             <p class="text-sm text-muted mb-xs">
                               Created at: {formatDate(group.createdAt)}

@@ -101,6 +101,9 @@ interface AppContextValue {
 
   // Members for active group
   members: Accessor<Member[]>;
+  addVirtualMember: (name: string) => Promise<void>;
+  renameMember: (memberId: string, newName: string) => Promise<void>;
+  removeMember: (memberId: string) => Promise<void>;
 
   // Entries (derived from Loro)
   entries: Accessor<Entry[]>;
@@ -122,6 +125,7 @@ interface AppContextValue {
   // Balances (derived from entries)
   balances: Accessor<Map<string, Balance>>;
   settlementPlan: Accessor<SettlementPlan>;
+  getGroupBalance: (groupId: string) => Promise<Balance | null>;
 
   // Activities (derived from entries and members)
   activities: Accessor<Activity[]>;
@@ -253,7 +257,7 @@ export const AppProvider: Component<{ children: JSX.Element }> = (props) => {
     // Read version to ensure recalculation when preferences change
     preferencesVersion();
     const preferences = store?.getSettlementPreferences() || [];
-    return generateSettlementPlan(currentBalances, [], preferences);
+    return generateSettlementPlan(currentBalances, preferences);
   });
 
   // Filtered activities (memoized)
@@ -2012,6 +2016,209 @@ export const AppProvider: Component<{ children: JSX.Element }> = (props) => {
     }
   };
 
+  /**
+   * Add a virtual member to the active group
+   */
+  const addVirtualMember = async (name: string): Promise<void> => {
+    const group = activeGroup();
+    const store = loroStore();
+    const manager = syncManager();
+    const currentIdentity = identity();
+
+    if (!group || !store || !currentIdentity) {
+      throw new Error('No active group or store');
+    }
+
+    try {
+      setIsLoading(true);
+
+      // Generate unique ID for virtual member
+      const virtualMemberId = crypto.randomUUID();
+
+      const newMember: Member = {
+        id: virtualMemberId,
+        name,
+        joinedAt: Date.now(),
+        status: 'active',
+        isVirtual: true,
+        addedBy: currentIdentity.publicKeyHash,
+      };
+
+      // Add to Loro store
+      const versionBefore = store.getVersion();
+      store.addMember(newMember);
+
+      // Sync to server if online
+      if (manager) {
+        try {
+          const updateBytes = store.exportFrom(versionBefore);
+          await manager.pushUpdate(group.id, currentIdentity.publicKeyHash, updateBytes);
+        } catch (syncError) {
+          console.warn('[AppContext] Failed to sync member addition, queued for later:', syncError);
+        }
+      }
+
+      // Save snapshot
+      await db.saveLoroSnapshot(group.id, store.exportSnapshot());
+
+      // Refresh members by updating the active group
+      const updatedGroup = { ...group, members: store.getMembers() };
+      setActiveGroup(updatedGroup);
+      await db.saveGroup(updatedGroup);
+
+      console.log('[AppContext] Virtual member added:', newMember);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to add member');
+      throw err;
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  /**
+   * Rename a member in the active group
+   */
+  const renameMember = async (memberId: string, newName: string): Promise<void> => {
+    const group = activeGroup();
+    const store = loroStore();
+    const manager = syncManager();
+    const currentIdentity = identity();
+
+    if (!group || !store || !currentIdentity) {
+      throw new Error('No active group or store');
+    }
+
+    try {
+      setIsLoading(true);
+
+      // Update in Loro store
+      const versionBefore = store.getVersion();
+      store.updateMember(memberId, { name: newName });
+
+      // Sync to server if online
+      if (manager) {
+        try {
+          const updateBytes = store.exportFrom(versionBefore);
+          await manager.pushUpdate(group.id, currentIdentity.publicKeyHash, updateBytes);
+        } catch (syncError) {
+          console.warn('[AppContext] Failed to sync member rename, queued for later:', syncError);
+        }
+      }
+
+      // Save snapshot
+      await db.saveLoroSnapshot(group.id, store.exportSnapshot());
+
+      // Refresh members
+      const updatedGroup = { ...group, members: store.getMembers() };
+      setActiveGroup(updatedGroup);
+      await db.saveGroup(updatedGroup);
+
+      console.log('[AppContext] Member renamed:', memberId, 'to', newName);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to rename member');
+      throw err;
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  /**
+   * Remove a member from the active group (mark as departed)
+   */
+  const removeMember = async (memberId: string): Promise<void> => {
+    const group = activeGroup();
+    const store = loroStore();
+    const manager = syncManager();
+    const currentIdentity = identity();
+
+    if (!group || !store || !currentIdentity) {
+      throw new Error('No active group or store');
+    }
+
+    try {
+      setIsLoading(true);
+
+      // Update member status to departed
+      const versionBefore = store.getVersion();
+      store.updateMember(memberId, {
+        status: 'departed',
+        leftAt: Date.now(),
+      });
+
+      // Sync to server if online
+      if (manager) {
+        try {
+          const updateBytes = store.exportFrom(versionBefore);
+          await manager.pushUpdate(group.id, currentIdentity.publicKeyHash, updateBytes);
+        } catch (syncError) {
+          console.warn('[AppContext] Failed to sync member removal, queued for later:', syncError);
+        }
+      }
+
+      // Save snapshot
+      await db.saveLoroSnapshot(group.id, store.exportSnapshot());
+
+      // Refresh members
+      const updatedGroup = { ...group, members: store.getMembers() };
+      setActiveGroup(updatedGroup);
+      await db.saveGroup(updatedGroup);
+
+      console.log('[AppContext] Member removed:', memberId);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to remove member');
+      throw err;
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  /**
+   * Get the personal balance for a specific group without selecting it
+   * Returns the user's net balance in the group, or null if not found
+   */
+  const getGroupBalance = async (groupId: string): Promise<Balance | null> => {
+    try {
+      const currentIdentity = identity();
+      if (!currentIdentity) {
+        return null;
+      }
+
+      // Get group from database
+      const group = await db.getGroup(groupId);
+      if (!group) {
+        return null;
+      }
+
+      // Get group key
+      const keyString = await db.getGroupKey(groupId, group.currentKeyVersion);
+      if (!keyString) {
+        return null;
+      }
+      const groupKey = await importSymmetricKey(keyString);
+
+      // Load Loro snapshot
+      const snapshot = await db.getLoroSnapshot(groupId);
+      const tempStore = new LoroEntryStore(currentIdentity.publicKeyHash);
+
+      if (snapshot) {
+        tempStore.importSnapshot(snapshot);
+      }
+
+      // Get active entries and calculate balances
+      const activeEntries = await tempStore.getActiveEntries(groupId, groupKey);
+      const calculatedBalances = calculateBalances(activeEntries);
+
+      // Find user's member ID in this group
+      // The user's member ID is their public key hash
+      const userMemberId = currentIdentity.publicKeyHash;
+
+      return calculatedBalances.get(userMemberId) || null;
+    } catch (err) {
+      console.error('Failed to get group balance:', err);
+      return null;
+    }
+  };
+
   const value: AppContextValue = {
     db,
     loroStore,
@@ -2024,6 +2231,9 @@ export const AppProvider: Component<{ children: JSX.Element }> = (props) => {
     selectGroup,
     deselectGroup,
     members,
+    addVirtualMember,
+    renameMember,
+    removeMember,
     entries,
     showDeleted,
     setShowDeleted,
@@ -2039,6 +2249,7 @@ export const AppProvider: Component<{ children: JSX.Element }> = (props) => {
     setEditingEntry,
     balances,
     settlementPlan,
+    getGroupBalance,
     activities,
     activityFilter,
     setActivityFilter,

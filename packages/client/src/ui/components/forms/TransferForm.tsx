@@ -22,6 +22,26 @@ export interface TransferFormProps {
 export const TransferForm: Component<TransferFormProps> = (props) => {
   const { members, activeGroup, identity } = useAppContext()
 
+  // Sorted active members: current user first, then others alphabetically (case-insensitive)
+  const sortedActiveMembers = createMemo(() => {
+    const currentUserId = identity()?.publicKeyHash
+    const membersList = members().filter(m => m.status === 'active')
+
+    const currentUser = membersList.filter(m => m.id === currentUserId)
+    const others = membersList
+      .filter(m => m.id !== currentUserId)
+      .sort((a, b) => a.name.toLowerCase().localeCompare(b.name.toLowerCase()))
+
+    return [...currentUser, ...others]
+  })
+
+  // Sorted departed members (alphabetically)
+  const sortedDepartedMembers = createMemo(() => {
+    return members()
+      .filter(m => m.status === 'departed')
+      .sort((a, b) => a.name.toLowerCase().localeCompare(b.name.toLowerCase()))
+  })
+
   const formatDateForInput = (timestamp: number): string => {
     return new Date(timestamp).toISOString().split('T')[0] || ''
   }
@@ -231,13 +251,24 @@ export const TransferForm: Component<TransferFormProps> = (props) => {
               onChange={(e) => setFrom(e.currentTarget.value)}
             >
               <option value="">Select member</option>
-              <For each={members()}>
+              <For each={sortedActiveMembers()}>
                 {(member) => (
                   <option value={member.id}>
                     {member.id === identity()?.publicKeyHash ? 'You' : member.name}
                   </option>
                 )}
               </For>
+              <Show when={sortedDepartedMembers().length > 0}>
+                <optgroup label="Past members">
+                  <For each={sortedDepartedMembers()}>
+                    {(member) => (
+                      <option value={member.id}>
+                        {member.name}
+                      </option>
+                    )}
+                  </For>
+                </optgroup>
+              </Show>
             </Select>
           </div>
 
@@ -250,13 +281,24 @@ export const TransferForm: Component<TransferFormProps> = (props) => {
               onChange={(e) => setTo(e.currentTarget.value)}
             >
               <option value="">Select member</option>
-              <For each={members()}>
+              <For each={sortedActiveMembers()}>
                 {(member) => (
                   <option value={member.id}>
                     {member.id === identity()?.publicKeyHash ? 'You' : member.name}
                   </option>
                 )}
               </For>
+              <Show when={sortedDepartedMembers().length > 0}>
+                <optgroup label="Past members">
+                  <For each={sortedDepartedMembers()}>
+                    {(member) => (
+                      <option value={member.id}>
+                        {member.name}
+                      </option>
+                    )}
+                  </For>
+                </optgroup>
+              </Show>
             </Select>
           </div>
         </div>

@@ -14,6 +14,7 @@ import type {
   MemberJoinedActivity,
   ActivityFilter,
   ExpenseEntry,
+  TransferEntry,
 } from '@partage/shared';
 
 /**
@@ -44,6 +45,72 @@ export function generateActivitiesFromEntries(
     return 'Transfer';
   };
 
+  // Helper to get participants for expenses
+  const getExpenseParticipants = (entry: ExpenseEntry) => {
+    return {
+      payers: entry.payers.map(p => p.memberId),
+      beneficiaries: entry.beneficiaries.map(b => b.memberId),
+    };
+  };
+
+  // Helper to get participants for transfers
+  const getTransferParticipants = (entry: TransferEntry) => {
+    return {
+      from: entry.from,
+      to: entry.to,
+    };
+  };
+
+  // Helper to calculate changes between two entries
+  const calculateChanges = (oldEntry: Entry, newEntry: Entry): Record<string, { from: any; to: any }> => {
+    const changes: Record<string, { from: any; to: any }> = {};
+
+    // Check common fields
+    if (oldEntry.amount !== newEntry.amount) {
+      changes.amount = { from: oldEntry.amount, to: newEntry.amount };
+    }
+    if (oldEntry.currency !== newEntry.currency) {
+      changes.currency = { from: oldEntry.currency, to: newEntry.currency };
+    }
+    if (oldEntry.date !== newEntry.date) {
+      changes.date = { from: oldEntry.date, to: newEntry.date };
+    }
+
+    // Check expense-specific fields
+    if (oldEntry.type === 'expense' && newEntry.type === 'expense') {
+      const oldExpense = oldEntry as ExpenseEntry;
+      const newExpense = newEntry as ExpenseEntry;
+
+      if (oldExpense.description !== newExpense.description) {
+        changes.description = { from: oldExpense.description, to: newExpense.description };
+      }
+      if (oldExpense.category !== newExpense.category) {
+        changes.category = { from: oldExpense.category, to: newExpense.category };
+      }
+      if (JSON.stringify(oldExpense.payers) !== JSON.stringify(newExpense.payers)) {
+        changes.payers = { from: oldExpense.payers, to: newExpense.payers };
+      }
+      if (JSON.stringify(oldExpense.beneficiaries) !== JSON.stringify(newExpense.beneficiaries)) {
+        changes.beneficiaries = { from: oldExpense.beneficiaries, to: newExpense.beneficiaries };
+      }
+    }
+
+    // Check transfer-specific fields
+    if (oldEntry.type === 'transfer' && newEntry.type === 'transfer') {
+      const oldTransfer = oldEntry as TransferEntry;
+      const newTransfer = newEntry as TransferEntry;
+
+      if (oldTransfer.from !== newTransfer.from) {
+        changes.from = { from: oldTransfer.from, to: newTransfer.from };
+      }
+      if (oldTransfer.to !== newTransfer.to) {
+        changes.to = { from: oldTransfer.to, to: newTransfer.to };
+      }
+    }
+
+    return changes;
+  };
+
   // Process each entry
   for (const entry of entries) {
     const actorName = getMemberName(entry.createdBy);
@@ -64,6 +131,9 @@ export function generateActivitiesFromEntries(
         description,
         amount: entry.amount,
         currency: entry.currency || 'USD',
+        entryDate: entry.date,
+        ...(entry.type === 'expense' ? getExpenseParticipants(entry as ExpenseEntry) : {}),
+        ...(entry.type === 'transfer' ? getTransferParticipants(entry as TransferEntry) : {}),
       };
       activities.push(activity);
     } else {
@@ -85,6 +155,9 @@ export function generateActivitiesFromEntries(
           description,
           amount: entry.amount,
           currency: entry.currency || 'USD',
+          entryDate: entry.date,
+          ...(entry.type === 'expense' ? getExpenseParticipants(entry as ExpenseEntry) : {}),
+          ...(entry.type === 'transfer' ? getTransferParticipants(entry as TransferEntry) : {}),
           reason: entry.deletionReason,
         };
         activities.push(activity);
@@ -103,10 +176,14 @@ export function generateActivitiesFromEntries(
           description,
           amount: entry.amount,
           currency: entry.currency || 'USD',
+          entryDate: entry.date,
+          ...(entry.type === 'expense' ? getExpenseParticipants(entry as ExpenseEntry) : {}),
+          ...(entry.type === 'transfer' ? getTransferParticipants(entry as TransferEntry) : {}),
         };
         activities.push(activity);
       } else if (entry.modifiedAt && entry.modifiedBy) {
         // Modification activity (normal edit)
+        const changes = previousEntry ? calculateChanges(previousEntry, entry) : {};
         const activity: EntryModifiedActivity = {
           id: `activity-${entry.id}`,
           type: 'entry_modified',
@@ -120,6 +197,10 @@ export function generateActivitiesFromEntries(
           description,
           amount: entry.amount,
           currency: entry.currency || 'USD',
+          entryDate: entry.date,
+          ...(entry.type === 'expense' ? getExpenseParticipants(entry as ExpenseEntry) : {}),
+          ...(entry.type === 'transfer' ? getTransferParticipants(entry as TransferEntry) : {}),
+          changes,
         };
         activities.push(activity);
       }

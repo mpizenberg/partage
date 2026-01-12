@@ -32,6 +32,13 @@ export interface EntryAddedActivity extends BaseActivity {
   description: string;
   amount: number;
   currency: string;
+  entryDate: number; // Transaction date (not creation date)
+  // For expenses
+  payers?: string[]; // Member IDs who paid
+  beneficiaries?: string[]; // Member IDs who benefited
+  // For transfers
+  from?: string; // Member ID
+  to?: string; // Member ID
 }
 
 /**
@@ -45,7 +52,15 @@ export interface EntryModifiedActivity extends BaseActivity {
   description: string;
   amount: number;
   currency: string;
-  changes?: string[]; // Array of changed field names
+  entryDate: number;
+  // For expenses
+  payers?: string[];
+  beneficiaries?: string[];
+  // For transfers
+  from?: string;
+  to?: string;
+  // Modification metadata
+  changes?: Record<string, { from: any; to: any }>; // Field name -> before/after values
 }
 
 /**
@@ -59,6 +74,13 @@ export interface EntryDeletedActivity extends BaseActivity {
   description: string;
   amount: number;
   currency: string;
+  entryDate: number;
+  // For expenses
+  payers?: string[];
+  beneficiaries?: string[];
+  // For transfers
+  from?: string;
+  to?: string;
   reason?: string;
 }
 
@@ -73,6 +95,13 @@ export interface EntryUndeletedActivity extends BaseActivity {
   description: string;
   amount: number;
   currency: string;
+  entryDate: number;
+  // For expenses
+  payers?: string[];
+  beneficiaries?: string[];
+  // For transfers
+  from?: string;
+  to?: string;
 }
 
 /**

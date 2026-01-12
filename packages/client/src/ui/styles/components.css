@@ -1654,7 +1654,7 @@
 .activity-details {
   font-size: var(--font-size-sm);
   color: var(--color-text-light);
-  display: flex;
+  display: block;
   align-items: center;
   gap: var(--space-xs);
 }

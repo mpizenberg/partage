@@ -417,29 +417,6 @@ describe('Balance Calculator', () => {
       });
     });
 
-    it('should apply must-not constraints', () => {
-      const balances = new Map([
-        ['A', { memberId: 'A', totalPaid: 90, totalOwed: 50, netBalance: 40 }],
-        ['B', { memberId: 'B', totalPaid: 60, totalOwed: 50, netBalance: 10 }],
-        ['C', { memberId: 'C', totalPaid: 0, totalOwed: 50, netBalance: -50 }],
-      ]);
-
-      const constraints = [
-        {
-          type: 'must-not' as const,
-          from: 'C',
-          to: 'A',
-        },
-      ];
-
-      const plan = generateSettlementPlan(balances, constraints);
-
-      // Should not have C -> A transaction
-      const hasProhibitedTransaction = plan.transactions.some(
-        (t) => t.from === 'C' && t.to === 'A'
-      );
-      expect(hasProhibitedTransaction).toBe(false);
-    });
   });
 
   it('should handle rounding correctly for 3-way split of $100', () => {

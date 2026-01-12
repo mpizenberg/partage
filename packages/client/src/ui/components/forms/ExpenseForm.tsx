@@ -27,6 +27,28 @@ export interface ExpenseFormProps {
 export const ExpenseForm: Component<ExpenseFormProps> = (props) => {
   const { members, activeGroup, identity } = useAppContext()
 
+  // Sorted active members: current user first, then others alphabetically (case-insensitive)
+  const sortedActiveMembers = createMemo(() => {
+    const currentUserId = identity()?.publicKeyHash
+    const membersList = members().filter(m => m.status === 'active')
+
+    const currentUser = membersList.filter(m => m.id === currentUserId)
+    const others = membersList
+      .filter(m => m.id !== currentUserId)
+      .sort((a, b) => a.name.toLowerCase().localeCompare(b.name.toLowerCase()))
+
+    return [...currentUser, ...others]
+  })
+
+  // Sorted departed members (alphabetically)
+  const sortedDepartedMembers = createMemo(() => {
+    return members()
+      .filter(m => m.status === 'departed')
+      .sort((a, b) => a.name.toLowerCase().localeCompare(b.name.toLowerCase()))
+  })
+
+  const [showDepartedMembers, setShowDepartedMembers] = createSignal(false)
+
   // Helper functions to extract initial data
   const getInitialBeneficiaries = (): Set<string> => {
     if (!props.initialData) {
@@ -401,13 +423,24 @@ export const ExpenseForm: Component<ExpenseFormProps> = (props) => {
           onChange={(e) => setPayerId(e.currentTarget.value)}
         >
           <option value="">Select member</option>
-          <For each={members()}>
+          <For each={sortedActiveMembers()}>
             {(member) => (
               <option value={member.id}>
                 {member.id === identity()?.publicKeyHash ? 'You' : member.name}
               </option>
             )}
           </For>
+          <Show when={sortedDepartedMembers().length > 0}>
+            <optgroup label="Past members">
+              <For each={sortedDepartedMembers()}>
+                {(member) => (
+                  <option value={member.id}>
+                    {member.name}
+                  </option>
+                )}
+              </For>
+            </optgroup>
+          </Show>
         </Select>
       </div>
 
@@ -436,7 +469,7 @@ export const ExpenseForm: Component<ExpenseFormProps> = (props) => {
         </div>
 
         <div class="beneficiaries-list">
-          <For each={members()}>
+          <For each={sortedActiveMembers()}>
             {(member) => {
               const isSelected = () => selectedBeneficiaries().has(member.id)
               const memberName = () => member.id === identity()?.publicKeyHash ? 'You' : member.name
@@ -499,6 +532,82 @@ export const ExpenseForm: Component<ExpenseFormProps> = (props) => {
               )
             }}
           </For>
+
+          {/* Departed Members Section */}
+          <Show when={sortedDepartedMembers().length > 0}>
+            <div style="margin-top: var(--space-md); padding-top: var(--space-md); border-top: 1px solid var(--color-border);">
+              <button
+                type="button"
+                class="form-toggle-btn"
+                onClick={() => setShowDepartedMembers(!showDepartedMembers())}
+                style="width: 100%; text-align: left; padding: var(--space-sm); background: var(--color-bg-secondary); border: none; border-radius: var(--border-radius); cursor: pointer; font-size: var(--font-size-sm); color: var(--color-text-light);"
+              >
+                {showDepartedMembers() ? '▼' : '▶'} Past members ({sortedDepartedMembers().length})
+              </button>
+              <Show when={showDepartedMembers()}>
+                <div style="margin-top: var(--space-sm);">
+                  <For each={sortedDepartedMembers()}>
+                    {(member) => {
+                      const isSelected = () => selectedBeneficiaries().has(member.id)
+
+                      return (
+                        <div class={`beneficiary-item ${isSelected() ? 'selected' : ''}`}>
+                          <label class="beneficiary-checkbox">
+                            <input
+                              type="checkbox"
+                              checked={isSelected()}
+                              disabled={isSubmitting()}
+                              onChange={() => toggleBeneficiary(member.id)}
+                            />
+                            <span>{member.name}</span>
+                          </label>
+
+                          <Show when={isSelected()}>
+                            <Show when={splitType() === 'shares'}>
+                              <div class="beneficiary-control">
+                                <button
+                                  type="button"
+                                  class="control-btn"
+                                  onClick={() => updateBeneficiaryShares(member.id, -1)}
+                                  disabled={isSubmitting()}
+                                >
+                                  −
+                                </button>
+                                <span class="control-value">
+                                  {beneficiaryShares().get(member.id) || 1}
+                                </span>
+                                <button
+                                  type="button"
+                                  class="control-btn"
+                                  onClick={() => updateBeneficiaryShares(member.id, 1)}
+                                  disabled={isSubmitting()}
+                                >
+                                  +
+                                </button>
+                              </div>
+                            </Show>
+                            <Show when={splitType() === 'exact'}>
+                              <div class="beneficiary-control">
+                                <input
+                                  type="number"
+                                  value={(beneficiaryAmounts().get(member.id) || 0).toString()}
+                                  placeholder="0.00"
+                                  step={0.01}
+                                  min={0}
+                                  disabled={isSubmitting()}
+                                  onInput={(e) => updateBeneficiaryAmount(member.id, e.currentTarget.value)}
+                                />
+                              </div>
+                            </Show>
+                          </Show>
+                        </div>
+                      )
+                    }}
+                  </For>
+                </div>
+              </Show>
+            </div>
+          </Show>
         </div>
 
         {errors().beneficiaries && (

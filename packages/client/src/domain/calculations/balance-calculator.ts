@@ -12,7 +12,6 @@ import type {
   Balance,
   DebtEdge,
   SettlementPlan,
-  SettlementConstraint,
   SettlementPreference,
 } from '@partage/shared';
 
@@ -278,38 +277,14 @@ export function buildDebtGraph(
  */
 export function generateSettlementPlan(
   balances: Map<string, Balance>,
-  constraints: SettlementConstraint[] = [],
   preferences: SettlementPreference[] = []
 ): SettlementPlan {
   const debtGraph = buildDebtGraph(balances, preferences);
 
-  // Apply constraints (simplified - could be more sophisticated)
-  const filteredEdges = applyConstraints(debtGraph, constraints);
-
   return {
-    transactions: filteredEdges,
-    totalTransactions: filteredEdges.length,
+    transactions: debtGraph,
+    totalTransactions: debtGraph.length,
   };
-}
-
-/**
- * Apply settlement constraints to debt graph
- */
-function applyConstraints(edges: DebtEdge[], constraints: SettlementConstraint[]): DebtEdge[] {
-  let result = [...edges];
-
-  for (const constraint of constraints) {
-    if (constraint.type === 'must-not') {
-      // Remove edges matching the constraint
-      result = result.filter(
-        (edge) => !(edge.from === constraint.from && edge.to === constraint.to)
-      );
-    }
-    // 'must' and 'prefer' constraints would require more complex logic
-    // to redistribute debt, which we can implement later if needed
-  }
-
-  return result;
 }
 
 /**
