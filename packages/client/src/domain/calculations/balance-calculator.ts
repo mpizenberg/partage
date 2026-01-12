@@ -280,6 +280,10 @@ export function buildDebtGraph(
     }
   });
 
+  // Build creditor lookup map for O(1) access (instead of O(n) find)
+  // Map points to the same objects in creditors array so mutations are reflected
+  const creditorMap = new Map(creditors.map((c) => [c.memberId, c]));
+
   // Build preference map for quick lookup
   const preferenceMap = new Map<string, string[]>();
   preferences.forEach((pref) => {
@@ -303,12 +307,12 @@ export function buildDebtGraph(
   for (const debtor of debtorsWithPreferences) {
     const preferredRecipients = preferenceMap.get(debtor.memberId) || [];
 
-    // Try preferred creditors in order
+    // Try preferred creditors in order (O(1) lookup via map)
     for (const preferredId of preferredRecipients) {
       if (debtor.amount < 0.01) break;
 
-      const creditor = creditors.find((c) => c.memberId === preferredId && c.amount > 0.01);
-      if (!creditor) continue;
+      const creditor = creditorMap.get(preferredId);
+      if (!creditor || creditor.amount < 0.01) continue;
 
       const amount = Math.min(debtor.amount, creditor.amount);
       edges.push({

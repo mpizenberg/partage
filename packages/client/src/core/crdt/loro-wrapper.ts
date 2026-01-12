@@ -103,6 +103,7 @@ export class LoroEntryStore {
   private memberAliases: LoroMap;
   private settlementPreferences: LoroMap;
   private lastSavedVersion: any | null = null; // Track last saved version for incremental updates
+  private keyCache: Map<string, CryptoKey> = new Map(); // Cache imported keys to avoid repeated crypto imports
 
   constructor(peerId?: string) {
     // Create Loro with a peer ID if provided (important for multi-device sync)
@@ -323,17 +324,15 @@ export class LoroEntryStore {
       );
     }
 
-    // 2) Resolve the correct group key version for this entry.
-    const keyString = await this.getGroupKeyString(metadata.groupId, metadata.keyVersion);
-    if (!keyString) {
+    // 2) Resolve the correct group key version for this entry (with caching).
+    const key = await this.getCachedKey(metadata.groupId, metadata.keyVersion);
+    if (!key) {
       console.warn(
         `[LoroEntryStore] Missing group key v${metadata.keyVersion} for group=${metadata.groupId}; ` +
           `cannot decrypt entry ${entryId}. Skipping entry.`
       );
       return null;
     }
-
-    const key = await this.importGroupKeyFromString(keyString);
 
     // Decryption can legitimately fail during/after key rotation if this client
     // does not yet have the required key version. Don't let a single entry
@@ -353,9 +352,9 @@ export class LoroEntryStore {
 
   /**
    * Get all active entries for a group
+   * Uses parallel decryption for better performance
    */
   async getAllEntries(groupId: string, groupKey: CryptoKey): Promise<Entry[]> {
-    const allEntries: Entry[] = [];
     const entriesObj = this.entries.toJSON();
     const entryIds = Object.keys(entriesObj);
 
@@ -363,17 +362,21 @@ export class LoroEntryStore {
       `[LoroEntryStore] getAllEntries: found ${entryIds.length} entry IDs in Loro map for group=${groupId}`
     );
 
-    for (const entryId of entryIds) {
-      const entry = await this.getEntry(entryId, groupKey);
-      // getEntry() may return null on decryption failure; skip those entries.
-      if (entry && entry.groupId === groupId) {
-        allEntries.push(entry);
-      } else if (entry && entry.groupId !== groupId) {
+    // Parallel decryption for better performance
+    const entryPromises = entryIds.map((entryId) => this.getEntry(entryId, groupKey));
+    const entries = await Promise.all(entryPromises);
+
+    // Filter to matching group and non-null entries
+    const allEntries = entries.filter((entry): entry is Entry => {
+      if (!entry) return false;
+      if (entry.groupId !== groupId) {
         console.warn(
-          `[LoroEntryStore] Entry ${entryId} has groupId=${entry.groupId} but expected ${groupId}, skipping`
+          `[LoroEntryStore] Entry ${entry.id} has groupId=${entry.groupId} but expected ${groupId}, skipping`
         );
+        return false;
       }
-    }
+      return true;
+    });
 
     console.log(
       `[LoroEntryStore] getAllEntries: returning ${allEntries.length} entries for group=${groupId}`
@@ -827,6 +830,37 @@ export class LoroEntryStore {
       'encrypt',
       'decrypt',
     ]);
+  }
+
+  /**
+   * Get a cached CryptoKey for a group/version combination.
+   * Avoids repeated crypto.subtle.importKey() calls which are expensive.
+   * Returns null if the key is not available in IndexedDB.
+   */
+  private async getCachedKey(groupId: string, version: number): Promise<CryptoKey | null> {
+    const cacheKey = `${groupId}:${version}`;
+
+    // Check cache first
+    if (this.keyCache.has(cacheKey)) {
+      return this.keyCache.get(cacheKey)!;
+    }
+
+    // Load from IndexedDB and import
+    const keyString = await this.getGroupKeyString(groupId, version);
+    if (!keyString) {
+      return null;
+    }
+
+    const key = await this.importGroupKeyFromString(keyString);
+    this.keyCache.set(cacheKey, key);
+    return key;
+  }
+
+  /**
+   * Clear the key cache (useful when keys are rotated or user logs out)
+   */
+  clearKeyCache(): void {
+    this.keyCache.clear();
   }
 
   /**

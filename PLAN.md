@@ -403,7 +403,7 @@ Set up a monorepo structure for a fully encrypted, local-first bill-splitting PW
 4. ✅ Mobile UX refinement
 5. ✅ User onboarding flow
 6. Security audit
-7. Performance optimization
+7. ✅ Performance optimization
 8. Deployment setup
 
 ## Critical Technical Decisions

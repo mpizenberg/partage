@@ -1,4 +1,4 @@
-import { Component, Show, For, createSignal } from 'solid-js'
+import { Component, Show, For, createSignal, createMemo } from 'solid-js'
 import { useAppContext } from '../../context/AppContext'
 import { Button } from '../common/Button'
 import type { SettlementPlan as SettlementPlanType, Member } from '@partage/shared'
@@ -20,42 +20,66 @@ export const SettlementPlan: Component<SettlementPlanProps> = (props) => {
     }).format(amount)
   }
 
+  // Memoize the canonical user ID to avoid repeated resolution
+  const canonicalUserId = createMemo(() => {
+    const userId = identity()?.publicKeyHash
+    if (!userId) return ''
+    const store = loroStore()
+    if (!store) return userId
+    return store.resolveCanonicalMemberId(userId)
+  })
+
+  // Memoized member name lookup map - O(1) lookups instead of O(n) finds
+  const memberNameMap = createMemo(() => {
+    const nameMap = new Map<string, string>()
+    const store = loroStore()
+
+    if (!store) {
+      // Fallback to props.members
+      for (const member of props.members) {
+        nameMap.set(member.id, member.name)
+      }
+      return nameMap
+    }
+
+    // Get aliases once
+    const aliases = store.getMemberAliases()
+    const aliasMap = new Map<string, string>() // existingMemberId -> newMemberId
+    for (const alias of aliases) {
+      aliasMap.set(alias.existingMemberId, alias.newMemberId)
+    }
+
+    // Build name map from all members
+    const allMembers = store.getMembers()
+    const memberById = new Map(allMembers.map(m => [m.id, m]))
+
+    for (const member of allMembers) {
+      let displayName = member.name
+
+      // If this member was claimed by another (alias exists), use the claimer's name
+      const claimerId = aliasMap.get(member.id)
+      if (claimerId) {
+        const claimer = memberById.get(claimerId)
+        if (claimer) {
+          displayName = claimer.name
+        }
+      }
+
+      nameMap.set(member.id, displayName)
+    }
+
+    return nameMap
+  })
+
+  // O(1) member name lookup using memoized map
   const getMemberName = (memberId: string): string => {
     const userId = identity()?.publicKeyHash
     if (!userId) return 'Unknown'
 
-    // Check if this is the current user (considering aliases)
-    if (memberId === userId) return 'You'
-    const store = loroStore()
-    if (store) {
-      const canonicalUserId = store.resolveCanonicalMemberId(userId)
-      if (memberId === canonicalUserId) return 'You'
+    // Check if this is the current user
+    if (memberId === userId || memberId === canonicalUserId()) return 'You'
 
-      // Check if this is a canonical ID (old virtual member) that has been claimed
-      const aliases = store.getMemberAliases()
-      const alias = aliases.find(a => a.existingMemberId === memberId)
-      if (alias) {
-        // This is a claimed virtual member - show the NEW member's name
-        const newMember = props.members.find(m => m.id === alias.newMemberId)
-        if (newMember) return newMember.name
-
-        // Fallback to full Loro member list
-        const allMembers = store.getMembers()
-        const newMemberFull = allMembers.find(m => m.id === alias.newMemberId)
-        if (newMemberFull) return newMemberFull.name
-      }
-    }
-
-    // Try filtered members list first
-    let member = props.members.find(m => m.id === memberId)
-
-    // If not found, check full Loro member list (includes replaced virtual members)
-    if (!member && store) {
-      const allMembers = store.getMembers()
-      member = allMembers.find(m => m.id === memberId)
-    }
-
-    return member?.name || 'Unknown'
+    return memberNameMap().get(memberId) || 'Unknown'
   }
 
   const handleSettle = async (fromId: string, toId: string, amount: number) => {
@@ -81,21 +105,15 @@ export const SettlementPlan: Component<SettlementPlanProps> = (props) => {
     }
   }
 
+  // Check if current user is involved in a transaction (using memoized canonical ID)
   const isUserInvolved = (fromId: string, toId: string): boolean => {
     const userId = identity()?.publicKeyHash
     if (!userId) return false
 
-    // Check direct match
-    if (userId === fromId || userId === toId) return true
-
-    // Check if user has claimed a virtual member (canonical ID)
-    const store = loroStore()
-    if (store) {
-      const canonicalUserId = store.resolveCanonicalMemberId(userId)
-      if (canonicalUserId === fromId || canonicalUserId === toId) return true
-    }
-
-    return false
+    // Check direct match or canonical ID match
+    const canonical = canonicalUserId()
+    return userId === fromId || userId === toId ||
+           canonical === fromId || canonical === toId
   }
 
   return (

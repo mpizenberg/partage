@@ -597,6 +597,44 @@ export class PartageDB {
     });
   }
 
+  /**
+   * Replace all queued operations atomically (clear + batch write in single transaction)
+   * This is more efficient than clear() + multiple queueOperation() calls
+   */
+  async replaceQueuedOperations(
+    operations: Array<{
+      type: string;
+      groupId: string;
+      data: unknown;
+      timestamp: number;
+    }>
+  ): Promise<void> {
+    await this.ensureOpen();
+
+    const transaction = this.db!.transaction(STORES.PENDING_OPS, 'readwrite');
+    const store = transaction.objectStore(STORES.PENDING_OPS);
+
+    // Clear existing operations first
+    store.clear();
+
+    // Add all new operations in the same transaction
+    for (const operation of operations) {
+      const operationId = `${operation.type}_${operation.timestamp}_${crypto.randomUUID()}`;
+      const record: PendingOperationRecord = {
+        id: operationId,
+        groupId: operation.groupId,
+        operation: JSON.stringify(operation),
+        createdAt: Date.now(),
+      };
+      store.put(record);
+    }
+
+    return new Promise((resolve, reject) => {
+      transaction.oncomplete = () => resolve();
+      transaction.onerror = () => reject(transaction.error);
+    });
+  }
+
   // Generic IndexedDB operations
 
   private async ensureOpen(): Promise<void> {

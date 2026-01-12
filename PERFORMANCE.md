@@ -2,40 +2,43 @@
 
 **Date**: January 12, 2026
 **Phase**: 8 - Polish & Production
+**Status**: ✅ All HIGH and MEDIUM priority optimizations implemented
 
 ## Executive Summary
 
-Analysis of the Partage codebase identified several performance patterns that could impact user experience at scale. The most significant issues are:
+Analysis of the Partage codebase identified several performance patterns that could impact user experience at scale. All HIGH and MEDIUM priority issues have been fixed:
 
-1. **Key Import Overhead** - ~50% overhead from repeated CryptoKey imports
-2. **Sequential Entry Decryption** - O(n) decryptions without parallelization
-3. **Linear Alias Lookups** - 3x slower than Map-based lookups
-4. **Sequential Network Calls** - Health checks and pagination run serially
+1. ✅ **Key Import Overhead** - Fixed with key caching (~62% savings measured)
+2. ✅ **Sequential Entry Decryption** - Fixed with parallel decryption (~2x speedup)
+3. ✅ **Linear Alias Lookups** - Fixed with Map-based lookups (~3.6x speedup)
+4. ✅ **Sequential Network Calls** - Fixed with parallel health check syncs
+5. ✅ **Batch IndexedDB writes** - Fixed with atomic replaceQueuedOperations
+6. ✅ **Linear Creditor Search** - Fixed with Map-based lookup
 
-## Benchmark Results
+## Benchmark Results (After Optimizations)
 
 Run benchmarks with: `pnpm test:bench`
 
 | Operation | Measured | Notes |
 |-----------|----------|-------|
 | Single encryption | ~20µs | Fast, not a bottleneck |
-| Batch encrypt (50 sequential) | ~1ms | |
-| Batch encrypt (50 parallel) | ~420µs | **2.4x speedup with parallelization** |
+| Batch encrypt (50 sequential) | ~840µs | |
+| Batch encrypt (50 parallel) | ~410µs | **2x speedup with parallelization** |
 | `createEntry` | ~100µs | Fast |
-| `getAllEntries` (10 entries) | ~1ms | |
-| `getAllEntries` (50 entries) | ~3ms | |
-| `getAllEntries` (100 entries) | ~5ms | ~50µs/entry |
+| `getAllEntries` (10 entries) | ~750µs | Improved with parallel decryption |
+| `getAllEntries` (50 entries) | ~2.1ms | Improved with parallel decryption |
+| `getAllEntries` (100 entries) | ~3.6ms | ~36µs/entry (was ~50µs) |
 | Balance calc (20 members, 500 entries) | ~1.5ms | Acceptable |
-| Key import (100x repeated) | +50% overhead | **50% savings with caching** |
-| Alias lookup (linear vs Map) | 131µs vs 44µs | **3x speedup with Map** |
-| Snapshot save (100 entries) | ~170µs | Fast |
-| Snapshot load (100 entries) | ~230µs | Fast |
+| Key caching benefit | 62% savings | **Implemented** |
+| Alias lookup (Map-based) | ~35µs vs 129µs linear | **3.6x speedup - Implemented** |
+| Snapshot save (100 entries) | ~150µs | Fast |
+| Snapshot load (100 entries) | ~220µs | Fast |
 
 ## Issues by Priority
 
-### HIGH Priority
+### HIGH Priority (All Implemented ✅)
 
-#### 1. Key Import Per Entry (loro-wrapper.ts:326-336)
+#### 1. ✅ Key Import Per Entry (loro-wrapper.ts)
 
 **Problem**: Every call to `getEntry()` potentially re-imports the CryptoKey from Base64:
 
@@ -66,7 +69,7 @@ private async getCachedKey(groupId: string, version: number): Promise<CryptoKey>
 }
 ```
 
-#### 2. Sequential Entry Decryption (loro-wrapper.ts:357-383)
+#### 2. ✅ Sequential Entry Decryption (loro-wrapper.ts)
 
 **Problem**: `getAllEntries` decrypts entries sequentially:
 
@@ -88,7 +91,7 @@ const entries = await Promise.all(entryPromises);
 return entries.filter((e): e is Entry => e !== null && e.groupId === groupId);
 ```
 
-#### 3. getMemberName Repeated Loro Reads (BalanceTab.tsx:27-58, SettlementPlan.tsx:23-59)
+#### 3. ✅ getMemberName Repeated Loro Reads (BalanceTab.tsx, SettlementPlan.tsx)
 
 **Problem**: `getMemberName()` is called in render loops without memoization:
 
@@ -133,9 +136,9 @@ const memberNameMap = createMemo(() => {
 const getMemberName = (memberId: string) => memberNameMap().get(memberId) || 'Unknown';
 ```
 
-### MEDIUM Priority
+### MEDIUM Priority (All Implemented ✅)
 
-#### 4. Sequential Health Check Syncs (sync-manager.ts:356-370)
+#### 4. ✅ Sequential Health Check Syncs (sync-manager.ts)
 
 **Problem**: Health check syncs each group sequentially:
 
@@ -156,7 +159,7 @@ await Promise.allSettled(
 );
 ```
 
-#### 5. Offline Queue Clear + Loop (sync-manager.ts:677-696)
+#### 5. ✅ Offline Queue Clear + Loop (sync-manager.ts, indexeddb.ts)
 
 **Problem**: Saving offline queue clears table then writes items one-by-one:
 
@@ -170,7 +173,7 @@ for (const operation of this.offlineQueue) {
 **Impact**: 51 IndexedDB transactions for 50 operations
 **Fix**: Batch write in single transaction (requires IndexedDB API change)
 
-#### 6. Linear Creditor Search in buildDebtGraph (balance-calculator.ts:263-354)
+#### 6. ✅ Linear Creditor Search in buildDebtGraph (balance-calculator.ts)
 
 **Problem**: Preferred creditor lookup uses linear search:
 
@@ -238,25 +241,27 @@ async function timedGetAllEntries(...args) {
 }
 ```
 
-## Implementation Order
+## Implementation Status
 
-1. **Key caching** (HIGH) - Immediate 50% improvement, low risk
-2. **Member name memoization** (HIGH) - Reduces re-renders, low risk
-3. **Parallel entry decryption** (HIGH) - ~2x improvement, low risk
-4. **Parallel health check** (MEDIUM) - Improves multi-group UX
-5. **Creditor Map lookup** (MEDIUM) - Clean optimization
-6. **Batch offline queue** (MEDIUM) - Requires API change
+All HIGH and MEDIUM priority optimizations have been implemented:
 
-## Files to Modify
+1. ✅ **Key caching** - `loro-wrapper.ts` - Added `keyCache` Map and `getCachedKey()` method
+2. ✅ **Member name memoization** - `BalanceTab.tsx`, `SettlementPlan.tsx` - Added `memberNameMap` createMemo
+3. ✅ **Parallel entry decryption** - `loro-wrapper.ts` - Changed to `Promise.all()` in `getAllEntries()`
+4. ✅ **Parallel health check** - `sync-manager.ts` - Changed to parallel sync with `Promise.all()`
+5. ✅ **Creditor Map lookup** - `balance-calculator.ts` - Added `creditorMap` for O(1) lookup
+6. ✅ **Batch offline queue** - `indexeddb.ts` - Added `replaceQueuedOperations()` for atomic batch writes
+
+## Files Modified
 
 | File | Changes |
 |------|---------|
-| `loro-wrapper.ts` | Add key cache, parallel decryption |
-| `BalanceTab.tsx` | Add memoized member name map |
-| `SettlementPlan.tsx` | Add memoized member name map |
-| `sync-manager.ts` | Parallel health check |
-| `balance-calculator.ts` | Creditor Map lookup |
-| `indexeddb.ts` | Batch offline queue write (future) |
+| `loro-wrapper.ts` | Added key cache, parallel decryption, `clearKeyCache()` |
+| `BalanceTab.tsx` | Added memoized `memberNameMap`, optimized `isCurrentUserMember` |
+| `SettlementPlan.tsx` | Added memoized `memberNameMap`, `canonicalUserId` |
+| `sync-manager.ts` | Parallel health check, batch offline queue via `replaceQueuedOperations` |
+| `balance-calculator.ts` | Added `creditorMap` for O(1) creditor lookup |
+| `indexeddb.ts` | Added `replaceQueuedOperations()` for atomic batch writes |
 
 ## Validation
 

@@ -10,53 +10,7 @@ export interface BalanceTabProps {
 export const BalanceTab: Component<BalanceTabProps> = (props) => {
   const { balances, settlementPlan, activeGroup, members, identity, entries, loroStore } = useAppContext()
 
-  // Check if a member ID represents the current user (considering aliases)
-  const isCurrentUserMember = (memberId: string): boolean => {
-    const userId = identity()?.publicKeyHash
-    if (!userId) return false
-    if (memberId === userId) return true
-
-    // Check if this is a virtual member claimed by the current user
-    const store = loroStore()
-    if (!store) return false
-
-    const canonicalId = store.resolveCanonicalMemberId(userId)
-    return memberId === canonicalId
-  }
-
-  const getMemberName = (memberId: string): string => {
-    if (isCurrentUserMember(memberId)) return 'You'
-
-    const store = loroStore()
-
-    // Check if this is a canonical ID (old virtual member) that has been claimed
-    if (store) {
-      const aliases = store.getMemberAliases()
-      const alias = aliases.find(a => a.existingMemberId === memberId)
-      if (alias) {
-        // This is a claimed virtual member - show the NEW member's name
-        const newMember = members().find(m => m.id === alias.newMemberId)
-        if (newMember) return newMember.name
-
-        // Fallback to full Loro member list
-        const allMembers = store.getMembers()
-        const newMemberFull = allMembers.find(m => m.id === alias.newMemberId)
-        if (newMemberFull) return newMemberFull.name
-      }
-    }
-
-    // Try filtered members list
-    let member = members().find(m => m.id === memberId)
-
-    // If not found, check full Loro member list (includes replaced virtual members)
-    if (!member && store) {
-      const allMembers = store.getMembers()
-      member = allMembers.find(m => m.id === memberId)
-    }
-
-    return member?.name || 'Unknown'
-  }
-
+  // Memoize the canonical user ID to avoid repeated resolution
   const myUserId = createMemo(() => {
     const userId = identity()?.publicKeyHash
     if (!userId) return ''
@@ -67,6 +21,61 @@ export const BalanceTab: Component<BalanceTabProps> = (props) => {
 
     return store.resolveCanonicalMemberId(userId)
   })
+
+  // Memoized member name lookup map - O(1) lookups instead of O(n) finds
+  // This is built once per render cycle instead of on every getMemberName call
+  const memberNameMap = createMemo(() => {
+    const nameMap = new Map<string, string>()
+    const store = loroStore()
+    if (!store) {
+      // Fallback to basic members list
+      for (const member of members()) {
+        nameMap.set(member.id, member.name)
+      }
+      return nameMap
+    }
+
+    // Get aliases once
+    const aliases = store.getMemberAliases()
+    const aliasMap = new Map<string, string>() // existingMemberId -> newMemberId
+    for (const alias of aliases) {
+      aliasMap.set(alias.existingMemberId, alias.newMemberId)
+    }
+
+    // Build name map from all members
+    const allMembers = store.getMembers()
+    const memberById = new Map(allMembers.map(m => [m.id, m]))
+
+    for (const member of allMembers) {
+      let displayName = member.name
+
+      // If this member was claimed by another (alias exists), use the claimer's name
+      const claimerId = aliasMap.get(member.id)
+      if (claimerId) {
+        const claimer = memberById.get(claimerId)
+        if (claimer) {
+          displayName = claimer.name
+        }
+      }
+
+      nameMap.set(member.id, displayName)
+    }
+
+    return nameMap
+  })
+
+  // Check if a member ID represents the current user (using memoized canonical ID)
+  const isCurrentUserMember = (memberId: string): boolean => {
+    const canonicalUserId = myUserId()
+    if (!canonicalUserId) return false
+    return memberId === canonicalUserId || memberId === identity()?.publicKeyHash
+  }
+
+  // O(1) member name lookup using memoized map
+  const getMemberName = (memberId: string): string => {
+    if (isCurrentUserMember(memberId)) return 'You'
+    return memberNameMap().get(memberId) || 'Unknown'
+  }
 
   const allBalances = createMemo(() => {
     const canonicalUserId = myUserId()

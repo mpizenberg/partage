@@ -358,14 +358,19 @@ export class SyncManager {
         return;
       }
 
-      // For each subscribed group, do an incremental sync to catch any missed updates
-      for (const [groupId, actorId] of this.subscribedGroups) {
-        try {
-          console.log(`[SyncManager] Health check: incremental sync for group ${groupId}`);
-          await this.incrementalSync(groupId, actorId);
-        } catch (error) {
-          console.warn(`[SyncManager] Health check sync failed for group ${groupId}:`, error);
-        }
+      // Parallel sync for all subscribed groups (instead of sequential)
+      const syncPromises = Array.from(this.subscribedGroups).map(([groupId, actorId]) =>
+        this.incrementalSync(groupId, actorId)
+          .then(() => ({ groupId, status: 'success' as const }))
+          .catch((error) => {
+            console.warn(`[SyncManager] Health check sync failed for group ${groupId}:`, error);
+            return { groupId, status: 'failed' as const, error };
+          })
+      );
+
+      if (syncPromises.length > 0) {
+        console.log(`[SyncManager] Health check: syncing ${syncPromises.length} groups in parallel`);
+        await Promise.all(syncPromises);
       }
     }, 30000); // 30 seconds
 
@@ -673,21 +678,19 @@ export class SyncManager {
 
   /**
    * Save offline queue to IndexedDB
+   * Uses atomic batch operation for efficiency (single transaction instead of n+1)
    */
   private async saveOfflineQueue(): Promise<void> {
     try {
-      // Clear existing queue
-      await this.storage.clearQueuedOperations();
+      // Batch write: clear + add all in single transaction
+      const operations = this.offlineQueue.map((operation) => ({
+        type: 'loro_update',
+        groupId: operation.groupId,
+        data: operation,
+        timestamp: operation.timestamp,
+      }));
 
-      // Save new queue
-      for (const operation of this.offlineQueue) {
-        await this.storage.queueOperation({
-          type: 'loro_update',
-          groupId: operation.groupId,
-          data: operation,
-          timestamp: operation.timestamp,
-        });
-      }
+      await this.storage.replaceQueuedOperations(operations);
 
       console.log(`[SyncManager] Saved ${this.offlineQueue.length} operations to queue`);
     } catch (error) {
