@@ -582,7 +582,11 @@ Loro information: https://loro.dev/llms.txt
 - WebCrypto API
 
 ### Storage
-- Client: Persistent encrypted storage
+- Client: Persistent encrypted storage (IndexedDB)
+  - **Base snapshots**: Full Loro CRDT state per group
+  - **Incremental updates**: Delta updates between mutations (write optimization)
+  - **Consolidation strategy**: Merge incrementals into base snapshot every 50 updates, on app load, or when idle
+  - **Performance**: ~98% reduction in write volume vs. full snapshots on every mutation
 - Server: Append-only encrypted operation log. Using Pocketbase (https://pocketbase.io/docs/js-overview/)
 - No database queries on server (just store & relay)
 

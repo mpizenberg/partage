@@ -342,7 +342,8 @@ Set up a monorepo structure for a fully encrypted, local-first bill-splitting PW
 5. ✅ Multi-currency support with exchange rates
 6. ✅ Settlement suggestions (debt optimization)
 7. ✅ Export functionality (JSON)
-8. PWA service worker for offline
+8. 🔄 Incremental snapshot storage (performance optimization)
+9. PWA service worker for offline
 
 **Deliverable**: Full-featured application
 
@@ -393,6 +394,21 @@ Set up a monorepo structure for a fully encrypted, local-first bill-splitting PW
 - Client: Subscribe to real-time updates via PocketBase
 - Offline: Queue operations locally, sync on reconnect
 - Conflicts: Loro CRDT handles automatically
+
+### 6. Snapshot Storage Strategy
+**Design**: Incremental updates with periodic consolidation
+- **Base snapshots**: Full Loro CRDT state stored in IndexedDB per group
+- **Incremental updates**: After each mutation, store only the delta (1-10 KB) instead of full snapshot (10 MB)
+- **Consolidation triggers**:
+  - Every 50 incremental updates (threshold-based)
+  - On app load (always, for clean startup)
+  - On idle (when user switches tabs)
+- **Performance**: ~98% reduction in IndexedDB write volume
+- **Rationale**: Encrypted data is incompressible, so delta updates are the only way to reduce writes
+
+**Why not server-side snapshots yet?**
+- Phase 6 focuses on local performance optimization
+- Server-side snapshots planned for future (reduces initial sync time for large groups)
 
 ## Testing Strategy
 
@@ -448,13 +464,14 @@ Set up a monorepo structure for a fully encrypted, local-first bill-splitting PW
 
 **Current Focus**: Phase 6 - Advanced Features
 
-1. Entry modification with versioning UI
-2. Entry soft deletion with undo
-3. Activity feed showing recent changes
-4. Filtering and search for entries
-5. Multi-currency support with exchange rates
-6. Settlement suggestions (debt optimization)
-7. Export functionality (JSON)
-8. PWA service worker for full offline support
+1. ✅ Entry modification with versioning UI
+2. ✅ Entry soft deletion with undo
+3. ✅ Activity feed showing recent changes
+4. ✅ Filtering and search for entries
+5. ✅ Multi-currency support with exchange rates
+6. ✅ Settlement suggestions (debt optimization)
+7. ✅ Export functionality (JSON)
+8. 🔄 Incremental snapshot storage (performance optimization) - See INCREMENTAL_SNAPSHOTS_PLAN.md
+9. PWA service worker for full offline support
 
 **Goal**: Complete feature set with full entry lifecycle, activity tracking, and offline capabilities
