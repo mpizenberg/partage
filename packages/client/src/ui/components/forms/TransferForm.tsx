@@ -1,5 +1,6 @@
 import { Component, createSignal, For, Show, createMemo } from 'solid-js'
 import { useAppContext } from '../../context/AppContext'
+import { useI18n } from '../../../i18n'
 import { Input } from '../common/Input'
 import { Select } from '../common/Select'
 import { Button } from '../common/Button'
@@ -21,6 +22,7 @@ export interface TransferFormProps {
 
 export const TransferForm: Component<TransferFormProps> = (props) => {
   const { members, activeGroup, identity } = useAppContext()
+  const { t } = useI18n()
 
   // Sorted active members: current user first, then others alphabetically (case-insensitive)
   const sortedActiveMembers = createMemo(() => {
@@ -117,27 +119,27 @@ export const TransferForm: Component<TransferFormProps> = (props) => {
 
     const amountNum = parseFloat(amount())
     if (!amount() || isNaN(amountNum) || amountNum <= 0) {
-      newErrors.amount = 'Amount must be greater than 0'
+      newErrors.amount = t('transferForm.amountRequired')
     }
 
     // Validate default currency amount for non-default currencies
     if (isNonDefaultCurrency()) {
       const defaultAmountNum = parseFloat(defaultCurrencyAmount())
       if (!defaultCurrencyAmount() || isNaN(defaultAmountNum) || defaultAmountNum <= 0) {
-        newErrors.defaultCurrencyAmount = 'Default currency amount is required'
+        newErrors.defaultCurrencyAmount = t('expenseForm.defaultCurrencyRequired')
       }
     }
 
     if (!from()) {
-      newErrors.from = 'Please select who is sending the transfer'
+      newErrors.from = t('transferForm.fromRequired')
     }
 
     if (!to()) {
-      newErrors.to = 'Please select who is receiving the transfer'
+      newErrors.to = t('transferForm.toRequired')
     }
 
     if (from() && to() && from() === to()) {
-      newErrors.to = 'Sender and receiver must be different'
+      newErrors.to = t('transferForm.sameFromTo')
     }
 
     setErrors(newErrors)
@@ -168,7 +170,7 @@ export const TransferForm: Component<TransferFormProps> = (props) => {
       props.onCancel() // Close modal on success
     } catch (error) {
       console.error(isEditMode() ? 'Failed to update transfer:' : 'Failed to create transfer:', error)
-      setErrors({ submit: isEditMode() ? 'Failed to update transfer. Please try again.' : 'Failed to create transfer. Please try again.' })
+      setErrors({ submit: isEditMode() ? t('transferForm.updateFailed') : t('transferForm.createFailed') })
     } finally {
       setIsSubmitting(false)
     }
@@ -179,11 +181,11 @@ export const TransferForm: Component<TransferFormProps> = (props) => {
       <div class="form-section">
         <div class="form-row">
           <div class="form-field">
-            <label class="form-label">Amount</label>
+            <label class="form-label">{t('transferForm.amount')}</label>
             <Input
               type="number"
               value={amount()}
-              placeholder="0.00"
+              placeholder={t('transferForm.amountPlaceholder')}
               step={0.01}
               min={0}
               disabled={isSubmitting()}
@@ -193,7 +195,7 @@ export const TransferForm: Component<TransferFormProps> = (props) => {
           </div>
 
           <div class="form-field">
-            <label class="form-label">Currency</label>
+            <label class="form-label">{t('transferForm.currency')}</label>
             <Select
               value={currency()}
               disabled={isSubmitting()}
@@ -210,12 +212,12 @@ export const TransferForm: Component<TransferFormProps> = (props) => {
         <Show when={isNonDefaultCurrency()}>
           <div class="form-field">
             <label class="form-label">
-              Amount in {getDefaultCurrency()} (default currency)
+              {t('expenseForm.defaultCurrencyAmount', { currency: getDefaultCurrency() })}
             </label>
             <Input
               type="number"
               value={defaultCurrencyAmount()}
-              placeholder="0.00"
+              placeholder={t('transferForm.amountPlaceholder')}
               step={0.01}
               min={0}
               disabled={isSubmitting()}
@@ -227,7 +229,7 @@ export const TransferForm: Component<TransferFormProps> = (props) => {
           {/* Exchange Rate Display */}
           <Show when={exchangeRate() !== null}>
             <div class="exchange-rate-display">
-              <div class="exchange-rate-label">Exchange rates:</div>
+              <div class="exchange-rate-label">{t('expenseForm.exchangeRate')}:</div>
               <div class="exchange-rate-values">
                 <span class="exchange-rate-value">
                   1 {currency()} = {formatExchangeRate(exchangeRate())} {getDefaultCurrency()}
@@ -243,23 +245,23 @@ export const TransferForm: Component<TransferFormProps> = (props) => {
 
         <div class="form-row">
           <div class="form-field">
-            <label class="form-label">From</label>
+            <label class="form-label">{t('transferForm.from')}</label>
             <Select
               value={from()}
               disabled={isSubmitting()}
               error={errors().from}
               onChange={(e) => setFrom(e.currentTarget.value)}
             >
-              <option value="">Select member</option>
+              <option value="">{t('transferForm.selectFrom')}</option>
               <For each={sortedActiveMembers()}>
                 {(member) => (
                   <option value={member.id}>
-                    {member.id === identity()?.publicKeyHash ? 'You' : member.name}
+                    {member.id === identity()?.publicKeyHash ? t('common.you') : member.name}
                   </option>
                 )}
               </For>
               <Show when={sortedDepartedMembers().length > 0}>
-                <optgroup label="Past members">
+                <optgroup label={t('expenseForm.pastMembers')}>
                   <For each={sortedDepartedMembers()}>
                     {(member) => (
                       <option value={member.id}>
@@ -273,23 +275,23 @@ export const TransferForm: Component<TransferFormProps> = (props) => {
           </div>
 
           <div class="form-field">
-            <label class="form-label">To</label>
+            <label class="form-label">{t('transferForm.to')}</label>
             <Select
               value={to()}
               disabled={isSubmitting()}
               error={errors().to}
               onChange={(e) => setTo(e.currentTarget.value)}
             >
-              <option value="">Select member</option>
+              <option value="">{t('transferForm.selectTo')}</option>
               <For each={sortedActiveMembers()}>
                 {(member) => (
                   <option value={member.id}>
-                    {member.id === identity()?.publicKeyHash ? 'You' : member.name}
+                    {member.id === identity()?.publicKeyHash ? t('common.you') : member.name}
                   </option>
                 )}
               </For>
               <Show when={sortedDepartedMembers().length > 0}>
-                <optgroup label="Past members">
+                <optgroup label={t('expenseForm.pastMembers')}>
                   <For each={sortedDepartedMembers()}>
                     {(member) => (
                       <option value={member.id}>
@@ -304,7 +306,7 @@ export const TransferForm: Component<TransferFormProps> = (props) => {
         </div>
 
         <div class="form-field">
-          <label class="form-label">Date</label>
+          <label class="form-label">{t('transferForm.date')}</label>
           <Input
             type="date"
             value={date()}
@@ -314,11 +316,11 @@ export const TransferForm: Component<TransferFormProps> = (props) => {
         </div>
 
         <div class="form-field">
-          <label class="form-label">Notes (optional)</label>
+          <label class="form-label">{t('transferForm.notes')}</label>
           <textarea
             class="form-textarea"
             value={notes()}
-            placeholder="Add a note..."
+            placeholder={t('transferForm.notesPlaceholder')}
             rows={3}
             disabled={isSubmitting()}
             onInput={(e) => setNotes(e.currentTarget.value)}
@@ -332,12 +334,12 @@ export const TransferForm: Component<TransferFormProps> = (props) => {
 
       <div class="form-actions">
         <Button type="button" variant="secondary" onClick={props.onCancel} disabled={isSubmitting()}>
-          Cancel
+          {t('common.cancel')}
         </Button>
         <Button type="submit" variant="primary" disabled={isSubmitting()}>
           {isSubmitting()
-            ? (isEditMode() ? 'Saving...' : 'Creating...')
-            : (isEditMode() ? 'Save Changes' : 'Create Transfer')
+            ? (isEditMode() ? t('transferForm.saving') : t('transferForm.creating'))
+            : (isEditMode() ? t('transferForm.saveButton') : t('transferForm.createButton'))
           }
         </Button>
       </div>

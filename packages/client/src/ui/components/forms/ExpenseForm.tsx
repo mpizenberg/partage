@@ -1,21 +1,22 @@
 import { Component, createSignal, For, Show, createMemo } from 'solid-js'
 import { useAppContext } from '../../context/AppContext'
+import { useI18n } from '../../../i18n'
 import { Input } from '../common/Input'
 import { Select } from '../common/Select'
 import { Button } from '../common/Button'
 import type { ExpenseFormData, FormErrors } from './types'
 import type { ExpenseCategory, SplitType, Payer, Beneficiary, ExpenseEntry } from '@partage/shared'
 
-const CATEGORIES: { value: ExpenseCategory; label: string; emoji: string }[] = [
-  { value: 'food', label: 'Food', emoji: '🍔' },
-  { value: 'transport', label: 'Transport', emoji: '🚗' },
-  { value: 'accommodation', label: 'Accommodation', emoji: '🏨' },
-  { value: 'entertainment', label: 'Entertainment', emoji: '🎬' },
-  { value: 'shopping', label: 'Shopping', emoji: '🛍️' },
-  { value: 'groceries', label: 'Groceries', emoji: '🛒' },
-  { value: 'utilities', label: 'Utilities', emoji: '💡' },
-  { value: 'healthcare', label: 'Healthcare', emoji: '⚕️' },
-  { value: 'other', label: 'Other', emoji: '📝' },
+const CATEGORIES: { value: ExpenseCategory; labelKey: string; emoji: string }[] = [
+  { value: 'food', labelKey: 'categories.food', emoji: '🍔' },
+  { value: 'transport', labelKey: 'categories.transport', emoji: '🚗' },
+  { value: 'accommodation', labelKey: 'categories.accommodation', emoji: '🏨' },
+  { value: 'entertainment', labelKey: 'categories.entertainment', emoji: '🎬' },
+  { value: 'shopping', labelKey: 'categories.shopping', emoji: '🛍️' },
+  { value: 'groceries', labelKey: 'categories.groceries', emoji: '🛒' },
+  { value: 'utilities', labelKey: 'categories.utilities', emoji: '💡' },
+  { value: 'healthcare', labelKey: 'categories.healthcare', emoji: '⚕️' },
+  { value: 'other', labelKey: 'categories.other', emoji: '📝' },
 ]
 
 export interface ExpenseFormProps {
@@ -26,6 +27,7 @@ export interface ExpenseFormProps {
 
 export const ExpenseForm: Component<ExpenseFormProps> = (props) => {
   const { members, activeGroup, identity } = useAppContext()
+  const { t } = useI18n()
 
   // Sorted active members: current user first, then others alphabetically (case-insensitive)
   const sortedActiveMembers = createMemo(() => {
@@ -264,19 +266,19 @@ export const ExpenseForm: Component<ExpenseFormProps> = (props) => {
     const newErrors: FormErrors = {}
 
     if (!description().trim()) {
-      newErrors.description = 'Description is required'
+      newErrors.description = t('expenseForm.descriptionRequired')
     }
 
     const amountNum = parseFloat(amount())
     if (!amount() || isNaN(amountNum) || amountNum <= 0) {
-      newErrors.amount = 'Amount must be greater than 0'
+      newErrors.amount = t('expenseForm.amountRequired')
     }
 
     // Validate default currency amount for non-default currencies
     if (isNonDefaultCurrency()) {
       const defaultAmountNum = parseFloat(defaultCurrencyAmount())
       if (!defaultCurrencyAmount() || isNaN(defaultAmountNum) || defaultAmountNum <= 0) {
-        newErrors.defaultCurrencyAmount = 'Default currency amount is required'
+        newErrors.defaultCurrencyAmount = t('expenseForm.defaultCurrencyRequired')
       }
     }
 
@@ -284,7 +286,7 @@ export const ExpenseForm: Component<ExpenseFormProps> = (props) => {
     if (multiplePayers()) {
       // Multiple payers mode
       if (selectedPayers().size === 0) {
-        newErrors.payers = 'Please select at least one payer'
+        newErrors.payers = t('expenseForm.selectPayer')
       } else {
         const selectedPayerIds = Array.from(selectedPayers())
 
@@ -292,7 +294,7 @@ export const ExpenseForm: Component<ExpenseFormProps> = (props) => {
         for (const id of selectedPayerIds) {
           const amt = payerAmounts().get(id)
           if (amt === undefined || amt <= 0) {
-            newErrors.payers = 'All payers must have a valid amount'
+            newErrors.payers = t('expenseForm.payerAmountRequired')
             break
           }
         }
@@ -304,19 +306,19 @@ export const ExpenseForm: Component<ExpenseFormProps> = (props) => {
           }, 0)
 
           if (Math.abs(totalPaid - amountNum) > 0.01) {
-            newErrors.payers = `Total paid (${totalPaid.toFixed(2)}) must equal expense amount (${amountNum.toFixed(2)})`
+            newErrors.payers = t('expenseForm.payerTotalMismatch', { paid: totalPaid.toFixed(2), amount: amountNum.toFixed(2) })
           }
         }
       }
     } else {
       // Single payer mode
       if (!payerId()) {
-        newErrors.payer = 'Please select who paid'
+        newErrors.payer = t('expenseForm.selectPayer')
       }
     }
 
     if (selectedBeneficiaries().size === 0) {
-      newErrors.beneficiaries = 'Please select at least one beneficiary'
+      newErrors.beneficiaries = t('expenseForm.selectBeneficiary')
     }
 
     // Validate exact amounts sum to total
@@ -327,14 +329,14 @@ export const ExpenseForm: Component<ExpenseFormProps> = (props) => {
       }, 0)
 
       if (Math.abs(totalAssigned - amountNum) > 0.01) {
-        newErrors.beneficiaries = `Total assigned (${totalAssigned.toFixed(2)}) must equal expense amount (${amountNum.toFixed(2)})`
+        newErrors.beneficiaries = t('expenseForm.beneficiaryTotalMismatch', { assigned: totalAssigned.toFixed(2), amount: amountNum.toFixed(2) })
       }
 
       // Check all beneficiaries have amounts
       for (const id of selectedIds) {
         const amt = beneficiaryAmounts().get(id)
         if (!amt || amt <= 0) {
-          newErrors.beneficiaries = 'All beneficiaries must have a valid amount'
+          newErrors.beneficiaries = t('expenseForm.beneficiaryAmountRequired')
           break
         }
       }
@@ -399,7 +401,7 @@ export const ExpenseForm: Component<ExpenseFormProps> = (props) => {
       props.onCancel() // Close modal on success
     } catch (error) {
       console.error(isEditMode() ? 'Failed to update expense:' : 'Failed to create expense:', error)
-      setErrors({ submit: isEditMode() ? 'Failed to update expense. Please try again.' : 'Failed to create expense. Please try again.' })
+      setErrors({ submit: isEditMode() ? t('expenseForm.updateFailed') : t('expenseForm.createFailed') })
     } finally {
       setIsSubmitting(false)
     }
@@ -410,11 +412,11 @@ export const ExpenseForm: Component<ExpenseFormProps> = (props) => {
       {/* Basic Section */}
       <div class="form-section">
         <div class="form-field">
-          <label class="form-label">Description</label>
+          <label class="form-label">{t('expenseForm.description')}</label>
           <Input
             type="text"
             value={description()}
-            placeholder="What was this expense for?"
+            placeholder={t('expenseForm.descriptionPlaceholder')}
             disabled={isSubmitting()}
             error={!!errors().description}
             onInput={(e) => setDescription(e.currentTarget.value)}
@@ -423,11 +425,11 @@ export const ExpenseForm: Component<ExpenseFormProps> = (props) => {
 
         <div class="form-row">
           <div class="form-field">
-            <label class="form-label">Amount</label>
+            <label class="form-label">{t('expenseForm.amount')}</label>
             <Input
               type="number"
               value={amount()}
-              placeholder="0.00"
+              placeholder={t('expenseForm.amountPlaceholder')}
               step={0.01}
               min={0}
               disabled={isSubmitting()}
@@ -437,7 +439,7 @@ export const ExpenseForm: Component<ExpenseFormProps> = (props) => {
           </div>
 
           <div class="form-field">
-            <label class="form-label">Currency</label>
+            <label class="form-label">{t('expenseForm.currency')}</label>
             <Select
               value={currency()}
               disabled={isSubmitting()}
@@ -454,12 +456,12 @@ export const ExpenseForm: Component<ExpenseFormProps> = (props) => {
         <Show when={isNonDefaultCurrency()}>
           <div class="form-field">
             <label class="form-label">
-              Amount in {getDefaultCurrency()} (default currency)
+              {t('expenseForm.defaultCurrencyAmount', { currency: getDefaultCurrency() })}
             </label>
             <Input
               type="number"
               value={defaultCurrencyAmount()}
-              placeholder="0.00"
+              placeholder={t('expenseForm.amountPlaceholder')}
               step={0.01}
               min={0}
               disabled={isSubmitting()}
@@ -471,7 +473,7 @@ export const ExpenseForm: Component<ExpenseFormProps> = (props) => {
           {/* Exchange Rate Display */}
           <Show when={exchangeRate() !== null}>
             <div class="exchange-rate-display">
-              <div class="exchange-rate-label">Exchange rates:</div>
+              <div class="exchange-rate-label">{t('expenseForm.exchangeRate')}:</div>
               <div class="exchange-rate-values">
                 <span class="exchange-rate-value">
                   1 {currency()} = {formatExchangeRate(exchangeRate())} {getDefaultCurrency()}
@@ -486,7 +488,7 @@ export const ExpenseForm: Component<ExpenseFormProps> = (props) => {
         </Show>
 
         <div class="form-field">
-          <label class="form-label">Date</label>
+          <label class="form-label">{t('expenseForm.date')}</label>
           <Input
             type="date"
             value={date()}
@@ -499,7 +501,7 @@ export const ExpenseForm: Component<ExpenseFormProps> = (props) => {
       {/* Payer Section */}
       <div class="form-section">
         <div class="form-section-header">
-          <h3 class="form-section-title">Who Paid?</h3>
+          <h3 class="form-section-title">{t('expenseForm.whoPaid')}</h3>
           <button
             type="button"
             class="form-toggle-btn"
@@ -507,7 +509,7 @@ export const ExpenseForm: Component<ExpenseFormProps> = (props) => {
             disabled={isSubmitting()}
             style="font-size: var(--font-size-sm); padding: var(--space-xs) var(--space-sm);"
           >
-            {multiplePayers() ? 'Single payer' : 'Multiple payers'}
+            {multiplePayers() ? t('expenseForm.singlePayer') : t('expenseForm.multiplePayers')}
           </button>
         </div>
 
@@ -519,16 +521,16 @@ export const ExpenseForm: Component<ExpenseFormProps> = (props) => {
             error={errors().payer}
             onChange={(e) => setPayerId(e.currentTarget.value)}
           >
-            <option value="">Select member</option>
+            <option value="">{t('expenseForm.selectMember')}</option>
             <For each={sortedActiveMembers()}>
               {(member) => (
                 <option value={member.id}>
-                  {member.id === identity()?.publicKeyHash ? 'You' : member.name}
+                  {member.id === identity()?.publicKeyHash ? t('common.you') : member.name}
                 </option>
               )}
             </For>
             <Show when={sortedDepartedMembers().length > 0}>
-              <optgroup label="Past members">
+              <optgroup label={t('expenseForm.pastMembers')}>
                 <For each={sortedDepartedMembers()}>
                   {(member) => (
                     <option value={member.id}>
@@ -547,7 +549,7 @@ export const ExpenseForm: Component<ExpenseFormProps> = (props) => {
             <For each={sortedActiveMembers()}>
               {(member) => {
                 const isSelected = () => selectedPayers().has(member.id)
-                const memberName = () => member.id === identity()?.publicKeyHash ? 'You' : member.name
+                const memberName = () => member.id === identity()?.publicKeyHash ? t('common.you') : member.name
 
                 return (
                   <div class={`beneficiary-item ${isSelected() ? 'selected' : ''}`}>
@@ -588,7 +590,7 @@ export const ExpenseForm: Component<ExpenseFormProps> = (props) => {
                   onClick={() => setShowDepartedMembers(!showDepartedMembers())}
                   style="width: 100%; text-align: left; padding: var(--space-sm); background: var(--color-bg-secondary); border: none; border-radius: var(--border-radius); cursor: pointer; font-size: var(--font-size-sm); color: var(--color-text-light);"
                 >
-                  {showDepartedMembers() ? '▼' : '▶'} Past members ({sortedDepartedMembers().length})
+                  {showDepartedMembers() ? '▼' : '▶'} {t('expenseForm.pastMembers')} ({sortedDepartedMembers().length})
                 </button>
                 <Show when={showDepartedMembers()}>
                   <div style="margin-top: var(--space-sm);">
@@ -640,7 +642,7 @@ export const ExpenseForm: Component<ExpenseFormProps> = (props) => {
       {/* Beneficiaries Section */}
       <div class="form-section">
         <div class="form-section-header">
-          <h3 class="form-section-title">Split Between</h3>
+          <h3 class="form-section-title">{t('expenseForm.splitBetween')}</h3>
           <div class="split-type-toggle">
             <button
               type="button"
@@ -648,7 +650,7 @@ export const ExpenseForm: Component<ExpenseFormProps> = (props) => {
               onClick={() => setSplitType('shares')}
               disabled={isSubmitting()}
             >
-              Shares
+              {t('expenseForm.shares')}
             </button>
             <button
               type="button"
@@ -656,7 +658,7 @@ export const ExpenseForm: Component<ExpenseFormProps> = (props) => {
               onClick={() => setSplitType('exact')}
               disabled={isSubmitting()}
             >
-              Exact
+              {t('expenseForm.exactAmounts')}
             </button>
           </div>
         </div>
@@ -665,7 +667,7 @@ export const ExpenseForm: Component<ExpenseFormProps> = (props) => {
           <For each={sortedActiveMembers()}>
             {(member) => {
               const isSelected = () => selectedBeneficiaries().has(member.id)
-              const memberName = () => member.id === identity()?.publicKeyHash ? 'You' : member.name
+              const memberName = () => member.id === identity()?.publicKeyHash ? t('common.you') : member.name
 
               return (
                 <div class={`beneficiary-item ${isSelected() ? 'selected' : ''}`}>
@@ -691,7 +693,7 @@ export const ExpenseForm: Component<ExpenseFormProps> = (props) => {
                           −
                         </button>
                         <span class="control-value">
-                          {beneficiaryShares().get(member.id) || 1}<span class="control-value-label"> share{(beneficiaryShares().get(member.id) || 1) > 1 ? 's' : ''}</span>
+                          {beneficiaryShares().get(member.id) || 1}<span class="control-value-label"> {(beneficiaryShares().get(member.id) || 1) > 1 ? t('expenseForm.sharesLabel') : t('expenseForm.shareLabel')}</span>
                         </span>
                         <button
                           type="button"
@@ -735,7 +737,7 @@ export const ExpenseForm: Component<ExpenseFormProps> = (props) => {
                 onClick={() => setShowDepartedMembers(!showDepartedMembers())}
                 style="width: 100%; text-align: left; padding: var(--space-sm); background: var(--color-bg-secondary); border: none; border-radius: var(--border-radius); cursor: pointer; font-size: var(--font-size-sm); color: var(--color-text-light);"
               >
-                {showDepartedMembers() ? '▼' : '▶'} Past members ({sortedDepartedMembers().length})
+                {showDepartedMembers() ? '▼' : '▶'} {t('expenseForm.pastMembers')} ({sortedDepartedMembers().length})
               </button>
               <Show when={showDepartedMembers()}>
                 <div style="margin-top: var(--space-sm);">
@@ -815,22 +817,22 @@ export const ExpenseForm: Component<ExpenseFormProps> = (props) => {
           class="form-toggle-btn"
           onClick={() => setShowAdvanced(!showAdvanced())}
         >
-          {showAdvanced() ? '▼' : '▶'} Advanced Options
+          {showAdvanced() ? '▼' : '▶'} {t('expenseForm.advancedOptions')}
         </button>
 
         <Show when={showAdvanced()}>
           <div class="form-field">
-            <label class="form-label">Category</label>
+            <label class="form-label">{t('expenseForm.category')}</label>
             <Select
               value={category()}
               disabled={isSubmitting()}
               onChange={(e) => setCategory(e.currentTarget.value as ExpenseCategory)}
             >
-              <option value="">Select category</option>
+              <option value="">{t('expenseForm.selectCategory')}</option>
               <For each={CATEGORIES}>
                 {(cat) => (
                   <option value={cat.value}>
-                    {cat.emoji} {cat.label}
+                    {cat.emoji} {t(cat.labelKey)}
                   </option>
                 )}
               </For>
@@ -838,22 +840,22 @@ export const ExpenseForm: Component<ExpenseFormProps> = (props) => {
           </div>
 
           <div class="form-field">
-            <label class="form-label">Location</label>
+            <label class="form-label">{t('expenseForm.location')}</label>
             <Input
               type="text"
               value={location()}
-              placeholder="Where was this?"
+              placeholder={t('expenseForm.locationPlaceholder')}
               disabled={isSubmitting()}
               onInput={(e) => setLocation(e.currentTarget.value)}
             />
           </div>
 
           <div class="form-field">
-            <label class="form-label">Notes</label>
+            <label class="form-label">{t('expenseForm.notes')}</label>
             <textarea
               class="form-textarea"
               value={notes()}
-              placeholder="Add any additional notes..."
+              placeholder={t('expenseForm.notesPlaceholder')}
               rows={3}
               disabled={isSubmitting()}
               onInput={(e) => setNotes(e.currentTarget.value)}
@@ -868,12 +870,12 @@ export const ExpenseForm: Component<ExpenseFormProps> = (props) => {
 
       <div class="form-actions">
         <Button type="button" variant="secondary" onClick={props.onCancel} disabled={isSubmitting()}>
-          Cancel
+          {t('common.cancel')}
         </Button>
         <Button type="submit" variant="primary" disabled={isSubmitting()}>
           {isSubmitting()
-            ? (isEditMode() ? 'Saving...' : 'Creating...')
-            : (isEditMode() ? 'Save Changes' : 'Create Expense')
+            ? (isEditMode() ? t('expenseForm.saving') : t('expenseForm.creating'))
+            : (isEditMode() ? t('expenseForm.saveButton') : t('expenseForm.createButton'))
           }
         </Button>
       </div>

@@ -215,6 +215,8 @@
     "singlePayer": "Un seul payeur",
     "multiplePayers": "Plusieurs payeurs",
     "selectPayer": "Veuillez sélectionner qui a payé",
+    "selectMember": "Sélectionner un membre",
+    "pastMembers": "Anciens membres",
     "payerAmountRequired": "Tous les payeurs doivent avoir un montant valide",
     "payerTotalMismatch": "Le total payé ({paid}) doit être égal au montant de la dépense ({amount})",
     "splitBetween": "Répartir entre",
@@ -224,19 +226,24 @@
     "splitMethod": "Méthode de répartition",
     "shares": "Parts",
     "exactAmounts": "Montants exacts",
+    "shareLabel": "part",
+    "sharesLabel": "parts",
     "advancedOptions": "Options avancées",
     "category": "Catégorie",
+    "selectCategory": "Sélectionner une catégorie",
     "location": "Lieu",
     "locationPlaceholder": "Où était-ce ?",
     "notes": "Notes",
     "notesPlaceholder": "Détails supplémentaires...",
-    "defaultCurrencyAmount": "Montant en {currency}",
+    "defaultCurrencyAmount": "Montant en {currency} (devise par défaut)",
     "defaultCurrencyRequired": "Le montant en devise par défaut est requis",
     "exchangeRate": "Taux de change",
     "createButton": "Créer la dépense",
     "saveButton": "Enregistrer les modifications",
     "creating": "Création...",
-    "saving": "Enregistrement..."
+    "saving": "Enregistrement...",
+    "createFailed": "Échec de la création de la dépense. Veuillez réessayer.",
+    "updateFailed": "Échec de la mise à jour de la dépense. Veuillez réessayer."
   },
 
   "transferForm": {
@@ -254,12 +261,14 @@
     "amountRequired": "Le montant doit être supérieur à 0",
     "currency": "Devise",
     "date": "Date",
-    "notes": "Notes",
-    "notesPlaceholder": "Notes optionnelles...",
+    "notes": "Notes (optionnel)",
+    "notesPlaceholder": "Ajouter une note...",
     "createButton": "Créer le transfert",
     "saveButton": "Enregistrer les modifications",
     "creating": "Création...",
-    "saving": "Enregistrement..."
+    "saving": "Enregistrement...",
+    "createFailed": "Échec de la création du transfert. Veuillez réessayer.",
+    "updateFailed": "Échec de la mise à jour du transfert. Veuillez réessayer."
   },
 
   "members": {

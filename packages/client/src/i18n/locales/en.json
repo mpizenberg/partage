@@ -215,6 +215,8 @@
     "singlePayer": "Single payer",
     "multiplePayers": "Multiple payers",
     "selectPayer": "Please select who paid",
+    "selectMember": "Select member",
+    "pastMembers": "Past members",
     "payerAmountRequired": "All payers must have a valid amount",
     "payerTotalMismatch": "Total paid ({paid}) must equal expense amount ({amount})",
     "splitBetween": "Split Between",
@@ -224,19 +226,24 @@
     "splitMethod": "Split Method",
     "shares": "Shares",
     "exactAmounts": "Exact Amounts",
+    "shareLabel": "share",
+    "sharesLabel": "shares",
     "advancedOptions": "Advanced Options",
     "category": "Category",
+    "selectCategory": "Select category",
     "location": "Location",
     "locationPlaceholder": "Where was this?",
     "notes": "Notes",
     "notesPlaceholder": "Additional details...",
-    "defaultCurrencyAmount": "Amount in {currency}",
+    "defaultCurrencyAmount": "Amount in {currency} (default currency)",
     "defaultCurrencyRequired": "Default currency amount is required",
-    "exchangeRate": "Exchange Rate",
+    "exchangeRate": "Exchange rates",
     "createButton": "Create Expense",
     "saveButton": "Save Changes",
     "creating": "Creating...",
-    "saving": "Saving..."
+    "saving": "Saving...",
+    "createFailed": "Failed to create expense. Please try again.",
+    "updateFailed": "Failed to update expense. Please try again."
   },
 
   "transferForm": {
@@ -254,12 +261,14 @@
     "amountRequired": "Amount must be greater than 0",
     "currency": "Currency",
     "date": "Date",
-    "notes": "Notes",
-    "notesPlaceholder": "Optional notes...",
+    "notes": "Notes (optional)",
+    "notesPlaceholder": "Add a note...",
     "createButton": "Create Transfer",
     "saveButton": "Save Changes",
     "creating": "Creating...",
-    "saving": "Saving..."
+    "saving": "Saving...",
+    "createFailed": "Failed to create transfer. Please try again.",
+    "updateFailed": "Failed to update transfer. Please try again."
   },
 
   "members": {
