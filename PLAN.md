@@ -398,12 +398,13 @@ Set up a monorepo structure for a fully encrypted, local-first bill-splitting PW
 
 **Tasks**:
 1. PWA service worker for full offline support
-2. Error handling and loading states
-3. Mobile UX refinement
-4. User onboarding flow
-5. Security audit
-6. Performance optimization
-7. Deployment setup
+2. Able to link new members to existing real members (not only virtual members), and able to link recursively (useful for member changing device multiple times)
+3. Error handling and loading states
+4. ✅ Mobile UX refinement
+5. ✅ User onboarding flow
+6. Security audit
+7. Performance optimization
+8. Deployment setup
 
 ## Critical Technical Decisions
 
