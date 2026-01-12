@@ -1,11 +1,13 @@
 import { Component, Show, createSignal, createMemo } from 'solid-js'
 import { useAppContext } from '../../context/AppContext'
+import { useI18n } from '../../../i18n'
 import { MemberList } from './MemberList'
 import { InviteModal } from '../invites/InviteModal'
 import { Button } from '../common/Button'
 
 export const MembersTab: Component = () => {
   const { members, activeGroup, createInvitation, addVirtualMember, renameMember, removeMember, identity, balances, loroStore } = useAppContext()
+  const { t } = useI18n()
   const [showInviteModal, setShowInviteModal] = createSignal(false)
   const [inviteLink, setInviteLink] = createSignal<string | null>(null)
   const [showAddMemberModal, setShowAddMemberModal] = createSignal(false)
@@ -29,7 +31,7 @@ export const MembersTab: Component = () => {
   const handleAddVirtualMember = async () => {
     const name = newMemberName().trim()
     if (!name) {
-      alert('Please enter a name')
+      alert(t('members.memberNameRequired'))
       return
     }
 
@@ -39,7 +41,7 @@ export const MembersTab: Component = () => {
       setNewMemberName('')
     } catch (error) {
       console.error('Failed to add member:', error)
-      alert('Failed to add member')
+      alert(t('members.addMemberFailed'))
     }
   }
 
@@ -49,17 +51,17 @@ export const MembersTab: Component = () => {
       <div class="members-section" style="text-align: center;">
         <div style="display: flex; gap: var(--space-sm); justify-content: center; flex-wrap: wrap;">
           <Button variant="primary" onClick={handleInvite}>
-            📤 Invite Members
+            📤 {t('members.inviteMembers')}
           </Button>
           <Button variant="secondary" onClick={() => setShowAddMemberModal(true)}>
-            ➕ Add Virtual Member
+            ➕ {t('members.addVirtualMember')}
           </Button>
         </div>
       </div>
 
       {/* Member List */}
       <div class="members-section">
-        <h2 class="members-section-title">Members ({activeMembersCount()})</h2>
+        <h2 class="members-section-title">{t('members.title')} ({activeMembersCount()})</h2>
         <MemberList
           members={members()}
           currentUserPublicKeyHash={identity()?.publicKeyHash}
@@ -84,27 +86,27 @@ export const MembersTab: Component = () => {
         <div class="modal-overlay" onClick={() => setShowAddMemberModal(false)}>
           <div class="modal-content" onClick={(e) => e.stopPropagation()}>
             <div class="modal-body">
-              <h2 class="text-xl font-bold mb-md">Add Virtual Member</h2>
+              <h2 class="text-xl font-bold mb-md">{t('members.addVirtualMember')}</h2>
               <p class="mb-md text-muted">
-                Add a virtual member for tracking expenses without them joining the group directly.
+                {t('members.virtualMemberDescription')}
               </p>
               <div class="form-group">
-                <label class="form-label">Member Name</label>
+                <label class="form-label">{t('members.memberName')}</label>
                 <input
                   type="text"
                   class="input"
                   value={newMemberName()}
                   onInput={(e) => setNewMemberName(e.currentTarget.value)}
-                  placeholder="Enter member name"
+                  placeholder={t('members.memberNamePlaceholder')}
                   onKeyPress={(e) => e.key === 'Enter' && handleAddVirtualMember()}
                 />
               </div>
               <div class="modal-actions">
                 <Button variant="secondary" onClick={() => setShowAddMemberModal(false)}>
-                  Cancel
+                  {t('common.cancel')}
                 </Button>
                 <Button variant="primary" onClick={handleAddVirtualMember}>
-                  Add Member
+                  {t('members.addMember')}
                 </Button>
               </div>
             </div>

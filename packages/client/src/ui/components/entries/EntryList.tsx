@@ -1,4 +1,5 @@
 import { Component, For, createMemo } from 'solid-js'
+import { useI18n, getDateGroupLabel } from '../../../i18n'
 import { EntryCard } from './EntryCard'
 import type { Entry } from '@partage/shared'
 
@@ -12,20 +13,9 @@ export interface EntryListProps {
 }
 
 export const EntryList: Component<EntryListProps> = (props) => {
+  const { t, locale } = useI18n()
+
   const groupEntriesByDate = (entries: Entry[]): GroupedEntries[] => {
-    const now = Date.now()
-    const today = new Date(now)
-    today.setHours(0, 0, 0, 0)
-    const todayTime = today.getTime()
-
-    const yesterday = new Date(todayTime)
-    yesterday.setDate(yesterday.getDate() - 1)
-    const yesterdayTime = yesterday.getTime()
-
-    const thisWeek = new Date(todayTime)
-    thisWeek.setDate(thisWeek.getDate() - 7)
-    const thisWeekTime = thisWeek.getTime()
-
     const groups: Map<string, Entry[]> = new Map()
 
     // Sort entries by date (newest first), then by creation time (newest first) within same day
@@ -38,25 +28,7 @@ export const EntryList: Component<EntryListProps> = (props) => {
     })
 
     sorted.forEach(entry => {
-      const entryDate = new Date(entry.date)
-      entryDate.setHours(0, 0, 0, 0)
-      const entryTime = entryDate.getTime()
-
-      let label: string
-
-      if (entryTime >= todayTime) {
-        label = 'Today'
-      } else if (entryTime >= yesterdayTime) {
-        label = 'Yesterday'
-      } else if (entryTime >= thisWeekTime) {
-        label = 'This Week'
-      } else {
-        // Format as "Month Year" for older entries
-        label = entryDate.toLocaleDateString(undefined, {
-          month: 'long',
-          year: 'numeric',
-        })
-      }
+      const label = getDateGroupLabel(entry.date, locale(), t)
 
       if (!groups.has(label)) {
         groups.set(label, [])
@@ -66,7 +38,7 @@ export const EntryList: Component<EntryListProps> = (props) => {
 
     // Convert to array and maintain order
     const result: GroupedEntries[] = []
-    const orderLabels = ['Today', 'Yesterday', 'This Week']
+    const orderLabels = [t('entries.today'), t('entries.yesterday'), t('entries.thisWeek')]
 
     // Add ordered labels first
     orderLabels.forEach(label => {

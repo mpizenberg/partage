@@ -1,4 +1,5 @@
 import { Component, createSignal, Match, Switch } from 'solid-js'
+import { useI18n, formatCurrency } from '../../i18n'
 import { useAppContext } from '../context/AppContext'
 import { BalanceTab } from '../components/balance/BalanceTab'
 import { EntriesTab } from '../components/entries/EntriesTab'
@@ -6,10 +7,12 @@ import { MembersTab } from '../components/members/MembersTab'
 import { ActivitiesTab } from '../components/activities/ActivitiesTab'
 import { SettleTab } from '../components/settle/SettleTab'
 import { AddEntryModal, type TransferInitialData } from '../components/forms/AddEntryModal'
+import { LanguageSwitcher } from '../components/common/LanguageSwitcher'
 
 type TabType = 'balance' | 'entries' | 'settle' | 'members' | 'activities'
 
 export const GroupViewScreen: Component = () => {
+  const { t, locale } = useI18n()
   const {
     activeGroup,
     deselectGroup,
@@ -56,13 +59,6 @@ export const GroupViewScreen: Component = () => {
     deselectGroup()
   }
 
-  const formatCurrency = (amount: number, currency: string): string => {
-    return new Intl.NumberFormat(undefined, {
-      style: 'currency',
-      currency: currency,
-    }).format(amount)
-  }
-
   const myBalance = () => {
     const userIdentity = identity()
     if (!userIdentity) return null
@@ -77,18 +73,19 @@ export const GroupViewScreen: Component = () => {
 
   const getBalanceText = (): string => {
     const balance = myBalance()
-    if (!balance) return 'No transactions yet'
+    if (!balance) return t('balance.noTransactions')
 
     const amount = balance.netBalance
     if (Math.abs(amount) < 0.01) {
-      return 'All settled up ✓'
+      return t('balance.allSettled') + ' ✓'
     }
 
     const currency = activeGroup()?.defaultCurrency || 'USD'
+    const formattedAmount = formatCurrency(Math.abs(amount), currency, locale())
     if (amount > 0) {
-      return `You're owed ${formatCurrency(amount, currency)}`
+      return t('balance.youAreOwed', { amount: formattedAmount })
     } else {
-      return `You owe ${formatCurrency(Math.abs(amount), currency)}`
+      return t('balance.youOwe', { amount: formattedAmount })
     }
   }
 
@@ -107,7 +104,7 @@ export const GroupViewScreen: Component = () => {
       <div class="group-header">
         <div class="container">
           <div class="group-header-content">
-            <button class="back-button" onClick={handleBack} aria-label="Back to groups">
+            <button class="back-button" onClick={handleBack} aria-label={t('common.back')}>
               ←
             </button>
             <div class="group-info">
@@ -115,6 +112,9 @@ export const GroupViewScreen: Component = () => {
               <p class={`balance-summary ${getBalanceColor()}`}>
                 {getBalanceText()}
               </p>
+            </div>
+            <div class="group-header-actions">
+              <LanguageSwitcher />
             </div>
           </div>
         </div>
@@ -129,35 +129,35 @@ export const GroupViewScreen: Component = () => {
               onClick={() => setActiveTab('balance')}
             >
               <span class="tab-icon">⚖️</span>
-              <span>Balance</span>
+              <span>{t('tabs.balance')}</span>
             </button>
             <button
               class={`tab ${activeTab() === 'entries' ? 'active' : ''}`}
               onClick={() => setActiveTab('entries')}
             >
               <span class="tab-icon">📒</span>
-              <span>Entries</span>
+              <span>{t('tabs.entries')}</span>
             </button>
             <button
               class={`tab ${activeTab() === 'settle' ? 'active' : ''}`}
               onClick={() => setActiveTab('settle')}
             >
               <span class="tab-icon">✅</span>
-              <span>Settle</span>
+              <span>{t('tabs.settle')}</span>
             </button>
             <button
               class={`tab ${activeTab() === 'members' ? 'active' : ''}`}
               onClick={() => setActiveTab('members')}
             >
               <span class="tab-icon">👥</span>
-              <span>Members</span>
+              <span>{t('tabs.members')}</span>
             </button>
             <button
               class={`tab ${activeTab() === 'activities' ? 'active' : ''}`}
               onClick={() => setActiveTab('activities')}
             >
               <span class="tab-icon">⚡</span>
-              <span>Activity</span>
+              <span>{t('tabs.activity')}</span>
             </button>
           </div>
         </div>
@@ -190,7 +190,7 @@ export const GroupViewScreen: Component = () => {
       <button
         class="fab"
         onClick={() => setShowAddEntry(true)}
-        aria-label="Add entry"
+        aria-label={t('entries.addEntry')}
       >
         +
       </button>

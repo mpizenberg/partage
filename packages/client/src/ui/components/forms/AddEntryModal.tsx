@@ -1,4 +1,5 @@
 import { Component, createSignal, createEffect, Show } from 'solid-js'
+import { useI18n } from '../../../i18n'
 import { Modal } from '../common/Modal'
 import { ExpenseForm } from './ExpenseForm'
 import { TransferForm } from './TransferForm'
@@ -28,6 +29,7 @@ export interface AddEntryModalProps {
 type TabType = 'expense' | 'transfer'
 
 export const AddEntryModal: Component<AddEntryModalProps> = (props) => {
+  const { t } = useI18n()
   const [activeTab, setActiveTab] = createSignal<TabType>('expense')
 
   // Check if we're in edit mode
@@ -102,7 +104,7 @@ export const AddEntryModal: Component<AddEntryModalProps> = (props) => {
     <Modal isOpen={props.isOpen} onClose={handleClose}>
       <div class="add-entry-modal">
         <div class="modal-header">
-          <h2 class="modal-title">{isEditMode() ? 'Edit Entry' : 'Add Entry'}</h2>
+          <h2 class="modal-title">{isEditMode() ? t('entries.editEntry') : t('entries.addEntry')}</h2>
           <button class="modal-close-btn" onClick={handleClose}>
             ✕
           </button>
@@ -115,13 +117,13 @@ export const AddEntryModal: Component<AddEntryModalProps> = (props) => {
               class={`modal-tab ${activeTab() === 'expense' ? 'active' : ''}`}
               onClick={() => setActiveTab('expense')}
             >
-              Expense
+              {t('entries.expense')}
             </button>
             <button
               class={`modal-tab ${activeTab() === 'transfer' ? 'active' : ''}`}
               onClick={() => setActiveTab('transfer')}
             >
-              Transfer
+              {t('entries.transfer')}
             </button>
           </div>
         </Show>

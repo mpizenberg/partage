@@ -1,9 +1,12 @@
 import { Component, createSignal, Show } from 'solid-js'
+import { useI18n } from '../../i18n'
 import { useAppContext } from '../context/AppContext'
 import { Button } from '../components/common/Button'
 import { LoadingSpinner } from '../components/common/LoadingSpinner'
+import { LanguageSwitcher } from '../components/common/LanguageSwitcher'
 
 export const SetupScreen: Component = () => {
+  const { t } = useI18n()
   const { initializeIdentity, error, clearError } = useAppContext()
   const [isGenerating, setIsGenerating] = createSignal(false)
 
@@ -25,22 +28,26 @@ export const SetupScreen: Component = () => {
     <div class="container">
       <div class="flex-center" style="min-height: 100vh;">
         <div class="setup-container text-center">
-          <h1 class="text-3xl font-bold text-primary mb-lg">Welcome to Partage</h1>
+          {/* Language switcher in top-right corner */}
+          <div style="position: absolute; top: 1rem; right: 1rem;">
+            <LanguageSwitcher />
+          </div>
+
+          <h1 class="text-3xl font-bold text-primary mb-lg">{t('setup.title')}</h1>
 
           <div class="mb-xl">
             <p class="text-lg mb-md">
-              Split bills with friends, family, and groups
+              {t('setup.subtitle')}
             </p>
             <p class="text-base text-muted">
-              Fully encrypted and private. Your data stays on your device.
+              {t('setup.privacy')}
             </p>
           </div>
 
           <div class="setup-box mb-xl">
-            <h2 class="text-xl font-semibold mb-md">Generate Your Secure Identity</h2>
+            <h2 class="text-xl font-semibold mb-md">{t('setup.generateIdentity')}</h2>
             <p class="text-base text-muted mb-lg">
-              We'll create a unique cryptographic key pair to secure your data.
-              This process only takes a few seconds.
+              {t('setup.generateDescription')} {t('setup.generateDescriptionExtra')}
             </p>
 
             <Show when={error()}>
@@ -53,7 +60,7 @@ export const SetupScreen: Component = () => {
               <div class="flex-center mb-md">
                 <LoadingSpinner />
               </div>
-              <p class="text-sm text-muted">Generating your keys...</p>
+              <p class="text-sm text-muted">{t('setup.generatingKeys')}</p>
             </Show>
 
             <Show when={!isGenerating()}>
@@ -63,13 +70,13 @@ export const SetupScreen: Component = () => {
                 onClick={handleGetStarted}
                 class="w-full"
               >
-                Get Started
+                {t('setup.getStarted')}
               </Button>
             </Show>
           </div>
 
           <p class="text-sm text-muted">
-            Your keys are stored securely on this device only.
+            {t('setup.keysStored')}
           </p>
         </div>
       </div>

@@ -1,4 +1,5 @@
 import { Component, Show, createSignal } from 'solid-js'
+import { useI18n, formatCurrency, formatRelativeTime } from '../../../i18n'
 import { useAppContext } from '../../context/AppContext'
 import { Modal } from '../common/Modal'
 import { Button } from '../common/Button'
@@ -22,6 +23,7 @@ export interface EntryCardProps {
 }
 
 export const EntryCard: Component<EntryCardProps> = (props) => {
+  const { t, locale } = useI18n()
   const { members, identity, setEditingEntry, deleteEntry, undeleteEntry, loroStore } = useAppContext()
   const [showDeleteModal, setShowDeleteModal] = createSignal(false)
   const [isDeleting, setIsDeleting] = createSignal(false)
@@ -65,14 +67,11 @@ export const EntryCard: Component<EntryCardProps> = (props) => {
     }
   }
 
-  const formatCurrency = (amount: number, currency: string): string => {
-    return new Intl.NumberFormat(undefined, {
-      style: 'currency',
-      currency: currency,
-    }).format(amount)
+  const formatAmount = (amount: number, currency: string): string => {
+    return formatCurrency(amount, currency, locale())
   }
 
-  const formatRelativeTime = (timestamp: number): string | null => {
+  const getRelativeTime = (timestamp: number): string | null => {
     const now = Date.now()
     const diff = now - timestamp
     const hours = Math.floor(diff / (1000 * 60 * 60))
@@ -82,15 +81,7 @@ export const EntryCard: Component<EntryCardProps> = (props) => {
       return null
     }
 
-    const minutes = Math.floor(diff / (1000 * 60))
-
-    if (hours > 0) {
-      return `${hours} hour${hours > 1 ? 's' : ''} ago`
-    } else if (minutes > 0) {
-      return `${minutes} minute${minutes > 1 ? 's' : ''} ago`
-    } else {
-      return 'Just now'
-    }
+    return formatRelativeTime(timestamp, locale(), t)
   }
 
   const shouldShowTime = (timestamp: number): boolean => {
@@ -102,14 +93,14 @@ export const EntryCard: Component<EntryCardProps> = (props) => {
 
   const getMemberName = (memberId: string): string => {
     const userId = identity()?.publicKeyHash
-    if (!userId) return 'Unknown'
+    if (!userId) return t('common.unknown')
 
     // Check if this is the current user (considering aliases)
-    if (memberId === userId) return 'You'
+    if (memberId === userId) return t('common.you')
     const store = loroStore()
     if (store) {
       const canonicalUserId = store.resolveCanonicalMemberId(userId)
-      if (memberId === canonicalUserId) return 'You'
+      if (memberId === canonicalUserId) return t('common.you')
 
       // Check if this is a canonical ID (old virtual member) that has been claimed
       const aliases = store.getMemberAliases()
@@ -135,7 +126,7 @@ export const EntryCard: Component<EntryCardProps> = (props) => {
       member = allMembers.find(m => m.id === memberId)
     }
 
-    return member?.name || 'Unknown'
+    return member?.name || t('common.unknown')
   }
 
   const isExpense = (): boolean => props.entry.type === 'expense'
@@ -156,8 +147,8 @@ export const EntryCard: Component<EntryCardProps> = (props) => {
 
     const payerNames = expense.payers.map(p => getMemberName(p.memberId))
     if (payerNames.length === 1) return payerNames[0]!
-    if (payerNames.length === 2) return payerNames.join(' and ')
-    return `${payerNames[0]!} and ${payerNames.length - 1} other${payerNames.length > 2 ? 's' : ''}`
+    if (payerNames.length === 2) return payerNames.join(` ${t('common.and')} `)
+    return `${payerNames[0]!} ${t('common.and')} ${payerNames.length - 1} ${t('common.others')}`
   }
 
   const getBeneficiariesText = (): string => {
@@ -166,9 +157,9 @@ export const EntryCard: Component<EntryCardProps> = (props) => {
 
     const beneficiaryNames = expense.beneficiaries.map(b => getMemberName(b.memberId))
     if (beneficiaryNames.length === 1) return beneficiaryNames[0]!
-    if (beneficiaryNames.length === 2) return beneficiaryNames.join(' and ')
+    if (beneficiaryNames.length === 2) return beneficiaryNames.join(` ${t('common.and')} `)
     if (beneficiaryNames.length === 3) return beneficiaryNames.join(', ')
-    return `${beneficiaryNames.slice(0, 2).join(', ')} and ${beneficiaryNames.length - 2} more`
+    return `${beneficiaryNames.slice(0, 2).join(', ')} ${t('common.and')} ${beneficiaryNames.length - 2} ${t('entries.more')}`
   }
 
   const getUserShare = (): number | null => {
@@ -234,7 +225,7 @@ export const EntryCard: Component<EntryCardProps> = (props) => {
             <div class="entry-main">
               <h3 class="entry-description">{expenseEntry()!.description}</h3>
               <div class="entry-amount">
-                {formatCurrency(props.entry.amount, props.entry.currency!)}
+                {formatAmount(props.entry.amount, props.entry.currency!)}
                 <Show when={expenseEntry()?.category}>
                   <span class="entry-category"> • {expenseEntry()?.category}</span>
                 </Show>
@@ -267,18 +258,18 @@ export const EntryCard: Component<EntryCardProps> = (props) => {
 
           <div class="entry-details">
             <div class="entry-detail-row">
-              <span class="entry-detail-label">Paid by:</span>
+              <span class="entry-detail-label">{t('entries.paidBy')}:</span>
               <span class="entry-detail-value">{getPayersText()}</span>
             </div>
             <div class="entry-detail-row">
-              <span class="entry-detail-label">Split:</span>
+              <span class="entry-detail-label">{t('entries.split')}:</span>
               <span class="entry-detail-value">{getBeneficiariesText()}</span>
             </div>
             <Show when={getUserShare() !== null}>
               <div class="entry-detail-row entry-user-share">
-                <span class="entry-detail-label">Your share:</span>
+                <span class="entry-detail-label">{t('entries.yourShare')}:</span>
                 <span class="entry-detail-value">
-                  {formatCurrency(getUserShare()!, props.entry.currency!)}
+                  {formatAmount(getUserShare()!, props.entry.currency!)}
                 </span>
               </div>
             </Show>
@@ -286,7 +277,7 @@ export const EntryCard: Component<EntryCardProps> = (props) => {
 
           <Show when={shouldShowTime(props.entry.createdAt)}>
             <div class="entry-footer">
-              <span class="entry-time">{formatRelativeTime(props.entry.createdAt)}</span>
+              <span class="entry-time">{getRelativeTime(props.entry.createdAt)}</span>
             </div>
           </Show>
         </Show>
@@ -297,7 +288,7 @@ export const EntryCard: Component<EntryCardProps> = (props) => {
             <div class="entry-icon">💸</div>
             <div class="entry-transfer-info">
               <div class="entry-transfer-flow">
-                <span class="transfer-amount">{formatCurrency(props.entry.amount, props.entry.currency!)}</span>
+                <span class="transfer-amount">{formatAmount(props.entry.amount, props.entry.currency!)}</span>
                 <span class="transfer-members">
                   <span class="transfer-from">{getMemberName(transferEntry()!.from)}</span>
                   <span class="transfer-arrow">→</span>
@@ -305,7 +296,7 @@ export const EntryCard: Component<EntryCardProps> = (props) => {
                 </span>
               </div>
               <Show when={shouldShowTime(props.entry.createdAt)}>
-                <span class="entry-time">{formatRelativeTime(props.entry.createdAt)}</span>
+                <span class="entry-time">{getRelativeTime(props.entry.createdAt)}</span>
               </Show>
             </div>
             <Show
@@ -339,11 +330,11 @@ export const EntryCard: Component<EntryCardProps> = (props) => {
       <Modal
         isOpen={showDeleteModal()}
         onClose={() => setShowDeleteModal(false)}
-        title="Delete Entry"
+        title={t('entries.deleteEntry')}
       >
         <div style={{ padding: '1rem' }}>
           <p style={{ 'margin-bottom': '1.5rem' }}>
-            Are you sure you want to delete this entry? This action can be undone later.
+            {t('entries.deleteConfirm')} {t('entries.deleteNote')}
           </p>
           <div style={{ display: 'flex', gap: '0.5rem', 'justify-content': 'flex-end' }}>
             <Button
@@ -351,14 +342,14 @@ export const EntryCard: Component<EntryCardProps> = (props) => {
               onClick={() => setShowDeleteModal(false)}
               disabled={isDeleting()}
             >
-              Cancel
+              {t('common.cancel')}
             </Button>
             <Button
               variant="danger"
               onClick={handleConfirmDelete}
               disabled={isDeleting()}
             >
-              {isDeleting() ? 'Deleting...' : 'Delete'}
+              {isDeleting() ? t('entries.deleting') : t('common.delete')}
             </Button>
           </div>
         </div>

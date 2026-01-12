@@ -1,10 +1,12 @@
 import { Component, Show, For, createSignal, createEffect, createResource } from 'solid-js';
+import { useI18n, formatDate, formatNumber } from '../../i18n';
 import { useAppContext, type ImportAnalysis } from '../context/AppContext';
 import { Button } from '../components/common/Button';
 import { CreateGroupScreen } from './CreateGroupScreen';
 import { ImportPreviewModal } from '../components/import/ImportPreviewModal';
 
 export const GroupSelectionScreen: Component = () => {
+  const { t, locale } = useI18n();
   const { groups, selectGroup, identity, exportGroups, importGroups, confirmImport, deleteGroup, getGroupBalance } =
     useAppContext();
   const [showCreateGroup, setShowCreateGroup] = createSignal(false);
@@ -27,15 +29,6 @@ export const GroupSelectionScreen: Component = () => {
     } catch (err) {
       console.error('Failed to select group:', err);
     }
-  };
-
-  const formatDate = (timestamp: number): string => {
-    const date = new Date(timestamp);
-    return date.toLocaleDateString(undefined, {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-    });
   };
 
   const truncateId = (id: string): string => {
@@ -66,7 +59,7 @@ export const GroupSelectionScreen: Component = () => {
   const handleExportSelected = async () => {
     const selected = selectedGroupIds();
     if (selected.size === 0) {
-      alert('Please select at least one group to export');
+      alert(t('export.noGroupsSelected'));
       return;
     }
 
@@ -89,7 +82,7 @@ export const GroupSelectionScreen: Component = () => {
       deselectAllGroups();
     } catch (err) {
       console.error('Export failed:', err);
-      alert('Export failed: ' + (err instanceof Error ? err.message : 'Unknown error'));
+      alert(t('export.failed') + ': ' + (err instanceof Error ? err.message : 'Unknown error'));
     }
   };
 
@@ -120,7 +113,7 @@ export const GroupSelectionScreen: Component = () => {
         console.log('[Import] importAnalysis():', importAnalysis());
       } catch (err) {
         console.error('[Import] Import analysis failed:', err);
-        alert('Import failed: ' + (err instanceof Error ? err.message : 'Unknown error'));
+        alert(t('import.analysisFailed') + ': ' + (err instanceof Error ? err.message : 'Unknown error'));
       } finally {
         setIsAnalyzing(false);
       }
@@ -137,10 +130,10 @@ export const GroupSelectionScreen: Component = () => {
       await confirmImport(analysis.exportData, mergeExisting);
       setShowImportPreview(false);
       setImportAnalysis(null);
-      alert('Import completed successfully!');
+      alert(t('import.success'));
     } catch (err) {
       console.error('Import failed:', err);
-      alert('Import failed: ' + (err instanceof Error ? err.message : 'Unknown error'));
+      alert(t('import.failed') + ': ' + (err instanceof Error ? err.message : 'Unknown error'));
     }
   };
 
@@ -158,12 +151,18 @@ export const GroupSelectionScreen: Component = () => {
       console.log('Group deleted successfully');
     } catch (err) {
       console.error('Delete failed:', err);
-      alert('Delete failed: ' + (err instanceof Error ? err.message : 'Unknown error'));
+      alert(t('common.error') + ': ' + (err instanceof Error ? err.message : 'Unknown error'));
     }
   };
 
   const cancelDelete = () => {
     setGroupToDelete(null);
+  };
+
+  const getMemberCountText = (count: number): string => {
+    return count === 1
+      ? t('groups.memberCount', { count })
+      : t('groups.memberCountPlural', { count });
   };
 
   // Helper component to display group balance as badge (replaces currency badge)
@@ -200,7 +199,7 @@ export const GroupSelectionScreen: Component = () => {
                     : 'var(--color-danger)',
                 }}
               >
-                {isPositive ? '+' : '-'}{props.currency} {absBalance.toFixed(2)}
+                {isPositive ? '+' : '-'}{props.currency} {formatNumber(absBalance, locale())}
               </span>
             </Show>
           );
@@ -222,11 +221,11 @@ export const GroupSelectionScreen: Component = () => {
           >
             {/* Header */}
             <div class="mb-xl">
-              <h1 class="text-2xl font-bold mb-sm">Your Groups</h1>
-              <p class="text-base text-muted">Select a group or create a new one</p>
+              <h1 class="text-2xl font-bold mb-sm">{t('groups.title')}</h1>
+              <p class="text-base text-muted">{t('groups.subtitle')}</p>
               <Show when={identity()}>
                 <p class="text-sm text-muted mt-sm">
-                  Your ID: {truncateId(identity()!.publicKeyHash)}
+                  {t('groups.yourId', { id: truncateId(identity()!.publicKeyHash) })}
                 </p>
               </Show>
             </div>
@@ -241,7 +240,7 @@ export const GroupSelectionScreen: Component = () => {
                     class="flex-1"
                     disabled={isAnalyzing()}
                   >
-                    {isAnalyzing() ? '⏳ Analyzing...' : '📥 Import'}
+                    {isAnalyzing() ? t('import.analyzing') : t('import.button')}
                   </Button>
                   <Button
                     variant="secondary"
@@ -249,17 +248,17 @@ export const GroupSelectionScreen: Component = () => {
                     class="flex-1"
                     disabled={selectedGroupIds().size === 0}
                   >
-                    📤 Export Selected ({selectedGroupIds().size})
+                    {t('export.exportSelected')} ({selectedGroupIds().size})
                   </Button>
                 </div>
                 <Show when={groups().length > 1}>
                   <div class="flex gap-sm text-sm">
                     <button class="link-button" onClick={selectAllGroups}>
-                      Select All
+                      {t('export.selectAll')}
                     </button>
                     <span class="text-muted">•</span>
                     <button class="link-button" onClick={deselectAllGroups}>
-                      Deselect All
+                      {t('export.deselectAll')}
                     </button>
                   </div>
                 </Show>
@@ -272,12 +271,12 @@ export const GroupSelectionScreen: Component = () => {
               fallback={
                 <div class="empty-state mb-xl">
                   <div class="empty-state-icon">👥</div>
-                  <h2 class="empty-state-title">No groups yet</h2>
+                  <h2 class="empty-state-title">{t('groups.noGroups')}</h2>
                   <p class="empty-state-message">
-                    Create your first group to start tracking expenses
+                    {t('groups.noGroupsMessage')}
                   </p>
                   <Button variant="secondary" onClick={handleImport} class="mt-md">
-                    📥 Import Groups
+                    {t('import.button')}
                   </Button>
                 </div>
               }
@@ -301,11 +300,10 @@ export const GroupSelectionScreen: Component = () => {
                               <GroupBalanceBadge groupId={group.id} currency={group.defaultCurrency} />
                             </div>
                             <p class="text-sm text-muted mb-xs">
-                              Created at: {formatDate(group.createdAt)}
+                              {t('groups.createdAt', { date: formatDate(group.createdAt, locale()) })}
                             </p>
                             <p class="text-sm text-muted">
-                              {group.members?.length || 0} member
-                              {(group.members?.length || 0) !== 1 ? 's' : ''}:{' '}
+                              {getMemberCountText(group.members?.length || 0)}:{' '}
                               {(group.members || []).map((m) => m.name).join(', ')}
                             </p>
                           </div>
@@ -322,7 +320,7 @@ export const GroupSelectionScreen: Component = () => {
                           size="small"
                           onClick={() => handleDeleteGroup(group.id)}
                         >
-                          🗑️ Delete
+                          {t('common.delete')}
                         </Button>
                       </div>
                     </div>
@@ -338,7 +336,7 @@ export const GroupSelectionScreen: Component = () => {
               onClick={() => setShowCreateGroup(true)}
               class="w-full"
             >
-              + Create New Group
+              + {t('groups.createNew')}
             </Button>
           </div>
         </div>
@@ -363,17 +361,16 @@ export const GroupSelectionScreen: Component = () => {
         <div class="modal-overlay" onClick={cancelDelete}>
           <div class="modal-content" onClick={(e) => e.stopPropagation()}>
             <div class="modal-body">
-              <h2 class="text-xl font-bold mb-md">Delete Group?</h2>
+              <h2 class="text-xl font-bold mb-md">{t('groups.deleteGroup')}?</h2>
               <p class="mb-lg">
-                Are you sure you want to delete this group? This will remove all local data
-                including entries, members, and keys. This action cannot be undone.
+                {t('groups.deleteConfirm')}
               </p>
               <div class="modal-actions">
                 <Button variant="secondary" onClick={cancelDelete}>
-                  Cancel
+                  {t('common.cancel')}
                 </Button>
                 <Button variant="danger" onClick={confirmDelete}>
-                  Delete Group
+                  {t('groups.deleteGroup')}
                 </Button>
               </div>
             </div>

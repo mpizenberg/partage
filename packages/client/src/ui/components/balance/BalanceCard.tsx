@@ -1,4 +1,5 @@
 import { Component, Show } from 'solid-js'
+import { useI18n, formatCurrency } from '../../../i18n'
 import { Button } from '../common/Button'
 import type { Balance } from '@partage/shared'
 
@@ -12,12 +13,7 @@ export interface BalanceCardProps {
 }
 
 export const BalanceCard: Component<BalanceCardProps> = (props) => {
-  const formatCurrency = (amount: number): string => {
-    return new Intl.NumberFormat(undefined, {
-      style: 'currency',
-      currency: props.currency,
-    }).format(amount)
-  }
+  const { t, locale } = useI18n()
 
   const isSettled = (): boolean => {
     return Math.abs(props.balance.netBalance) < 0.01
@@ -50,13 +46,13 @@ export const BalanceCard: Component<BalanceCardProps> = (props) => {
         <div class="balance-card-member">
           <span class="balance-card-name">{props.memberName}</span>
           <Show when={props.isCurrentUser}>
-            <span class="member-badge">You</span>
+            <span class="member-badge">{t('common.you')}</span>
           </Show>
         </div>
 
         <div class="balance-card-amount">
           <span class={`balance-net ${getBalanceClass()}`}>
-            {getBalanceSign()}{formatCurrency(Math.abs(props.balance.netBalance))}
+            {getBalanceSign()}{formatCurrency(Math.abs(props.balance.netBalance), props.currency, locale())}
           </span>
         </div>
 
@@ -64,7 +60,7 @@ export const BalanceCard: Component<BalanceCardProps> = (props) => {
         <Show when={showPayButton()}>
           <div class="balance-card-actions">
             <Button variant="primary" size="small" onClick={handlePayClick}>
-              Pay them
+              {t('balance.payThem')}
             </Button>
           </div>
         </Show>

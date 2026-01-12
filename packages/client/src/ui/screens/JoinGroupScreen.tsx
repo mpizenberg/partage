@@ -12,6 +12,7 @@
 
 import { Component, createSignal, onMount, Show, For } from 'solid-js';
 import { useNavigate, useParams } from '@solidjs/router';
+import { useI18n } from '../../i18n';
 import { useAppContext } from '../context/AppContext';
 import { Button } from '../components/common/Button';
 import { Input } from '../components/common/Input';
@@ -33,6 +34,7 @@ function base64UrlToBase64(base64Url: string): string {
 }
 
 export const JoinGroupScreen: Component = () => {
+  const { t } = useI18n();
   const params = useParams<{ groupId: string; groupKey: string }>();
   const navigate = useNavigate();
   const { identity, initializeIdentity, groups, joinGroupWithKey } = useAppContext();
@@ -56,7 +58,7 @@ export const JoinGroupScreen: Component = () => {
       // Get groupId and groupKey from URL params
       const { groupId, groupKey: groupKeyBase64Url } = params;
       if (!groupId || !groupKeyBase64Url) {
-        throw new Error('Invalid invite link: missing group ID or key');
+        throw new Error(t('joinGroup.invalidLink'));
       }
 
       // Convert Base64URL (from URL) back to standard Base64
@@ -67,7 +69,7 @@ export const JoinGroupScreen: Component = () => {
       // Check if we already have this group
       const existingGroup = groups().find(g => g.id === groupId);
       if (existingGroup) {
-        setError('You are already a member of this group');
+        setError(t('joinGroup.alreadyMember'));
         setStatus('error');
         return;
       }
@@ -113,7 +115,7 @@ export const JoinGroupScreen: Component = () => {
       setStatus('ready');
     } catch (err) {
       console.error('[JoinGroupScreen] Failed to parse invite or fetch group data:', err);
-      setError(err instanceof Error ? err.message : 'Failed to load invite. Please try again.');
+      setError(err instanceof Error ? err.message : t('joinGroup.invalidLinkMessage'));
       setStatus('error');
     }
   });
@@ -122,12 +124,12 @@ export const JoinGroupScreen: Component = () => {
     e.preventDefault();
 
     if (joinAsNewMember() && !userName().trim()) {
-      setError('Please enter your name');
+      setError(t('joinGroup.nameRequired'));
       return;
     }
 
     if (!joinAsNewMember() && !selectedExistingMember()) {
-      setError('Please select which member you are');
+      setError(t('joinGroup.selectMemberRequired'));
       return;
     }
 
@@ -168,7 +170,7 @@ export const JoinGroupScreen: Component = () => {
     <div class="container" style="padding-top: var(--space-xl); max-width: 500px; margin: 0 auto;">
       <div style="margin-bottom: var(--space-xl);">
         <h1 style="font-size: var(--font-size-2xl); font-weight: var(--font-weight-bold); margin-bottom: var(--space-sm);">
-          Join Group
+          {t('joinGroup.title')}
         </h1>
       </div>
 
@@ -178,7 +180,7 @@ export const JoinGroupScreen: Component = () => {
           fallback={
             <div class="loading-container">
               <LoadingSpinner />
-              <p class="text-secondary">Loading group...</p>
+              <p class="text-secondary">{t('joinGroup.loading')}</p>
             </div>
           }
         >
@@ -186,7 +188,7 @@ export const JoinGroupScreen: Component = () => {
             <div class="error-container">
               <p class="error-message">{error()}</p>
               <Button variant="secondary" onClick={() => navigate('/')} class="btn-full-width">
-                Go Home
+                {t('common.back')}
               </Button>
             </div>
           </Show>
@@ -198,14 +200,14 @@ export const JoinGroupScreen: Component = () => {
                   {groupName()}
                 </h2>
                 <p style="color: var(--color-text-light);">
-                  You've been invited to join this trusted group!
+                  {t('joinGroup.selectIdentity')}
                 </p>
               </div>
 
               <form onSubmit={handleJoinGroup}>
                 {/* Choice: New member or existing member */}
                 <div class="form-group">
-                  <label class="form-label">I am...</label>
+                  <label class="form-label">{t('joinGroup.selectIdentity')}</label>
                   <div style="display: flex; gap: var(--space-sm); margin-bottom: var(--space-md);">
                     <div style="flex: 1;">
                       <Button
@@ -217,7 +219,7 @@ export const JoinGroupScreen: Component = () => {
                         }}
                         class="btn-full-width"
                       >
-                        A new member
+                        {t('joinGroup.newMember')}
                       </Button>
                     </div>
                     <div style="flex: 1;">
@@ -228,7 +230,7 @@ export const JoinGroupScreen: Component = () => {
                         disabled={existingMembers().length === 0}
                         class="btn-full-width"
                       >
-                        An existing member
+                        {t('joinGroup.existingMember')}
                       </Button>
                     </div>
                   </div>
@@ -237,12 +239,12 @@ export const JoinGroupScreen: Component = () => {
                 {/* New member: enter name */}
                 <Show when={joinAsNewMember()}>
                   <div class="form-group">
-                    <label class="form-label">Your Name</label>
+                    <label class="form-label">{t('joinGroup.enterName')}</label>
                     <Input
                       type="text"
                       value={userName()}
                       onInput={(e) => setUserName(e.currentTarget.value)}
-                      placeholder="Enter your name"
+                      placeholder={t('joinGroup.namePlaceholder')}
                       required
                     />
                   </div>
@@ -251,14 +253,14 @@ export const JoinGroupScreen: Component = () => {
                 {/* Existing member: select from list */}
                 <Show when={!joinAsNewMember()}>
                   <div class="form-group">
-                    <label class="form-label">Select Your Name</label>
+                    <label class="form-label">{t('joinGroup.selectMember')}</label>
                     <Select
                       value={selectedExistingMember() || ''}
                       onChange={(e) => setSelectedExistingMember(e.currentTarget.value)}
                       required
                     >
                       <option value="" disabled>
-                        Choose...
+                        {t('validation.selectOption')}
                       </option>
                       <For each={existingMembers()}>
                         {(member) => (
@@ -267,7 +269,7 @@ export const JoinGroupScreen: Component = () => {
                       </For>
                     </Select>
                     <p class="text-secondary text-small" style="margin-top: var(--space-xs);">
-                      Claiming this identity will link your transactions under this name
+                      {t('joinGroup.claimIdentityNote')}
                     </p>
                   </div>
                 </Show>
@@ -287,10 +289,10 @@ export const JoinGroupScreen: Component = () => {
                     }
                     class="btn-full-width"
                   >
-                    {loading() ? 'Joining...' : 'Join Group'}
+                    {loading() ? t('joinGroup.joining') : t('joinGroup.joinButton')}
                   </Button>
                   <Button variant="secondary" onClick={() => navigate('/')} class="btn-full-width">
-                    Cancel
+                    {t('common.cancel')}
                   </Button>
                 </div>
               </form>
@@ -301,8 +303,8 @@ export const JoinGroupScreen: Component = () => {
             <div class="success-container">
               <div style="text-align: center;">
                 <div style="font-size: 48px; margin-bottom: var(--space-md);">✓</div>
-                <h2>Welcome to {groupName()}!</h2>
-                <p class="text-secondary">You've successfully joined the group.</p>
+                <h2>{groupName()}</h2>
+                <p class="text-secondary">{t('common.done')}</p>
               </div>
             </div>
           </Show>

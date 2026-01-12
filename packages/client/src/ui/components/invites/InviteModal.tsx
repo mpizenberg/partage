@@ -6,6 +6,7 @@
 import { Component, createSignal, Show, createEffect } from 'solid-js';
 import { Modal } from '../common/Modal';
 import { Button } from '../common/Button';
+import { useI18n } from '../../../i18n';
 import QRCode from 'qrcode';
 
 export interface InviteModalProps {
@@ -17,6 +18,7 @@ export interface InviteModalProps {
 }
 
 export const InviteModal: Component<InviteModalProps> = (props) => {
+  const { t } = useI18n();
   const [copied, setCopied] = createSignal(false);
   const [generating, setGenerating] = createSignal(false);
   let canvasRef: HTMLCanvasElement | undefined;
@@ -68,8 +70,8 @@ export const InviteModal: Component<InviteModalProps> = (props) => {
     if (navigator.share) {
       try {
         await navigator.share({
-          title: `Join ${props.groupName} on Partage`,
-          text: `You've been invited to join ${props.groupName}!`,
+          title: t('invite.shareTitle', { groupName: props.groupName }),
+          text: t('invite.shareText', { groupName: props.groupName }),
           url: props.inviteLink,
         });
       } catch (error) {
@@ -83,7 +85,7 @@ export const InviteModal: Component<InviteModalProps> = (props) => {
   };
 
   return (
-    <Modal isOpen={props.isOpen} onClose={props.onClose} title="Invite Members">
+    <Modal isOpen={props.isOpen} onClose={props.onClose} title={t('invite.title')}>
       <div class="invite-modal">
         <Show
           when={props.inviteLink}
@@ -95,7 +97,7 @@ export const InviteModal: Component<InviteModalProps> = (props) => {
                 disabled={generating()}
                 class="btn-full-width"
               >
-                {generating() ? 'Generating...' : 'Generate Invite Link'}
+                {generating() ? t('invite.generating') : t('invite.generateLink')}
               </Button>
             </div>
           }
@@ -114,12 +116,12 @@ export const InviteModal: Component<InviteModalProps> = (props) => {
 
             <div class="invite-actions">
               <Button variant="primary" onClick={handleCopyLink} class="btn-full-width">
-                {copied() ? '✓ Copied!' : 'Copy Link'}
+                {copied() ? `✓ ${t('invite.copied')}` : t('invite.copyLink')}
               </Button>
 
               <Show when={navigator.share}>
                 <Button variant="secondary" onClick={handleShareLink} class="btn-full-width">
-                  Share Link
+                  {t('invite.share')}
                 </Button>
               </Show>
             </div>

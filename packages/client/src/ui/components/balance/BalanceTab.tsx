@@ -1,4 +1,5 @@
 import { Component, Show, For, createMemo } from 'solid-js'
+import { useI18n } from '../../../i18n'
 import { useAppContext } from '../../context/AppContext'
 import { BalanceCard } from './BalanceCard'
 import { SettlementPlan } from './SettlementPlan'
@@ -8,6 +9,7 @@ export interface BalanceTabProps {
 }
 
 export const BalanceTab: Component<BalanceTabProps> = (props) => {
+  const { t } = useI18n()
   const { balances, settlementPlan, activeGroup, members, identity, entries, loroStore } = useAppContext()
 
   // Memoize the canonical user ID to avoid repeated resolution
@@ -73,8 +75,8 @@ export const BalanceTab: Component<BalanceTabProps> = (props) => {
 
   // O(1) member name lookup using memoized map
   const getMemberName = (memberId: string): string => {
-    if (isCurrentUserMember(memberId)) return 'You'
-    return memberNameMap().get(memberId) || 'Unknown'
+    if (isCurrentUserMember(memberId)) return t('common.you')
+    return memberNameMap().get(memberId) || t('common.unknown')
   }
 
   const allBalances = createMemo(() => {
@@ -104,9 +106,9 @@ export const BalanceTab: Component<BalanceTabProps> = (props) => {
         fallback={
           <div class="empty-state">
             <div class="empty-state-icon">💰</div>
-            <h2 class="empty-state-title">No Balances Yet</h2>
+            <h2 class="empty-state-title">{t('balance.noBalances')}</h2>
             <p class="empty-state-message">
-              Add expenses to see balance calculations and settlement suggestions
+              {t('balance.noBalancesMessage')}
             </p>
           </div>
         }

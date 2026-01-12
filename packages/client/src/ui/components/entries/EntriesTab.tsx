@@ -1,4 +1,5 @@
 import { Component, Show, createSignal, createMemo } from 'solid-js';
+import { useI18n } from '../../../i18n';
 import { useAppContext } from '../../context/AppContext';
 import { EntryList } from './EntryList';
 import { EntriesFilter } from './EntriesFilter';
@@ -14,6 +15,7 @@ export interface EntriesTabProps {
 }
 
 export const EntriesTab: Component<EntriesTabProps> = (props) => {
+  const { t } = useI18n();
   const { entries, showDeleted, setShowDeleted, entryFilter, setEntryFilter } = useAppContext();
   const [showFilters, setShowFilters] = createSignal(false);
 
@@ -64,7 +66,7 @@ export const EntriesTab: Component<EntriesTabProps> = (props) => {
       <Show when={props.onAddEntry}>
         <div style="text-align: center; margin-bottom: var(--space-md);">
           <Button variant="primary" onClick={props.onAddEntry}>
-            + Add new entry
+            + {t('entries.addEntry')}
           </Button>
         </div>
       </Show>
@@ -72,21 +74,21 @@ export const EntriesTab: Component<EntriesTabProps> = (props) => {
         <div class="entries-controls">
           <label class="show-deleted-toggle">
             <input type="checkbox" checked={showDeleted()} onChange={handleToggleDeleted} />
-            <span>Show deleted entries</span>
+            <span>{t('entries.showDeleted')}</span>
           </label>
 
           <button
             class="filter-toggle-btn"
             onClick={() => setShowFilters(!showFilters())}
-            title="Filter entries"
+            title={t('entries.filter')}
           >
-            🔍 Filter
+            🔍 {t('entries.filter')}
             {hasActiveFilters() && <span class="filter-badge"> •</span>}
           </button>
 
           <Show when={hasActiveFilters()}>
-            <button class="clear-filter-btn" onClick={clearFilters} title="Clear filters">
-              Clear
+            <button class="clear-filter-btn" onClick={clearFilters} title={t('entries.clearFilters')}>
+              {t('entries.clearFilters')}
             </button>
           </Show>
         </div>
@@ -108,12 +110,12 @@ export const EntriesTab: Component<EntriesTabProps> = (props) => {
           <div class="empty-state">
             <div class="empty-state-icon">📝</div>
             <h2 class="empty-state-title">
-              {hasActiveFilters() ? 'No matching entries' : 'No entries yet'}
+              {hasActiveFilters() ? t('entries.noResults') : t('entries.noEntries')}
             </h2>
             <p class="empty-state-message">
               {hasActiveFilters()
-                ? 'No entries match your current filters'
-                : 'Tap the + button below to add your first expense or transfer'}
+                ? t('entries.noResultsMessage')
+                : t('entries.noEntriesMessage')}
             </p>
           </div>
         }

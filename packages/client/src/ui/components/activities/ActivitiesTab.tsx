@@ -1,9 +1,11 @@
 import { Component, Show, createSignal } from 'solid-js';
+import { useI18n } from '../../../i18n';
 import { useAppContext } from '../../context/AppContext';
 import { ActivityList } from './ActivityList';
 import type { ActivityType } from '@partage/shared';
 
 export const ActivitiesTab: Component = () => {
+  const { t } = useI18n();
   const { activities, activityFilter, setActivityFilter } = useAppContext();
   const [showFilters, setShowFilters] = createSignal(false);
 
@@ -47,15 +49,15 @@ export const ActivitiesTab: Component = () => {
         <button
           class="filter-toggle-btn"
           onClick={() => setShowFilters(!showFilters())}
-          title="Filter activities"
+          title={t('activity.filterActivities')}
         >
-          🔍 Filter
+          🔍 {t('entries.filter')}
           {hasActiveFilters() && <span class="filter-badge"> •</span>}
         </button>
 
         <Show when={hasActiveFilters()}>
-          <button class="clear-filter-btn" onClick={clearFilters} title="Clear filters">
-            Clear
+          <button class="clear-filter-btn" onClick={clearFilters} title={t('entries.clearFilters')}>
+            {t('entries.clearFilters')}
           </button>
         </Show>
       </div>
@@ -63,7 +65,7 @@ export const ActivitiesTab: Component = () => {
       {/* Filters Panel */}
       <Show when={showFilters()}>
         <div class="activities-filters card">
-          <h3 class="filters-title">Filter by Type</h3>
+          <h3 class="filters-title">{t('activity.filterByType')}</h3>
           <div class="filter-checkboxes">
             <label class="filter-checkbox">
               <input
@@ -71,7 +73,7 @@ export const ActivitiesTab: Component = () => {
                 checked={isTypeSelected('entry_added')}
                 onChange={() => toggleActivityType('entry_added')}
               />
-              <span>➕ Entry Added</span>
+              <span>➕ {t('activity.entryAddedLabel')}</span>
             </label>
 
             <label class="filter-checkbox">
@@ -80,7 +82,7 @@ export const ActivitiesTab: Component = () => {
                 checked={isTypeSelected('entry_modified')}
                 onChange={() => toggleActivityType('entry_modified')}
               />
-              <span>✏️ Entry Modified</span>
+              <span>✏️ {t('activity.entryModifiedLabel')}</span>
             </label>
 
             <label class="filter-checkbox">
@@ -89,7 +91,7 @@ export const ActivitiesTab: Component = () => {
                 checked={isTypeSelected('entry_deleted')}
                 onChange={() => toggleActivityType('entry_deleted')}
               />
-              <span>🗑️ Entry Deleted</span>
+              <span>🗑️ {t('activity.entryDeletedLabel')}</span>
             </label>
 
             <label class="filter-checkbox">
@@ -98,7 +100,7 @@ export const ActivitiesTab: Component = () => {
                 checked={isTypeSelected('entry_undeleted')}
                 onChange={() => toggleActivityType('entry_undeleted')}
               />
-              <span>↶ Entry Restored</span>
+              <span>↶ {t('activity.entryRestoredLabel')}</span>
             </label>
 
             <label class="filter-checkbox">
@@ -107,7 +109,7 @@ export const ActivitiesTab: Component = () => {
                 checked={isTypeSelected('member_joined')}
                 onChange={() => toggleActivityType('member_joined')}
               />
-              <span>👋 Member Joined</span>
+              <span>👋 {t('activity.memberJoinedLabel')}</span>
             </label>
           </div>
         </div>
@@ -119,11 +121,11 @@ export const ActivitiesTab: Component = () => {
         fallback={
           <div class="empty-state">
             <div class="empty-state-icon">📝</div>
-            <h2 class="empty-state-title">No activities yet</h2>
+            <h2 class="empty-state-title">{t('activity.noActivity')}</h2>
             <p class="empty-state-message">
               {hasActiveFilters()
-                ? 'No activities match your filters'
-                : 'Activities will appear here as you use the app'}
+                ? t('activity.noActivityFiltered')
+                : t('activity.noActivityMessage')}
             </p>
           </div>
         }

@@ -1,4 +1,5 @@
 import { Component, For, Show } from 'solid-js';
+import { useI18n } from '../../../i18n';
 import { useAppContext } from '../../context/AppContext';
 import type { EntryFilter, EntryCategory, DatePreset, DateRange } from '@partage/shared';
 import { datePresetToRange } from '../../../domain/calculations/entry-filter';
@@ -22,16 +23,17 @@ const EXPENSE_CATEGORIES: EntryCategory[] = [
   'other',
 ];
 
-const DATE_PRESETS: { value: DatePreset; label: string }[] = [
-  { value: 'today', label: 'Today' },
-  { value: 'yesterday', label: 'Yesterday' },
-  { value: 'last7days', label: 'Last 7 days' },
-  { value: 'last30days', label: 'Last 30 days' },
-  { value: 'thisMonth', label: 'This month' },
-  { value: 'lastMonth', label: 'Last month' },
+const DATE_PRESETS: { value: DatePreset; labelKey: string }[] = [
+  { value: 'today', labelKey: 'filter.today' },
+  { value: 'yesterday', labelKey: 'filter.yesterday' },
+  { value: 'last7days', labelKey: 'filter.last7days' },
+  { value: 'last30days', labelKey: 'filter.last30days' },
+  { value: 'thisMonth', labelKey: 'filter.thisMonth' },
+  { value: 'lastMonth', labelKey: 'filter.lastMonth' },
 ];
 
 export const EntriesFilter: Component<EntriesFilterProps> = (props) => {
+  const { t } = useI18n();
   const { members } = useAppContext();
 
   // Toggle person filter
@@ -252,18 +254,18 @@ export const EntriesFilter: Component<EntriesFilterProps> = (props) => {
       other: '📦',
     };
     const icon = icons[category] || '📦';
-    const label = category.charAt(0).toUpperCase() + category.slice(1);
+    const label = category === 'transfer' ? t('entries.transfer') : t(`categories.${category}`);
     return `${icon} ${label}`;
   };
 
   return (
     <div class="entries-filter card">
-      <h3 class="filters-title">Filter Entries</h3>
+      <h3 class="filters-title">{t('filter.title')}</h3>
 
       {/* Person Filter */}
       <div class="filter-section">
         <h4 class="filter-section-title">
-          People <span class="filter-logic">(ALL selected)</span>
+          {t('filter.people')} <span class="filter-logic">({t('filter.allSelected')})</span>
         </h4>
         <div class="filter-checkboxes">
           <For each={members()}>
@@ -284,7 +286,7 @@ export const EntriesFilter: Component<EntriesFilterProps> = (props) => {
       {/* Category Filter */}
       <div class="filter-section">
         <h4 class="filter-section-title">
-          Category <span class="filter-logic">(ANY selected)</span>
+          {t('filter.category')} <span class="filter-logic">({t('filter.anySelected')})</span>
         </h4>
         <div class="filter-checkboxes">
           <Show when={props.availableCategories.includes('transfer')}>
@@ -317,7 +319,7 @@ export const EntriesFilter: Component<EntriesFilterProps> = (props) => {
       {/* Date Filter */}
       <div class="filter-section">
         <h4 class="filter-section-title">
-          Date <span class="filter-logic">(ANY selected)</span>
+          {t('filter.date')} <span class="filter-logic">({t('filter.anySelected')})</span>
         </h4>
         <div class="filter-checkboxes">
           <For each={DATE_PRESETS}>
@@ -328,7 +330,7 @@ export const EntriesFilter: Component<EntriesFilterProps> = (props) => {
                   checked={isDatePresetSelected(preset.value)}
                   onChange={() => toggleDatePreset(preset.value)}
                 />
-                <span>{preset.label}</span>
+                <span>{t(preset.labelKey)}</span>
               </label>
             )}
           </For>
@@ -340,14 +342,14 @@ export const EntriesFilter: Component<EntriesFilterProps> = (props) => {
               checked={isCustomRangeEnabled()}
               onChange={toggleCustomRange}
             />
-            <span>Custom Range</span>
+            <span>{t('filter.customRange')}</span>
           </label>
         </div>
 
         <Show when={isCustomRangeEnabled()}>
           <div class="custom-date-range">
             <div class="custom-date-field">
-              <label class="custom-date-label">Start</label>
+              <label class="custom-date-label">{t('filter.start')}</label>
               <input
                 type="date"
                 class="date-input"
@@ -356,7 +358,7 @@ export const EntriesFilter: Component<EntriesFilterProps> = (props) => {
               />
             </div>
             <div class="custom-date-field">
-              <label class="custom-date-label">End</label>
+              <label class="custom-date-label">{t('filter.end')}</label>
               <input
                 type="date"
                 class="date-input"
@@ -372,7 +374,7 @@ export const EntriesFilter: Component<EntriesFilterProps> = (props) => {
       <Show when={props.availableCurrencies.length > 1}>
         <div class="filter-section">
           <h4 class="filter-section-title">
-            Currency <span class="filter-logic">(ANY selected)</span>
+            {t('filter.currency')} <span class="filter-logic">({t('filter.anySelected')})</span>
           </h4>
           <div class="filter-checkboxes">
             <For each={props.availableCurrencies}>

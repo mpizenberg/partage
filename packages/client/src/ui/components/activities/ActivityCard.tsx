@@ -1,6 +1,6 @@
 import { Component, Match, Switch, Show, For } from 'solid-js';
 import { useAppContext } from '../../context/AppContext';
-import { formatRelativeTime } from '../../../domain/calculations/activity-generator';
+import { useI18n, formatCurrency, formatRelativeTime } from '../../../i18n';
 import type {
   Activity,
   EntryModifiedActivity,
@@ -15,24 +15,22 @@ export interface ActivityCardProps {
 
 export const ActivityCard: Component<ActivityCardProps> = (props) => {
   const { members, identity, loroStore } = useAppContext();
+  const { t, locale } = useI18n();
 
-  const formatCurrency = (amount: number, currency: string): string => {
-    return new Intl.NumberFormat(undefined, {
-      style: 'currency',
-      currency: currency,
-    }).format(amount);
+  const formatAmount = (amount: number, currency: string): string => {
+    return formatCurrency(amount, currency, locale());
   };
 
   const getMemberName = (memberId: string): string => {
     const userId = identity()?.publicKeyHash;
-    if (!userId) return 'Unknown';
+    if (!userId) return t('common.unknown');
 
     // Check if this is the current user (considering aliases)
-    if (memberId === userId) return 'You';
+    if (memberId === userId) return t('common.you');
     const store = loroStore();
     if (store) {
       const canonicalUserId = store.resolveCanonicalMemberId(userId);
-      if (memberId === canonicalUserId) return 'You';
+      if (memberId === canonicalUserId) return t('common.you');
 
       // Check if this is a canonical ID (old virtual member) that has been claimed
       const aliases = store.getMemberAliases();
@@ -58,11 +56,12 @@ export const ActivityCard: Component<ActivityCardProps> = (props) => {
       member = allMembers.find((m) => m.id === memberId);
     }
 
-    return member?.name || 'Unknown';
+    return member?.name || t('common.unknown');
   };
 
   const formatDate = (timestamp: number): string => {
-    return new Date(timestamp).toLocaleDateString(undefined, {
+    const localeCode = locale() === 'fr' ? 'fr-FR' : 'en-US';
+    return new Date(timestamp).toLocaleDateString(localeCode, {
       month: 'short',
       day: 'numeric',
       year: 'numeric',
@@ -75,18 +74,18 @@ export const ActivityCard: Component<ActivityCardProps> = (props) => {
     if (validIds.length === 0) return '';
     if (validIds.length === 1) return getMemberName(validIds[0]!);
     if (validIds.length === 2)
-      return `${getMemberName(validIds[0]!)} and ${getMemberName(validIds[1]!)}`;
-    return `${getMemberName(validIds[0]!)} and ${validIds.length - 1} others`;
+      return `${getMemberName(validIds[0]!)} ${t('common.and')} ${getMemberName(validIds[1]!)}`;
+    return `${getMemberName(validIds[0]!)} ${t('common.and')} ${validIds.length - 1} ${t('common.others')}`;
   };
 
   const formatChangeValue = (value: any, field: string, currency?: string): string => {
     // Handle null/undefined
-    if (value == null) return 'none';
+    if (value == null) return t('activity.none');
 
     // Handle numbers (amount)
     if (typeof value === 'number') {
       if (field === 'amount' && currency) {
-        return formatCurrency(value, currency);
+        return formatAmount(value, currency);
       }
       if (field === 'date') {
         return formatDate(value);
@@ -96,7 +95,7 @@ export const ActivityCard: Component<ActivityCardProps> = (props) => {
 
     // Handle arrays (payers, beneficiaries)
     if (Array.isArray(value)) {
-      if (value.length === 0) return 'none';
+      if (value.length === 0) return t('activity.none');
       // Check if it's an array of payer/beneficiary objects
       if (value[0] && typeof value[0] === 'object' && 'memberId' in value[0]) {
         const memberIds = value.map((item: any) => item.memberId);
@@ -164,12 +163,12 @@ export const ActivityCard: Component<ActivityCardProps> = (props) => {
                 return (
                   <>
                     <div class="activity-description">
-                      <strong>{getMemberName(activity.actorId)}</strong> added{' '}
+                      <strong>{getMemberName(activity.actorId)}</strong> {t('activity.added')}{' '}
                       <span class="activity-highlight">"{activity.description}"</span>
                     </div>
                     <div class="activity-details">
                       <div>
-                        {formatCurrency(activity.amount, activity.currency)}
+                        {formatAmount(activity.amount, activity.currency)}
                         {' • '}
                         {formatDate(activity.entryDate)}
                       </div>
@@ -178,7 +177,7 @@ export const ActivityCard: Component<ActivityCardProps> = (props) => {
                           class="activity-participants"
                           style="font-size: var(--font-size-sm); color: var(--color-text-light); margin-top: var(--space-xs);"
                         >
-                          Paid by {formatParticipants(activity.payers)} • For{' '}
+                          {t('activity.paidBy')} {formatParticipants(activity.payers)} • {t('activity.for')}{' '}
                           {formatParticipants(activity.beneficiaries)}
                         </div>
                       </Show>
@@ -203,12 +202,12 @@ export const ActivityCard: Component<ActivityCardProps> = (props) => {
                 return (
                   <>
                     <div class="activity-description">
-                      <strong>{getMemberName(activity.actorId)}</strong> modified{' '}
+                      <strong>{getMemberName(activity.actorId)}</strong> {t('activity.modified')}{' '}
                       <span class="activity-highlight">"{activity.description}"</span>
                     </div>
                     <div class="activity-details">
                       <div>
-                        {formatCurrency(activity.amount, activity.currency)}
+                        {formatAmount(activity.amount, activity.currency)}
                         {' • '}
                         {formatDate(activity.entryDate)}
                       </div>
@@ -217,7 +216,7 @@ export const ActivityCard: Component<ActivityCardProps> = (props) => {
                           class="activity-participants"
                           style="font-size: var(--font-size-sm); color: var(--color-text-light); margin-top: var(--space-xs);"
                         >
-                          Paid by {formatParticipants(activity.payers)} • For{' '}
+                          {t('activity.paidBy')} {formatParticipants(activity.payers)} • {t('activity.for')}{' '}
                           {formatParticipants(activity.beneficiaries)}
                         </div>
                       </Show>
@@ -235,7 +234,7 @@ export const ActivityCard: Component<ActivityCardProps> = (props) => {
                           style="margin-top: var(--space-sm); padding: var(--space-sm); background: var(--color-bg-secondary); border-radius: var(--border-radius); font-size: var(--font-size-sm);"
                         >
                           <div style="font-weight: var(--font-weight-semibold); margin-bottom: var(--space-xs); color: var(--color-text-light);">
-                            Changes:
+                            {t('activity.changes')}
                           </div>
                           <For each={Object.entries(activity.changes || {})}>
                             {([field, change]) => (
@@ -266,12 +265,12 @@ export const ActivityCard: Component<ActivityCardProps> = (props) => {
                 return (
                   <>
                     <div class="activity-description">
-                      <strong>{getMemberName(activity.actorId)}</strong> deleted{' '}
+                      <strong>{getMemberName(activity.actorId)}</strong> {t('activity.deleted')}{' '}
                       <span class="activity-highlight">"{activity.description}"</span>
                     </div>
                     <div class="activity-details">
                       <div>
-                        {formatCurrency(activity.amount, activity.currency)}
+                        {formatAmount(activity.amount, activity.currency)}
                         {' • '}
                         {formatDate(activity.entryDate)}
                         {activity.reason && (
@@ -283,7 +282,7 @@ export const ActivityCard: Component<ActivityCardProps> = (props) => {
                           class="activity-participants"
                           style="font-size: var(--font-size-sm); color: var(--color-text-light); margin-top: var(--space-xs);"
                         >
-                          Paid by {formatParticipants(activity.payers)} • For{' '}
+                          {t('activity.paidBy')} {formatParticipants(activity.payers)} • {t('activity.for')}{' '}
                           {formatParticipants(activity.beneficiaries)}
                         </div>
                       </Show>
@@ -308,12 +307,12 @@ export const ActivityCard: Component<ActivityCardProps> = (props) => {
                 return (
                   <>
                     <div class="activity-description">
-                      <strong>{getMemberName(activity.actorId)}</strong> restored{' '}
+                      <strong>{getMemberName(activity.actorId)}</strong> {t('activity.restored')}{' '}
                       <span class="activity-highlight">"{activity.description}"</span>
                     </div>
                     <div class="activity-details">
                       <div>
-                        {formatCurrency(activity.amount, activity.currency)}
+                        {formatAmount(activity.amount, activity.currency)}
                         {' • '}
                         {formatDate(activity.entryDate)}
                       </div>
@@ -322,7 +321,7 @@ export const ActivityCard: Component<ActivityCardProps> = (props) => {
                           class="activity-participants"
                           style="font-size: var(--font-size-sm); color: var(--color-text-light); margin-top: var(--space-xs);"
                         >
-                          Paid by {formatParticipants(activity.payers)} • For{' '}
+                          {t('activity.paidBy')} {formatParticipants(activity.payers)} • {t('activity.for')}{' '}
                           {formatParticipants(activity.beneficiaries)}
                         </div>
                       </Show>
@@ -344,9 +343,9 @@ export const ActivityCard: Component<ActivityCardProps> = (props) => {
             <Match when={props.activity.type === 'member_joined'}>
               <div class="activity-description">
                 <strong>{'memberName' in props.activity && props.activity.memberName}</strong>{' '}
-                joined the group
+                {t('activity.joinedGroup')}
                 {'isVirtual' in props.activity && props.activity.isVirtual && (
-                  <span class="activity-virtual"> (virtual member)</span>
+                  <span class="activity-virtual"> ({t('activity.virtualMember')})</span>
                 )}
               </div>
             </Match>
@@ -355,7 +354,7 @@ export const ActivityCard: Component<ActivityCardProps> = (props) => {
       </div>
 
       <div class="activity-footer">
-        <span class="activity-time">{formatRelativeTime(props.activity.timestamp)}</span>
+        <span class="activity-time">{formatRelativeTime(props.activity.timestamp, locale(), t)}</span>
       </div>
     </div>
   );

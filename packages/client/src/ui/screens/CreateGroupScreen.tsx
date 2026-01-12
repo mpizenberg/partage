@@ -1,4 +1,5 @@
 import { Component, createSignal, Show } from 'solid-js';
+import { useI18n } from '../../i18n';
 import { useAppContext } from '../context/AppContext';
 import { Input } from '../components/common/Input';
 import { Select, SelectOption } from '../components/common/Select';
@@ -36,12 +37,13 @@ export interface CreateGroupScreenProps {
 }
 
 export const CreateGroupScreen: Component<CreateGroupScreenProps> = (props) => {
+  const { t } = useI18n();
   const { identity, createGroup, isLoading, error, clearError } = useAppContext();
 
   // Form state
   const [groupName, setGroupName] = createSignal('');
   const [currency, setCurrency] = createSignal('USD');
-  const [myName, setMyName] = createSignal('You');
+  const [myName, setMyName] = createSignal(t('common.you'));
   const [members, setMembers] = createSignal<Member[]>([]);
   const [validationError, setValidationError] = createSignal<string | null>(null);
 
@@ -79,12 +81,12 @@ export const CreateGroupScreen: Component<CreateGroupScreenProps> = (props) => {
     setValidationError(null);
 
     if (!groupName().trim()) {
-      setValidationError('Group name is required');
+      setValidationError(t('createGroup.groupNameRequired'));
       return false;
     }
 
     if (!currency()) {
-      setValidationError('Please select a currency');
+      setValidationError(t('createGroup.selectCurrency'));
       return false;
     }
 
@@ -120,8 +122,8 @@ export const CreateGroupScreen: Component<CreateGroupScreenProps> = (props) => {
         style="max-width: 600px; margin: 0 auto; padding-top: var(--space-xl);"
       >
         <div class="mb-lg">
-          <h1 class="text-2xl font-bold mb-sm">Create a Group</h1>
-          <p class="text-base text-muted">Set up a new group to track shared expenses</p>
+          <h1 class="text-2xl font-bold mb-sm">{t('createGroup.title')}</h1>
+          <p class="text-base text-muted">{t('createGroup.subtitle')}</p>
         </div>
 
         <form onSubmit={handleSubmit}>
@@ -129,13 +131,13 @@ export const CreateGroupScreen: Component<CreateGroupScreenProps> = (props) => {
             {/* Group name */}
             <div class="form-group">
               <label class="form-label" for="group-name">
-                Group Name *
+                {t('createGroup.groupName')} *
               </label>
               <Input
                 id="group-name"
                 type="text"
                 value={groupName()}
-                placeholder="e.g., Weekend Trip, Apartment 42"
+                placeholder={t('createGroup.groupNamePlaceholder')}
                 onInput={(e) => {
                   setGroupName(e.currentTarget.value);
                   setValidationError(null);
@@ -148,13 +150,13 @@ export const CreateGroupScreen: Component<CreateGroupScreenProps> = (props) => {
             {/* My name */}
             <div class="form-group">
               <label class="form-label" for="my-name">
-                Your Name *
+                {t('createGroup.yourName')} *
               </label>
               <Input
                 id="my-name"
                 type="text"
                 value={myName()}
-                placeholder="e.g., Alice"
+                placeholder={t('createGroup.yourNamePlaceholder')}
                 onInput={(e) => {
                   setMyName(e.currentTarget.value);
                   setValidationError(null);
@@ -166,7 +168,7 @@ export const CreateGroupScreen: Component<CreateGroupScreenProps> = (props) => {
             {/* Currency */}
             <div class="form-group">
               <label class="form-label" for="currency">
-                Default Currency *
+                {t('createGroup.defaultCurrency')} *
               </label>
               <Select
                 id="currency"
@@ -175,7 +177,7 @@ export const CreateGroupScreen: Component<CreateGroupScreenProps> = (props) => {
                 onChange={(e) => setCurrency(e.currentTarget.value)}
                 required
               />
-              <p class="form-hint">All balances will be calculated in this currency</p>
+              <p class="form-hint">{t('createGroup.currencyHint')}</p>
             </div>
           </div>
 
@@ -204,10 +206,10 @@ export const CreateGroupScreen: Component<CreateGroupScreenProps> = (props) => {
               disabled={isLoading()}
               class="flex-1"
             >
-              Cancel
+              {t('common.cancel')}
             </Button>
             <Button type="submit" variant="primary" disabled={isLoading()} class="flex-1">
-              <Show when={isLoading()} fallback="Create Group">
+              <Show when={isLoading()} fallback={t('createGroup.createButton')}>
                 <LoadingSpinner size="small" />
               </Show>
             </Button>

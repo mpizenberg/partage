@@ -1,9 +1,11 @@
 import { Component, Show, For, createSignal, createMemo } from 'solid-js'
+import { useI18n } from '../../../i18n'
 import { useAppContext } from '../../context/AppContext'
 import { SettlementPlan } from '../balance/SettlementPlan'
 import { Button } from '../common/Button'
 
 export const SettleTab: Component = () => {
+  const { t } = useI18n()
   const {
     settlementPlan,
     activeGroup,
@@ -37,14 +39,14 @@ export const SettleTab: Component = () => {
 
   const getMemberName = (memberId: string): string => {
     const userId = identity()?.publicKeyHash
-    if (!userId) return 'Unknown'
+    if (!userId) return t('common.unknown')
 
     // Check if this is the current user (considering aliases)
-    if (memberId === userId) return 'You'
+    if (memberId === userId) return t('common.you')
     const store = loroStore()
     if (store) {
       const canonicalUserId = store.resolveCanonicalMemberId(userId)
-      if (memberId === canonicalUserId) return 'You'
+      if (memberId === canonicalUserId) return t('common.you')
 
       // Check if this is a canonical ID (old virtual member) that has been claimed
       const aliases = store.getMemberAliases()
@@ -70,7 +72,7 @@ export const SettleTab: Component = () => {
       member = allMembers.find(m => m.id === memberId)
     }
 
-    return member?.name || 'Unknown'
+    return member?.name || t('common.unknown')
   }
 
   // Get all members who can receive payments (all members including virtual, excluding the one being edited)
@@ -145,20 +147,20 @@ export const SettleTab: Component = () => {
         fallback={
           <div class="empty-state">
             <div class="empty-state-icon">💸</div>
-            <h2 class="empty-state-title">No Settlement Needed</h2>
+            <h2 class="empty-state-title">{t('settle.noSettlementNeeded')}</h2>
             <p class="empty-state-message">
-              Add expenses to see settlement suggestions
+              {t('settle.noSettlementMessage')}
             </p>
           </div>
         }
       >
         {/* Settlement Plan */}
         <div class="settle-section">
-          <h2 class="settle-section-title">Settlement Suggestions</h2>
+          <h2 class="settle-section-title">{t('settle.suggestions')}</h2>
           <p class="settle-section-description">
-            Optimized plan to settle all balances with minimum transactions
+            {t('settle.suggestionsDescription')}
             <Show when={hasAnyPreferences()}>
-              <span class="text-success"> ✓ Using preferences</span>
+              <span class="text-success"> ✓ {t('settle.usingPreferences')}</span>
             </Show>
           </p>
           <SettlementPlan
@@ -170,9 +172,9 @@ export const SettleTab: Component = () => {
 
         {/* Settlement Preferences - Per Member */}
         <div class="settle-section">
-          <h2 class="settle-section-title">Settlement Preferences</h2>
+          <h2 class="settle-section-title">{t('settle.preferences')}</h2>
           <p class="settle-section-description">
-            Configure who each member prefers to send money to when settling up
+            {t('settle.preferencesDescription')}
           </p>
 
           <div class="member-preferences-list">
@@ -193,7 +195,7 @@ export const SettleTab: Component = () => {
                           {getMemberName(member.id)}
                         </span>
                         <Show when={member.isVirtual}>
-                          <span class="member-badge member-badge-virtual">Virtual</span>
+                          <span class="member-badge member-badge-virtual">{t('members.virtual')}</span>
                         </Show>
                       </div>
 
@@ -203,14 +205,14 @@ export const SettleTab: Component = () => {
                             variant="secondary"
                             onClick={() => handleStartEditing(member.id)}
                           >
-                            {hasPreference() ? 'Edit' : 'Add'} Preferences
+                            {hasPreference() ? t('settle.editPreferences') : t('settle.addPreferences')}
                           </Button>
                           <Show when={hasPreference()}>
                             <Button
                               variant="danger"
                               onClick={() => handleDeletePreferences(member.id)}
                             >
-                              Delete
+                              {t('common.delete')}
                             </Button>
                           </Show>
                         </div>
@@ -223,13 +225,13 @@ export const SettleTab: Component = () => {
                         fallback={
                           <div class="member-preference-empty">
                             <p class="text-muted">
-                              No preferences set. Settlement will optimize for minimum transactions.
+                              {t('settle.noPreferencesSet')}
                             </p>
                           </div>
                         }
                       >
                         <div class="member-preference-list">
-                          <p class="preferences-label">Prefers to send money to:</p>
+                          <p class="preferences-label">{t('settle.prefersToSendTo')}</p>
                           <ol class="preferred-members-list">
                             <For each={memberPreference()?.preferredRecipients || []}>
                               {(recipientId, index) => (
@@ -248,14 +250,14 @@ export const SettleTab: Component = () => {
                       <div class="preferences-editor">
                         <div class="preferences-help">
                           <p class="text-muted">
-                            Select members to prefer for sending money. Order matters - members higher in the list will be prioritized.
+                            {t('settle.preferencesHelp')}
                           </p>
                         </div>
 
                         {/* Available members */}
                         <Show when={getPayableMembersForUser(member.id).length > 0}>
                           <div class="member-selection">
-                            <h3 class="member-selection-title">Available Recipients</h3>
+                            <h3 class="member-selection-title">{t('settle.availableRecipients')}</h3>
                             <div class="member-selection-list">
                               <For each={getPayableMembersForUser(member.id)}>
                                 {(recipient) => {
@@ -272,7 +274,7 @@ export const SettleTab: Component = () => {
                                         {getMemberName(recipient.id)}
                                       </span>
                                       <Show when={recipient.isVirtual}>
-                                        <span class="member-badge member-badge-virtual-small">Virtual</span>
+                                        <span class="member-badge member-badge-virtual-small">{t('members.virtual')}</span>
                                       </Show>
                                     </button>
                                   )
@@ -285,7 +287,7 @@ export const SettleTab: Component = () => {
                         {/* Selected members with ordering */}
                         <Show when={selectedMembers().length > 0}>
                           <div class="member-ordering">
-                            <h3 class="member-ordering-title">Preferred Recipients (in order)</h3>
+                            <h3 class="member-ordering-title">{t('settle.preferredRecipientsOrdered')}</h3>
                             <div class="member-ordering-list">
                               <For each={selectedMembers()}>
                                 {(recipientId, index) => (
@@ -327,10 +329,10 @@ export const SettleTab: Component = () => {
                         {/* Actions */}
                         <div class="preferences-actions">
                           <Button variant="secondary" onClick={handleCancelEditing}>
-                            Cancel
+                            {t('common.cancel')}
                           </Button>
                           <Button variant="primary" onClick={handleSavePreferences}>
-                            Save Preferences
+                            {t('settle.savePreferences')}
                           </Button>
                         </div>
                       </div>

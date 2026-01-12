@@ -1,4 +1,5 @@
 import { Component, For, createSignal, Show } from 'solid-js';
+import { useI18n } from '../../../i18n';
 import { Input } from '../common/Input';
 import { Button } from '../common/Button';
 import type { Member } from '@partage/shared';
@@ -12,6 +13,7 @@ export interface MemberManagerProps {
 }
 
 export const MemberManager: Component<MemberManagerProps> = (props) => {
+  const { t } = useI18n();
   const [newMemberName, setNewMemberName] = createSignal('');
   const [error, setError] = createSignal<string | null>(null);
 
@@ -19,14 +21,14 @@ export const MemberManager: Component<MemberManagerProps> = (props) => {
     const name = newMemberName().trim();
 
     if (!name) {
-      setError('Member name cannot be empty');
+      setError(t('members.memberNameRequired'));
       return;
     }
 
     // Check for duplicate names
     const duplicate = props.members.some((m) => m.name.toLowerCase() === name.toLowerCase());
     if (duplicate) {
-      setError('A member with this name already exists');
+      setError(t('members.duplicateName'));
       return;
     }
 
@@ -44,7 +46,7 @@ export const MemberManager: Component<MemberManagerProps> = (props) => {
 
   return (
     <div class="member-manager">
-      <h3 class="text-base font-semibold mb-sm">Members</h3>
+      <h3 class="text-base font-semibold mb-sm">{t('members.title')}</h3>
 
       {/* Member list */}
       <div class="member-list mb-md">
@@ -55,7 +57,7 @@ export const MemberManager: Component<MemberManagerProps> = (props) => {
                 <div class="member-row">
                   <span class="member-name">{member.name}</span>
                   <Show when={member.isVirtual}>
-                    <span class="member-badge-virtual">Virtual</span>
+                    <span class="member-badge-virtual">{t('members.virtual')}</span>
                   </Show>
                 </div>
               </div>
@@ -64,7 +66,7 @@ export const MemberManager: Component<MemberManagerProps> = (props) => {
                   type="button"
                   class="member-remove"
                   onClick={() => props.onRemoveMember(member.id)}
-                  aria-label={`Remove ${member.name}`}
+                  aria-label={`${t('members.remove')} ${member.name}`}
                 >
                   ×
                 </button>
@@ -77,14 +79,14 @@ export const MemberManager: Component<MemberManagerProps> = (props) => {
       {/* Add member form */}
       <div class="add-member-form">
         <label class="form-label" for="new-member-name">
-          Add Member
+          {t('members.addMember')}
         </label>
         <div class="flex gap-sm">
           <Input
             id="new-member-name"
             type="text"
             value={newMemberName()}
-            placeholder="Enter name..."
+            placeholder={t('members.memberNamePlaceholder')}
             onInput={(e) => {
               setNewMemberName(e.currentTarget.value);
               setError(null);
@@ -98,14 +100,14 @@ export const MemberManager: Component<MemberManagerProps> = (props) => {
             onClick={handleAddMember}
             disabled={!newMemberName().trim()}
           >
-            Add
+            {t('members.addButton')}
           </Button>
         </div>
         <Show when={error()}>
           <p class="form-error">{error()}</p>
         </Show>
         <p class="form-hint">
-          Members can be added for expense tracking (they don't need the app yet)
+          {t('members.virtualMemberDescription')}
         </p>
       </div>
     </div>

@@ -1,4 +1,5 @@
 import { Component, Show, For, createSignal, createMemo } from 'solid-js'
+import { useI18n, formatCurrency } from '../../../i18n'
 import { useAppContext } from '../../context/AppContext'
 import { Button } from '../common/Button'
 import type { SettlementPlan as SettlementPlanType, Member } from '@partage/shared'
@@ -10,15 +11,9 @@ export interface SettlementPlanProps {
 }
 
 export const SettlementPlan: Component<SettlementPlanProps> = (props) => {
+  const { t, locale } = useI18n()
   const { addTransfer, identity, loroStore } = useAppContext()
   const [isSettling, setIsSettling] = createSignal<string | null>(null)
-
-  const formatCurrency = (amount: number): string => {
-    return new Intl.NumberFormat(undefined, {
-      style: 'currency',
-      currency: props.currency,
-    }).format(amount)
-  }
 
   // Memoize the canonical user ID to avoid repeated resolution
   const canonicalUserId = createMemo(() => {
@@ -74,12 +69,12 @@ export const SettlementPlan: Component<SettlementPlanProps> = (props) => {
   // O(1) member name lookup using memoized map
   const getMemberName = (memberId: string): string => {
     const userId = identity()?.publicKeyHash
-    if (!userId) return 'Unknown'
+    if (!userId) return t('common.unknown')
 
     // Check if this is the current user
-    if (memberId === userId || memberId === canonicalUserId()) return 'You'
+    if (memberId === userId || memberId === canonicalUserId()) return t('common.you')
 
-    return memberNameMap().get(memberId) || 'Unknown'
+    return memberNameMap().get(memberId) || t('common.unknown')
   }
 
   const handleSettle = async (fromId: string, toId: string, amount: number) => {
@@ -93,7 +88,7 @@ export const SettlementPlan: Component<SettlementPlanProps> = (props) => {
         from: fromId,
         to: toId,
         date: Date.now(),
-        notes: 'Settlement payment',
+        notes: t('settle.settlementPayment'),
       })
 
       // Success - balance will update automatically via context
@@ -123,17 +118,19 @@ export const SettlementPlan: Component<SettlementPlanProps> = (props) => {
         <div class="settlement-empty">
           <div class="text-center p-lg">
             <div class="text-xl mb-sm">✓</div>
-            <p class="text-base font-semibold mb-xs">All Settled Up!</p>
-            <p class="text-sm text-muted">Everyone's balances are squared away</p>
+            <p class="text-base font-semibold mb-xs">{t('settle.allSettledUp')}</p>
+            <p class="text-sm text-muted">{t('settle.allSettledDescription')}</p>
           </div>
         </div>
       }
     >
       <div class="settlement-plan">
         <div class="settlement-header">
-          <h3 class="text-lg font-semibold">Suggested Settlements</h3>
+          <h3 class="text-lg font-semibold">{t('settle.suggestedSettlements')}</h3>
           <p class="text-sm text-muted">
-            {props.plan.totalTransactions} payment{props.plan.totalTransactions !== 1 ? 's' : ''} to settle all balances
+            {props.plan.totalTransactions === 1
+              ? t('settle.paymentCount', { count: props.plan.totalTransactions })
+              : t('settle.paymentCountPlural', { count: props.plan.totalTransactions })}
           </p>
         </div>
 
@@ -153,7 +150,7 @@ export const SettlementPlan: Component<SettlementPlanProps> = (props) => {
                       <span class="settlement-to">{getMemberName(transaction.to)}</span>
                     </div>
                     <div class="settlement-amount">
-                      {formatCurrency(transaction.amount)}
+                      {formatCurrency(transaction.amount, props.currency, locale())}
                     </div>
                   </div>
 
@@ -163,7 +160,7 @@ export const SettlementPlan: Component<SettlementPlanProps> = (props) => {
                     onClick={() => handleSettle(transaction.from, transaction.to, transaction.amount)}
                     disabled={loading}
                   >
-                    {loading ? 'Recording...' : 'Mark as Paid'}
+                    {loading ? t('settle.recording') : t('settle.markAsPaid')}
                   </Button>
                 </div>
               )
@@ -173,7 +170,7 @@ export const SettlementPlan: Component<SettlementPlanProps> = (props) => {
 
         <div class="settlement-note">
           <p class="text-xs text-muted">
-            💡 Tip: These settlements minimize the total number of transactions needed
+            💡 {t('settle.tip')}
           </p>
         </div>
       </div>

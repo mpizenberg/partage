@@ -6,6 +6,7 @@
 import { Component, For, Show, createSignal, createMemo } from 'solid-js';
 import type { Member, Balance } from '@partage/shared';
 import type { LoroEntryStore } from '../../../core/crdt/loro-wrapper';
+import { useI18n } from '../../../i18n';
 
 export interface MemberListProps {
   members: Member[];
@@ -20,6 +21,7 @@ export interface MemberListProps {
 type SortMode = 'name' | 'date';
 
 export const MemberList: Component<MemberListProps> = (props) => {
+  const { t, locale } = useI18n();
   const [sortMode, setSortMode] = createSignal<SortMode>('name');
   const [editingMemberId, setEditingMemberId] = createSignal<string | null>(null);
   const [newName, setNewName] = createSignal('');
@@ -42,8 +44,9 @@ export const MemberList: Component<MemberListProps> = (props) => {
   });
 
   const formatJoinedDate = (timestamp: number) => {
+    const localeCode = locale() === 'fr' ? 'fr-FR' : 'en-US';
     const date = new Date(timestamp);
-    return date.toLocaleDateString('en-US', {
+    return date.toLocaleDateString(localeCode, {
       month: 'short',
       day: 'numeric',
       year: 'numeric',
@@ -55,9 +58,9 @@ export const MemberList: Component<MemberListProps> = (props) => {
   };
 
   const getAddedByName = (addedById: string | undefined): string => {
-    if (!addedById) return 'Unknown';
+    if (!addedById) return t('common.unknown');
     const member = props.members.find(m => m.id === addedById);
-    return member?.name || 'Unknown';
+    return member?.name || t('common.unknown');
   };
 
   const startRename = (member: Member) => {
@@ -82,7 +85,7 @@ export const MemberList: Component<MemberListProps> = (props) => {
       setNewName('');
     } catch (error) {
       console.error('Failed to rename member:', error);
-      alert('Failed to rename member');
+      alert(t('members.renameFailed'));
     }
   };
 
@@ -103,7 +106,7 @@ export const MemberList: Component<MemberListProps> = (props) => {
       setMemberToRemove(null);
     } catch (error) {
       console.error('Failed to remove member:', error);
-      alert('Failed to remove member');
+      alert(t('members.removeFailed'));
     }
   };
 
@@ -131,13 +134,13 @@ export const MemberList: Component<MemberListProps> = (props) => {
             class={`sort-toggle-btn ${sortMode() === 'name' ? 'active' : ''}`}
             onClick={() => setSortMode('name')}
           >
-            By Name
+            {t('members.byName')}
           </button>
           <button
             class={`sort-toggle-btn ${sortMode() === 'date' ? 'active' : ''}`}
             onClick={() => setSortMode('date')}
           >
-            By Date Joined
+            {t('members.byDateJoined')}
           </button>
         </div>
         <label style="display: flex; align-items: center; gap: var(--space-xs); cursor: pointer;">
@@ -146,7 +149,7 @@ export const MemberList: Component<MemberListProps> = (props) => {
             checked={showDeparted()}
             onChange={(e) => setShowDeparted(e.currentTarget.checked)}
           />
-          <span>Show past members only</span>
+          <span>{t('members.showPastMembersOnly')}</span>
         </label>
       </div>
 
@@ -169,10 +172,10 @@ export const MemberList: Component<MemberListProps> = (props) => {
                         <div class="member-name-wrapper">
                           <span class="member-name">{member.name}</span>
                           <Show when={member.id === props.currentUserPublicKeyHash}>
-                            <span class="member-badge">You</span>
+                            <span class="member-badge">{t('common.you')}</span>
                           </Show>
                           <Show when={member.isVirtual}>
-                            <span class="member-badge-virtual-small">Virtual</span>
+                            <span class="member-badge-virtual-small">{t('members.virtual')}</span>
                           </Show>
                         </div>
                         <span class="member-joined-date">{formatJoinedDate(member.joinedAt)}</span>
@@ -183,7 +186,7 @@ export const MemberList: Component<MemberListProps> = (props) => {
                           when={!member.isVirtual && member.id}
                           fallback={
                             <span class="member-id-text">
-                              Added by: {getAddedByName(member.addedBy)} ({member.addedBy ? truncateId(member.addedBy) : 'Unknown'})
+                              {t('members.addedBy')}: {getAddedByName(member.addedBy)} ({member.addedBy ? truncateId(member.addedBy) : t('common.unknown')})
                             </span>
                           }
                         >
@@ -200,7 +203,7 @@ export const MemberList: Component<MemberListProps> = (props) => {
                               onClick={() => startRename(member)}
                               style="font-size: var(--font-size-sm); padding: var(--space-xs) var(--space-sm);"
                             >
-                              ✏️ Rename
+                              ✏️ {t('members.rename')}
                             </button>
                           </Show>
                           <Show when={props.onRemoveMember}>
@@ -208,10 +211,10 @@ export const MemberList: Component<MemberListProps> = (props) => {
                               class="btn btn-sm btn-danger"
                               onClick={() => startRemove(member)}
                               disabled={!canRemoveMember(member.id)}
-                              title={!canRemoveMember(member.id) ? 'Cannot remove member with non-zero balance' : ''}
+                              title={!canRemoveMember(member.id) ? t('members.cannotRemove') : ''}
                               style="font-size: var(--font-size-sm); padding: var(--space-xs) var(--space-sm);"
                             >
-                              🗑️ Remove
+                              🗑️ {t('members.remove')}
                             </button>
                           </Show>
                         </div>
@@ -227,7 +230,7 @@ export const MemberList: Component<MemberListProps> = (props) => {
                         class="input"
                         value={newName()}
                         onInput={(e) => setNewName(e.currentTarget.value)}
-                        placeholder="New name"
+                        placeholder={t('members.newNamePlaceholder')}
                         style="width: 100%;"
                       />
                     </div>
@@ -237,14 +240,14 @@ export const MemberList: Component<MemberListProps> = (props) => {
                         onClick={() => confirmRename(member.id)}
                         style="font-size: var(--font-size-sm); padding: var(--space-xs) var(--space-sm);"
                       >
-                        ✓ Save
+                        ✓ {t('common.save')}
                       </button>
                       <button
                         class="btn btn-sm btn-secondary"
                         onClick={cancelRename}
                         style="font-size: var(--font-size-sm); padding: var(--space-xs) var(--space-sm);"
                       >
-                        ✕ Cancel
+                        ✕ {t('common.cancel')}
                       </button>
                     </div>
                   </div>
@@ -260,16 +263,16 @@ export const MemberList: Component<MemberListProps> = (props) => {
         <div class="modal-overlay" onClick={cancelRemove}>
           <div class="modal-content" onClick={(e) => e.stopPropagation()}>
             <div class="modal-body">
-              <h2 class="text-xl font-bold mb-md">Remove Member?</h2>
+              <h2 class="text-xl font-bold mb-md">{t('members.removeMemberQuestion')}</h2>
               <p class="mb-lg">
-                Are you sure you want to remove <strong>{memberToRemove()?.name}</strong> from the group? They will be marked as departed but will remain in the audit history.
+                {t('members.removeConfirm', { name: memberToRemove()?.name || '' })}
               </p>
               <div class="modal-actions">
                 <button class="btn btn-secondary" onClick={cancelRemove} style="padding: var(--space-sm) var(--space-md);">
-                  Cancel
+                  {t('common.cancel')}
                 </button>
                 <button class="btn btn-danger" onClick={confirmRemove} style="padding: var(--space-sm) var(--space-md);">
-                  Remove Member
+                  {t('members.removeMember')}
                 </button>
               </div>
             </div>
