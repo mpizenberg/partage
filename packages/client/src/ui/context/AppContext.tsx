@@ -16,7 +16,10 @@ import {
   calculateBalances,
   generateSettlementPlan,
 } from '../../domain/calculations/balance-calculator';
-import { generateAllActivities, filterActivities } from '../../domain/calculations/activity-generator';
+import {
+  generateAllActivities,
+  filterActivities,
+} from '../../domain/calculations/activity-generator';
 import { SyncManager, type SyncState } from '../../core/sync';
 import { pbClient } from '../../api';
 import {
@@ -95,7 +98,12 @@ interface AppContextValue {
   // Groups
   groups: Accessor<Group[]>;
   activeGroup: Accessor<Group | null>;
-  createGroup: (name: string, currency: string, members: Member[]) => Promise<void>;
+  createGroup: (
+    name: string,
+    currency: string,
+    members: Member[],
+    myUserName?: string
+  ) => Promise<void>;
   selectGroup: (groupId: string) => Promise<void>;
   deselectGroup: () => void;
 
@@ -345,8 +353,18 @@ export const AppProvider: Component<{ children: JSX.Element }> = (props) => {
   };
 
   // Create new group
-  const createGroup = async (name: string, currency: string, virtualMembers: Member[]) => {
-    console.log('[AppContext] createGroup called with:', { name, currency, virtualMembers });
+  const createGroup = async (
+    name: string,
+    currency: string,
+    virtualMembers: Member[],
+    myUserName: string = 'You'
+  ) => {
+    console.log('[AppContext] createGroup called with:', {
+      name,
+      currency,
+      virtualMembers,
+      myUserName,
+    });
     try {
       setIsLoading(true);
       setError(null);
@@ -409,7 +427,7 @@ export const AppProvider: Component<{ children: JSX.Element }> = (props) => {
           // Add current user as first member
           {
             id: currentIdentity.publicKeyHash,
-            name: 'You',
+            name: myUserName,
             publicKey: currentIdentity.publicKey,
             joinedAt: Date.now(),
             status: 'active' as const,
@@ -426,7 +444,7 @@ export const AppProvider: Component<{ children: JSX.Element }> = (props) => {
       // Add creator as first member
       newLoroStore.addMember({
         id: currentIdentity.publicKeyHash,
-        name: 'You',
+        name: myUserName,
         publicKey: currentIdentity.publicKey,
         joinedAt: Date.now(),
         status: 'active',
@@ -465,7 +483,10 @@ export const AppProvider: Component<{ children: JSX.Element }> = (props) => {
           // Export the initial state as a snapshot (Loro handles this correctly on import)
           const updateBytes = newLoroStore.exportSnapshot();
           await tempManager.pushUpdate(groupId, currentIdentity.publicKeyHash, updateBytes);
-          console.log('[AppContext] Initial state pushed to server, bytes:', updateBytes.byteLength);
+          console.log(
+            '[AppContext] Initial state pushed to server, bytes:',
+            updateBytes.byteLength
+          );
 
           // Destroy temporary manager (selectGroup will create a proper one)
           await tempManager.destroy();
@@ -1701,15 +1722,19 @@ export const AppProvider: Component<{ children: JSX.Element }> = (props) => {
       };
 
       // Serialize to JSON (convert Uint8Arrays and Maps to plain objects)
-      const serialized = JSON.stringify(exportData, (_key, value) => {
-        if (value instanceof Uint8Array) {
-          return { __type: 'Uint8Array', data: Array.from(value) };
-        }
-        if (value instanceof Map) {
-          return { __type: 'Map', entries: Array.from(value.entries()) };
-        }
-        return value;
-      }, 2);
+      const serialized = JSON.stringify(
+        exportData,
+        (_key, value) => {
+          if (value instanceof Uint8Array) {
+            return { __type: 'Uint8Array', data: Array.from(value) };
+          }
+          if (value instanceof Map) {
+            return { __type: 'Map', entries: Array.from(value.entries()) };
+          }
+          return value;
+        },
+        2
+      );
 
       return serialized;
     } catch (err) {
@@ -1742,7 +1767,10 @@ export const AppProvider: Component<{ children: JSX.Element }> = (props) => {
         console.log('[importGroups] JSON parsed successfully');
       } catch (parseError) {
         console.error('[importGroups] JSON parse failed:', parseError);
-        throw new Error('Failed to parse import file: ' + (parseError instanceof Error ? parseError.message : 'Invalid JSON'));
+        throw new Error(
+          'Failed to parse import file: ' +
+            (parseError instanceof Error ? parseError.message : 'Invalid JSON')
+        );
       }
 
       const importData: ExportData = parsed;
@@ -1790,28 +1818,48 @@ export const AppProvider: Component<{ children: JSX.Element }> = (props) => {
             const testStoreLocal = new LoroEntryStore(currentIdentity.publicKeyHash);
             testStoreLocal.importSnapshot(existingSnapshot);
             const localSnapshotBefore = testStoreLocal.exportSnapshot();
-            console.log(`[importGroups] ${groupExport.group.name} - Local snapshot size before:`, localSnapshotBefore.byteLength);
+            console.log(
+              `[importGroups] ${groupExport.group.name} - Local snapshot size before:`,
+              localSnapshotBefore.byteLength
+            );
 
             testStoreLocal.importSnapshot(groupExport.loroSnapshot);
             const localSnapshotAfter = testStoreLocal.exportSnapshot();
-            console.log(`[importGroups] ${groupExport.group.name} - Local snapshot size after importing remote:`, localSnapshotAfter.byteLength);
+            console.log(
+              `[importGroups] ${groupExport.group.name} - Local snapshot size after importing remote:`,
+              localSnapshotAfter.byteLength
+            );
 
-            const importHasNewData = localSnapshotBefore.byteLength !== localSnapshotAfter.byteLength;
-            console.log(`[importGroups] ${groupExport.group.name} - Import has new data:`, importHasNewData);
+            const importHasNewData =
+              localSnapshotBefore.byteLength !== localSnapshotAfter.byteLength;
+            console.log(
+              `[importGroups] ${groupExport.group.name} - Import has new data:`,
+              importHasNewData
+            );
 
             // Test 2: Does local have new data not in import?
             // Load import snapshot, compare snapshot sizes after importing local
             const testStoreImport = new LoroEntryStore(currentIdentity.publicKeyHash);
             testStoreImport.importSnapshot(groupExport.loroSnapshot);
             const importSnapshotBefore = testStoreImport.exportSnapshot();
-            console.log(`[importGroups] ${groupExport.group.name} - Import snapshot size before:`, importSnapshotBefore.byteLength);
+            console.log(
+              `[importGroups] ${groupExport.group.name} - Import snapshot size before:`,
+              importSnapshotBefore.byteLength
+            );
 
             testStoreImport.importSnapshot(existingSnapshot);
             const importSnapshotAfter = testStoreImport.exportSnapshot();
-            console.log(`[importGroups] ${groupExport.group.name} - Import snapshot size after loading local:`, importSnapshotAfter.byteLength);
+            console.log(
+              `[importGroups] ${groupExport.group.name} - Import snapshot size after loading local:`,
+              importSnapshotAfter.byteLength
+            );
 
-            const localHasNewData = importSnapshotBefore.byteLength !== importSnapshotAfter.byteLength;
-            console.log(`[importGroups] ${groupExport.group.name} - Local has new data:`, localHasNewData);
+            const localHasNewData =
+              importSnapshotBefore.byteLength !== importSnapshotAfter.byteLength;
+            console.log(
+              `[importGroups] ${groupExport.group.name} - Local has new data:`,
+              localHasNewData
+            );
 
             let relationship: 'local_subset' | 'import_subset' | 'diverged';
 
@@ -1829,7 +1877,9 @@ export const AppProvider: Component<{ children: JSX.Element }> = (props) => {
               relationship = 'diverged';
             }
 
-            console.log(`[importGroups] Group ${groupExport.group.name}: importHasNewData=${importHasNewData}, localHasNewData=${localHasNewData}, relationship=${relationship}`);
+            console.log(
+              `[importGroups] Group ${groupExport.group.name}: importHasNewData=${importHasNewData}, localHasNewData=${localHasNewData}, relationship=${relationship}`
+            );
 
             analysis.push({
               group: groupExport.group,
