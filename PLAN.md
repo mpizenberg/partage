@@ -342,7 +342,7 @@ Set up a monorepo structure for a fully encrypted, local-first bill-splitting PW
 5. ✅ Multi-currency support with exchange rates
 6. ✅ Settlement suggestions (debt optimization)
 7. ✅ Export functionality (JSON)
-8. 🔄 Incremental snapshot storage (performance optimization)
+8. ✅ Incremental snapshot storage (performance optimization)
 9. PWA service worker for offline
 
 **Deliverable**: Full-featured application
@@ -471,7 +471,7 @@ Set up a monorepo structure for a fully encrypted, local-first bill-splitting PW
 5. ✅ Multi-currency support with exchange rates
 6. ✅ Settlement suggestions (debt optimization)
 7. ✅ Export functionality (JSON)
-8. 🔄 Incremental snapshot storage (performance optimization) - See INCREMENTAL_SNAPSHOTS_PLAN.md
+8. ✅ Incremental snapshot storage (performance optimization)
 9. PWA service worker for full offline support
 
 **Goal**: Complete feature set with full entry lifecycle, activity tracking, and offline capabilities

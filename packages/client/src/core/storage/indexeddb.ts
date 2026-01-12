@@ -54,7 +54,17 @@ interface GroupKeyRecord {
 interface LoroSnapshotRecord {
   groupId: string;
   snapshot: Uint8Array;
+  version: any; // Loro version vector
   updatedAt: number;
+}
+
+interface LoroIncrementalUpdateRecord {
+  id: string; // `${groupId}:${sequence.toString().padStart(8, '0')}`
+  groupId: string;
+  updateData: Uint8Array; // Binary, NOT Base64
+  version: any; // Loro version vector
+  timestamp: number;
+  sequence: number; // Auto-increment per group
 }
 
 interface PendingOperationRecord {
@@ -107,6 +117,13 @@ export class PartageDB {
         // Loro snapshots store
         if (!db.objectStoreNames.contains(STORES.LORO_SNAPSHOTS)) {
           db.createObjectStore(STORES.LORO_SNAPSHOTS, { keyPath: 'groupId' });
+        }
+
+        // Loro incremental updates store (NEW - for performance optimization)
+        if (!db.objectStoreNames.contains('loroIncrementalUpdates')) {
+          const incrementalStore = db.createObjectStore('loroIncrementalUpdates', { keyPath: 'id' });
+          incrementalStore.createIndex('groupId', 'groupId', { unique: false });
+          incrementalStore.createIndex('groupId_sequence', ['groupId', 'sequence'], { unique: true });
         }
 
         // Pending operations store
@@ -260,7 +277,7 @@ export class PartageDB {
     await this.ensureOpen();
 
     const transaction = this.db!.transaction(
-      [STORES.GROUPS, STORES.GROUP_KEYS, STORES.LORO_SNAPSHOTS, STORES.PENDING_OPS],
+      [STORES.GROUPS, STORES.GROUP_KEYS, STORES.LORO_SNAPSHOTS, 'loroIncrementalUpdates', STORES.PENDING_OPS],
       'readwrite'
     );
 
@@ -281,6 +298,18 @@ export class PartageDB {
 
     // Delete Loro snapshot
     transaction.objectStore(STORES.LORO_SNAPSHOTS).delete(groupId);
+
+    // Delete incremental updates
+    const incrementalStore = transaction.objectStore('loroIncrementalUpdates');
+    const incrementalIndex = incrementalStore.index('groupId');
+    const incrementalCursor = incrementalIndex.openCursor(IDBKeyRange.only(groupId));
+    incrementalCursor.onsuccess = (event) => {
+      const cursor = (event.target as IDBRequest<IDBCursorWithValue>).result;
+      if (cursor) {
+        cursor.delete();
+        cursor.continue();
+      }
+    };
 
     // Delete pending operations
     const pendingOpsStore = transaction.objectStore(STORES.PENDING_OPS);
@@ -353,12 +382,13 @@ export class PartageDB {
   /**
    * Save Loro CRDT snapshot for a group
    */
-  async saveLoroSnapshot(groupId: string, snapshot: Uint8Array): Promise<void> {
+  async saveLoroSnapshot(groupId: string, snapshot: Uint8Array, version?: any): Promise<void> {
     await this.ensureOpen();
 
     const record: LoroSnapshotRecord = {
       groupId,
       snapshot,
+      version: version ?? null,
       updatedAt: Date.now(),
     };
 
@@ -373,6 +403,107 @@ export class PartageDB {
 
     const record = await this.get<LoroSnapshotRecord>(STORES.LORO_SNAPSHOTS, groupId);
     return record?.snapshot ?? null;
+  }
+
+  // Loro Incremental Updates Management
+
+  /**
+   * Get next sequence number for a group (max + 1)
+   */
+  private async getNextIncrementalSequence(groupId: string): Promise<number> {
+    const records = await this.getAllFromIndex<LoroIncrementalUpdateRecord>(
+      'loroIncrementalUpdates',
+      'groupId',
+      groupId
+    );
+
+    if (records.length === 0) return 1;
+
+    const maxSequence = Math.max(...records.map(r => r.sequence));
+    return maxSequence + 1;
+  }
+
+  /**
+   * Save incremental update with auto-incrementing sequence
+   */
+  async saveLoroIncrementalUpdate(
+    groupId: string,
+    updateData: Uint8Array,
+    version: any
+  ): Promise<void> {
+    await this.ensureOpen();
+
+    const sequence = await this.getNextIncrementalSequence(groupId);
+    const id = `${groupId}:${sequence.toString().padStart(8, '0')}`;
+
+    const record: LoroIncrementalUpdateRecord = {
+      id,
+      groupId,
+      updateData,
+      version,
+      timestamp: Date.now(),
+      sequence,
+    };
+
+    return this.put('loroIncrementalUpdates', record);
+  }
+
+  /**
+   * Get all incremental updates for a group (ordered by sequence)
+   */
+  async getLoroIncrementalUpdates(groupId: string): Promise<LoroIncrementalUpdateRecord[]> {
+    await this.ensureOpen();
+
+    const records = await this.getAllFromIndex<LoroIncrementalUpdateRecord>(
+      'loroIncrementalUpdates',
+      'groupId',
+      groupId
+    );
+
+    // Sort by sequence (should already be in order, but ensure it)
+    return records.sort((a, b) => a.sequence - b.sequence);
+  }
+
+  /**
+   * Count incremental updates for a group (fast index query)
+   */
+  async getLoroIncrementalUpdateCount(groupId: string): Promise<number> {
+    await this.ensureOpen();
+
+    return new Promise((resolve, reject) => {
+      const transaction = this.db!.transaction('loroIncrementalUpdates', 'readonly');
+      const store = transaction.objectStore('loroIncrementalUpdates');
+      const index = store.index('groupId');
+      const request = index.count(IDBKeyRange.only(groupId));
+
+      request.onsuccess = () => resolve(request.result);
+      request.onerror = () => reject(request.error);
+    });
+  }
+
+  /**
+   * Clear all incremental updates for a group (after consolidation)
+   */
+  async clearLoroIncrementalUpdates(groupId: string): Promise<void> {
+    await this.ensureOpen();
+
+    const transaction = this.db!.transaction('loroIncrementalUpdates', 'readwrite');
+    const store = transaction.objectStore('loroIncrementalUpdates');
+    const index = store.index('groupId');
+    const request = index.openCursor(IDBKeyRange.only(groupId));
+
+    request.onsuccess = (event) => {
+      const cursor = (event.target as IDBRequest<IDBCursorWithValue>).result;
+      if (cursor) {
+        cursor.delete();
+        cursor.continue();
+      }
+    };
+
+    return new Promise((resolve, reject) => {
+      transaction.oncomplete = () => resolve();
+      transaction.onerror = () => reject(transaction.error);
+    });
   }
 
   // Pending Operations Management

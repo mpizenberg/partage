@@ -101,6 +101,7 @@ export class LoroEntryStore {
   private entries: LoroMap;
   private members: LoroMap;
   private settlementPreferences: LoroMap;
+  private lastSavedVersion: any | null = null; // Track last saved version for incremental updates
 
   constructor(peerId?: string) {
     // Create Loro with a peer ID if provided (important for multi-device sync)
@@ -542,6 +543,33 @@ export class LoroEntryStore {
     this.entries = this.loro.getMap('entries');
     this.members = this.loro.getMap('members');
     this.settlementPreferences = this.loro.getMap('settlementPreferences');
+    this.lastSavedVersion = this.loro.oplogVersion(); // Mark as saved
+  }
+
+  /**
+   * Export incremental update since last save
+   * Returns empty Uint8Array if no changes since last save
+   */
+  exportIncrementalUpdate(): { updateData: Uint8Array; version: any } {
+    const currentVersion = this.loro.oplogVersion();
+    const updateData = this.lastSavedVersion
+      ? this.loro.export({ mode: 'update', from: this.lastSavedVersion })
+      : new Uint8Array(0);
+    return { updateData, version: currentVersion };
+  }
+
+  /**
+   * Mark current version as saved (updates lastSavedVersion tracker)
+   */
+  markAsSaved(): void {
+    this.lastSavedVersion = this.loro.oplogVersion();
+  }
+
+  /**
+   * Reset saved version (after consolidation)
+   */
+  resetSavedVersion(): void {
+    this.lastSavedVersion = this.loro.oplogVersion();
   }
 
   /**

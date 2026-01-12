@@ -21,6 +21,7 @@ import {
   filterActivities,
 } from '../../domain/calculations/activity-generator';
 import { SyncManager, type SyncState } from '../../core/sync';
+import { SnapshotManager } from '../../core/storage/snapshot-manager';
 import { pbClient } from '../../api';
 import {
   generateKeypair,
@@ -201,6 +202,9 @@ export const AppProvider: Component<{ children: JSX.Element }> = (props) => {
   const db = getDB();
   console.log('[AppProvider] Database instance created');
 
+  // Snapshot manager for incremental updates
+  const [snapshotManager] = createSignal(new SnapshotManager(db, 50)); // Consolidate every 50 updates
+
   // Core state
   const [identity, setIdentity] = createSignal<SerializedKeypair | null>(null);
   const [groups, setGroups] = createSignal<Group[]>([]);
@@ -315,6 +319,26 @@ export const AppProvider: Component<{ children: JSX.Element }> = (props) => {
     } finally {
       setIsLoading(false);
     }
+  });
+
+  // Consolidate on idle (when user switches tabs or minimizes browser)
+  onMount(() => {
+    const handleVisibilityChange = async () => {
+      if (document.hidden && activeGroup()) {
+        const store = loroStore();
+        if (store) {
+          await snapshotManager().consolidateOnIdle(activeGroup()!.id, store).catch((err) => {
+            console.error('[AppContext] Idle consolidation failed:', err);
+          });
+        }
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    onCleanup(() => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    });
   });
 
   // Cleanup on unmount
@@ -463,7 +487,9 @@ export const AppProvider: Component<{ children: JSX.Element }> = (props) => {
       await db.saveGroupKey(groupId, 1, exportedKey);
 
       const initialSnapshot = newLoroStore.exportSnapshot();
-      await db.saveLoroSnapshot(groupId, initialSnapshot);
+      const initialVersion = newLoroStore.getVersion();
+      await db.saveLoroSnapshot(groupId, initialSnapshot, initialVersion);
+      newLoroStore.markAsSaved(); // Mark as saved for future incremental updates
 
       // Push initial Loro state (with members) to server
       // NOTE: We use exportSnapshot() for the initial state because:
@@ -529,13 +555,9 @@ export const AppProvider: Component<{ children: JSX.Element }> = (props) => {
       console.log('[AppContext] Loaded group from DB:', group);
       console.log('[AppContext] Group members:', group.members);
 
-      // Load Loro snapshot
-      const snapshot = await db.getLoroSnapshot(groupId);
+      // Load Loro snapshot + incremental updates (and consolidate)
       const store = new LoroEntryStore(currentIdentity.publicKeyHash);
-
-      if (snapshot) {
-        store.importSnapshot(snapshot);
-      }
+      await snapshotManager().load(groupId, store);
 
       // Sync members from Loro to group object
       const members = store.getMembers();
@@ -830,7 +852,7 @@ export const AppProvider: Component<{ children: JSX.Element }> = (props) => {
       }
 
       // Save snapshot
-      await db.saveLoroSnapshot(group.id, store.exportSnapshot());
+      await snapshotManager().saveIncremental(group.id, store);
 
       // Refresh UI
       await refreshEntries(group.id, group.currentKeyVersion);
@@ -917,7 +939,7 @@ export const AppProvider: Component<{ children: JSX.Element }> = (props) => {
       }
 
       // Save snapshot
-      await db.saveLoroSnapshot(group.id, store.exportSnapshot());
+      await snapshotManager().saveIncremental(group.id, store);
 
       // Refresh UI
       await refreshEntries(group.id, group.currentKeyVersion);
@@ -1006,7 +1028,7 @@ export const AppProvider: Component<{ children: JSX.Element }> = (props) => {
       }
 
       // Save snapshot
-      await db.saveLoroSnapshot(group.id, store.exportSnapshot());
+      await snapshotManager().saveIncremental(group.id, store);
 
       // Refresh UI
       await refreshEntries(group.id, group.currentKeyVersion);
@@ -1095,7 +1117,7 @@ export const AppProvider: Component<{ children: JSX.Element }> = (props) => {
       }
 
       // Save snapshot
-      await db.saveLoroSnapshot(group.id, store.exportSnapshot());
+      await snapshotManager().saveIncremental(group.id, store);
 
       // Refresh UI
       await refreshEntries(group.id, group.currentKeyVersion);
@@ -1166,7 +1188,7 @@ export const AppProvider: Component<{ children: JSX.Element }> = (props) => {
       }
 
       // Save snapshot
-      await db.saveLoroSnapshot(group.id, store.exportSnapshot());
+      await snapshotManager().saveIncremental(group.id, store);
 
       // Refresh UI
       await refreshEntries(group.id, group.currentKeyVersion);
@@ -1233,7 +1255,7 @@ export const AppProvider: Component<{ children: JSX.Element }> = (props) => {
       }
 
       // Save snapshot
-      await db.saveLoroSnapshot(group.id, store.exportSnapshot());
+      await snapshotManager().saveIncremental(group.id, store);
 
       // Refresh UI
       await refreshEntries(group.id, group.currentKeyVersion);
@@ -1416,7 +1438,9 @@ export const AppProvider: Component<{ children: JSX.Element }> = (props) => {
 
       // Save final Loro snapshot (with all synced data)
       const finalSnapshot = newLoroStore.exportSnapshot();
-      await db.saveLoroSnapshot(payload.groupId, finalSnapshot);
+      const finalVersion = newLoroStore.getVersion();
+      await db.saveLoroSnapshot(payload.groupId, finalSnapshot, finalVersion);
+      newLoroStore.markAsSaved(); // Mark as saved for future incremental updates
 
       // Convert to Group type with all required fields
       const group: Group = {
@@ -1931,8 +1955,11 @@ export const AppProvider: Component<{ children: JSX.Element }> = (props) => {
             await db.saveGroupKey(groupExport.group.id, version, keyString);
           }
 
-          // Save Loro snapshot
-          await db.saveLoroSnapshot(groupExport.group.id, groupExport.loroSnapshot);
+          // Save Loro snapshot (get version from imported snapshot)
+          const tempStore = new LoroEntryStore(currentIdentity.publicKeyHash);
+          tempStore.importSnapshot(groupExport.loroSnapshot);
+          const importVersion = tempStore.getVersion();
+          await db.saveLoroSnapshot(groupExport.group.id, groupExport.loroSnapshot, importVersion);
 
           console.log(`[AppContext] Imported new group: ${groupExport.group.name}`);
         } else if (mergeExisting) {
@@ -1946,15 +1973,19 @@ export const AppProvider: Component<{ children: JSX.Element }> = (props) => {
             mergedStore.importSnapshot(groupExport.loroSnapshot);
 
             const mergedSnapshot = mergedStore.exportSnapshot();
-            await db.saveLoroSnapshot(groupExport.group.id, mergedSnapshot);
+            const mergedVersion = mergedStore.getVersion();
+            await db.saveLoroSnapshot(groupExport.group.id, mergedSnapshot, mergedVersion);
 
             // Update members from merged Loro
             const mergedMembers = mergedStore.getMembers();
             const updatedGroup = { ...existingGroup, members: mergedMembers };
             await db.saveGroup(updatedGroup);
           } else {
-            // No existing snapshot - just import
-            await db.saveLoroSnapshot(groupExport.group.id, groupExport.loroSnapshot);
+            // No existing snapshot - just import (get version from imported snapshot)
+            const tempStore2 = new LoroEntryStore(currentIdentity.publicKeyHash);
+            tempStore2.importSnapshot(groupExport.loroSnapshot);
+            const importVersion2 = tempStore2.getVersion();
+            await db.saveLoroSnapshot(groupExport.group.id, groupExport.loroSnapshot, importVersion2);
           }
 
           // Import any missing keys
@@ -2057,7 +2088,7 @@ export const AppProvider: Component<{ children: JSX.Element }> = (props) => {
       }
 
       // Save snapshot to IndexedDB (async, happens in background)
-      await db.saveLoroSnapshot(group.id, store.exportSnapshot());
+      await snapshotManager().saveIncremental(group.id, store);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to update preferences');
       throw err;
@@ -2109,7 +2140,7 @@ export const AppProvider: Component<{ children: JSX.Element }> = (props) => {
       }
 
       // Save snapshot
-      await db.saveLoroSnapshot(group.id, store.exportSnapshot());
+      await snapshotManager().saveIncremental(group.id, store);
 
       // Refresh members by updating the active group
       const updatedGroup = { ...group, members: store.getMembers() };
@@ -2156,7 +2187,7 @@ export const AppProvider: Component<{ children: JSX.Element }> = (props) => {
       }
 
       // Save snapshot
-      await db.saveLoroSnapshot(group.id, store.exportSnapshot());
+      await snapshotManager().saveIncremental(group.id, store);
 
       // Refresh members
       const updatedGroup = { ...group, members: store.getMembers() };
@@ -2206,7 +2237,7 @@ export const AppProvider: Component<{ children: JSX.Element }> = (props) => {
       }
 
       // Save snapshot
-      await db.saveLoroSnapshot(group.id, store.exportSnapshot());
+      await snapshotManager().saveIncremental(group.id, store);
 
       // Refresh members
       const updatedGroup = { ...group, members: store.getMembers() };

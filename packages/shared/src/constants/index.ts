@@ -9,5 +9,5 @@ export const CRYPTO_CONFIG = {
 
 export const STORAGE_CONFIG = {
   DB_NAME: 'partage-db',
-  DB_VERSION: 1,
+  DB_VERSION: 2, // Incremental snapshot storage
 } as const;
