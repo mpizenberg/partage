@@ -646,9 +646,18 @@ export const AppProvider: Component<{ children: JSX.Element }> = (props) => {
           await refreshEntries(groupId, group.currentKeyVersion);
 
           // Sync members from Loro after sync (in case new members were added)
+          // Filter out replaced virtual members
           const syncedMembers = store.getMembers();
-          const syncedGroup = { ...updatedGroup, members: syncedMembers };
-          if (syncedMembers.length > 0) {
+          const syncedAliases = store.getMemberAliases();
+          const syncedReplacedMemberIds = new Set(syncedAliases.map(a => a.existingMemberId));
+
+          const filteredSyncedMembers = syncedMembers.filter(m => {
+            if (!m.isVirtual) return true; // Keep all real members
+            return !syncedReplacedMemberIds.has(m.id); // Keep virtual members that haven't been replaced
+          });
+
+          const syncedGroup = { ...updatedGroup, members: filteredSyncedMembers };
+          if (filteredSyncedMembers.length > 0) {
             await db.saveGroup(syncedGroup);
             setActiveGroup(syncedGroup);
           }
@@ -1717,9 +1726,17 @@ export const AppProvider: Component<{ children: JSX.Element }> = (props) => {
             const mergedVersion = mergedStore.getVersion();
             await db.saveLoroSnapshot(groupExport.group.id, mergedSnapshot, mergedVersion);
 
-            // Update members from merged Loro
+            // Update members from merged Loro (filter out replaced virtual members)
             const mergedMembers = mergedStore.getMembers();
-            const updatedGroup = { ...existingGroup, members: mergedMembers };
+            const mergedAliases = mergedStore.getMemberAliases();
+            const mergedReplacedMemberIds = new Set(mergedAliases.map(a => a.existingMemberId));
+
+            const filteredMergedMembers = mergedMembers.filter(m => {
+              if (!m.isVirtual) return true;
+              return !mergedReplacedMemberIds.has(m.id);
+            });
+
+            const updatedGroup = { ...existingGroup, members: filteredMergedMembers };
             await db.saveGroup(updatedGroup);
           } else {
             // No existing snapshot - just import (get version from imported snapshot)
@@ -1881,8 +1898,17 @@ export const AppProvider: Component<{ children: JSX.Element }> = (props) => {
       // Save snapshot
       await snapshotManager().saveIncremental(group.id, store);
 
-      // Refresh members by updating the active group
-      const updatedGroup = { ...group, members: store.getMembers() };
+      // Refresh members by updating the active group (filter out replaced virtual members)
+      const allMembers = store.getMembers();
+      const aliases = store.getMemberAliases();
+      const replacedMemberIds = new Set(aliases.map(a => a.existingMemberId));
+
+      const filteredMembers = allMembers.filter(m => {
+        if (!m.isVirtual) return true;
+        return !replacedMemberIds.has(m.id);
+      });
+
+      const updatedGroup = { ...group, members: filteredMembers };
       setActiveGroup(updatedGroup);
       await db.saveGroup(updatedGroup);
 
@@ -1928,8 +1954,17 @@ export const AppProvider: Component<{ children: JSX.Element }> = (props) => {
       // Save snapshot
       await snapshotManager().saveIncremental(group.id, store);
 
-      // Refresh members
-      const updatedGroup = { ...group, members: store.getMembers() };
+      // Refresh members (filter out replaced virtual members)
+      const allMembers = store.getMembers();
+      const aliases = store.getMemberAliases();
+      const replacedMemberIds = new Set(aliases.map(a => a.existingMemberId));
+
+      const filteredMembers = allMembers.filter(m => {
+        if (!m.isVirtual) return true;
+        return !replacedMemberIds.has(m.id);
+      });
+
+      const updatedGroup = { ...group, members: filteredMembers };
       setActiveGroup(updatedGroup);
       await db.saveGroup(updatedGroup);
 
@@ -1978,8 +2013,17 @@ export const AppProvider: Component<{ children: JSX.Element }> = (props) => {
       // Save snapshot
       await snapshotManager().saveIncremental(group.id, store);
 
-      // Refresh members
-      const updatedGroup = { ...group, members: store.getMembers() };
+      // Refresh members (filter out replaced virtual members)
+      const allMembers = store.getMembers();
+      const aliases = store.getMemberAliases();
+      const replacedMemberIds = new Set(aliases.map(a => a.existingMemberId));
+
+      const filteredMembers = allMembers.filter(m => {
+        if (!m.isVirtual) return true;
+        return !replacedMemberIds.has(m.id);
+      });
+
+      const updatedGroup = { ...group, members: filteredMembers };
       setActiveGroup(updatedGroup);
       await db.saveGroup(updatedGroup);
 

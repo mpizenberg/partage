@@ -21,7 +21,7 @@ export interface Group {
   createdBy: string; // Public key hash
   currentKeyVersion: number;
   settings: GroupSettings;
-  members?: Member[]; // Optional for Phase 3 local-only support
+  members?: Member[];
 }
 
 export interface GroupSettings {
