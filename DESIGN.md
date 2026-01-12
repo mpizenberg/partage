@@ -48,26 +48,29 @@ A fully encrypted, local-first bill-splitting application for trusted groups tha
 - Encryption keys generated automatically
 
 #### Join Group
-- Click invite link / scan QR code / enter group code
-- Pick member from already mentioned in expenses or enter new member name
-- Generate encryption keypair automatically
-- Existing members approve and share keys and historical data
+- Click invite link / scan QR code (link contains encrypted group key in URL fragment)
+- Automatically fetch and decrypt group data
+- Pick existing virtual member to claim identity or enter new member name
+- Join immediately without approval (trusted group model)
+- Access all historical data instantly
 
 #### Member Management
 - View all members (active and departed)
 - See join dates
 - Invite new members (any member can invite)
 - Leave group voluntarily
-- When member joins: new group key version created
-- When member leaves: new group key version created
+- Virtual members can be added before they join (name-only placeholders)
+- Member aliases: Link new joining members to existing virtual member identities
+- When member claims virtual identity: all historical data transfers to new member
 - Departed members keep final balance snapshot (read-only)
 
-#### Key Sharing
-- Any member can share historical keys with:
-  - New members requesting history
-  - Existing members recovering from lost device
-- Share all history or specific date range
-- Activity log records all key sharing events
+#### Member Aliases
+- Virtual members can be created before someone joins (e.g., "Bob" added for tracking)
+- When Bob joins with his device, he can claim the "Bob" identity
+- All historical transactions attributed to virtual "Bob" now belong to real Bob
+- Balance calculations automatically resolve aliases to canonical member IDs
+- UI displays new member name for all historical transactions
+- Activity feed shows when members are linked
 
 ### 3.2 Financial Entries
 
@@ -272,9 +275,9 @@ Track and display all group actions:
 - Entry modified
 - Entry deleted
 - Entry un-deleted
-- Member joined
+- Member joined (new member)
+- Member linked (claimed virtual identity)
 - Member left
-- Historical keys shared
 - Group settings changed
 
 **Display Format**:
@@ -287,9 +290,9 @@ Track and display all group actions:
 **Examples**:
 - "Alice added 'Dinner at Mario's' - €45.00 - 2 hours ago"
 - "Bob modified 'Taxi' (amount: $30 → $35) - Yesterday"
-- "Carol shared Jan-Mar history with Dan - 2 days ago"
-- "Dan joined as new member - 3 days ago"
-- "Eve joined as 'Alice' (identified as existing person) - 4 days ago"
+- "Carol joined the group - 2 days ago"
+- "Dan joined and claimed identity of 'Dan (virtual)' - 3 days ago"
+- "Eve joined as new member - 4 days ago"
 
 **Filtering**:
 - By activity type
@@ -378,10 +381,11 @@ For any entry:
    - Private key: stored locally only
    - Public key: shared with groups
 
-2. **Group Symmetric Key** (per group, versioned):
+2. **Group Symmetric Key** (per group, single key):
    - Generated on group creation
-   - New version on each member join/leave
-   - Encrypted for each member with their public key
+   - Never rotated (trusted group model)
+   - Shared via URL fragment (never sent to server)
+   - Base64URL encoded for URL safety
 
 **Encryption Flow**:
 
@@ -399,37 +403,41 @@ For any entry:
 
 ### 4.3 Key Management
 
-**Key Rotation**:
-- New member joins → new group key version
-- Member leaves → new group key version
-- Historical keys retained for decrypting old entries
+**Trusted Group Model**:
+- Single group key created at group creation
+- No key rotation (simplifies flow for trusted groups)
+- Key embedded in URL fragment (never sent to server)
+- Anyone with link can join and access all data
+
+**Security Trade-offs**:
+- **Acceptable for trusted groups**: Friends, family, roommates who share links via secure channels
+- **Simplicity benefit**: No approval workflow, instant join, no key versioning complexity
+- **Risk**: If link leaks, group data is accessible to anyone with the link
 
 **Key Sharing**:
-- Any member can share historical keys
-- Keys encrypted with recipient's public key
+- Join link contains the group key in URL fragment
 - Server never sees plaintext keys
-- Activity log records sharing events
+- All members have same level of access to historical data
 
 **Key Storage**:
-- Client: all group keys (current + historical)
-- Server: no key storing
+- Client: single group key per group
+- Server: no key storage (only encrypted CRDT operations)
 
 ### 4.4 Recovery
 
-**Only Method: Group-Assisted Recovery**:
+**Simplified Recovery with Trusted Groups**:
 
 1. User loses device/private key
-2. User gets new device, generates new keypair
-3. User contacts group member (WhatsApp, phone, etc.)
-4. User joins group with new identity
-5. Member recognizes user (verifies externally)
-6. Member shares historical keys with new identity
-7. User regains access to all data
+2. User contacts group member to get invite link again
+3. User joins group with new device
+4. User can claim existing virtual member identity (if previously linked)
+5. All historical data immediately accessible
 
-**No Recovery Key Needed**:
-- Recovery key would just be the user's private key
-- Same as exporting private key to another device
-- Multi-device support achieves same goal more naturally
+**Alternative: Multi-Device Export**:
+- Export private key from device A (QR code or file)
+- Import to device B
+- Both devices have same identity
+- Can participate in same groups
 
 ### 4.5 Privacy Guarantees
 
@@ -492,10 +500,11 @@ For any entry:
 3. No account creation needed
 
 **Joining First Group**:
-1. Click invite link
-2. Enter name
-3. Choose: "I'm a new member" or "I'm [existing person]"
-5. Automatically make a historical data request
+1. Click invite link (contains group key in URL fragment)
+2. Automatically decrypt and view existing members
+3. Choose: "I'm a new member" or claim existing virtual member identity
+4. Enter your name (if new) or confirm existing name
+5. Join instantly with immediate access to all historical data
 6. Start using
 
 ### 5.2 Adding Entry
@@ -550,6 +559,7 @@ Especially if the beneficiary of a transfer has provided information making it e
 
 ## 6. Out of Scope (Future)
 
+**Current Limitations**:
 - Receipt attachments / photos
 - Receipt OCR
 - Recurring expenses
@@ -567,6 +577,14 @@ Especially if the beneficiary of a transfer has provided information making it e
 - Multi-group balance consolidation
 - Tax categorization
 - API for third-party integrations
+
+**Future: Less-Trusted Groups**:
+For groups with less trust (larger groups, semi-public):
+- Key rotation on member join/leave
+- Approval workflow for join requests
+- Subgroup encryption (different keys for different member subsets)
+- Per-entry encryption (only involved members can decrypt)
+- Forward secrecy guarantees
 
 ## 7. Technical Constraints
 

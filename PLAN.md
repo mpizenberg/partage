@@ -11,10 +11,31 @@ Set up a monorepo structure for a fully encrypted, local-first bill-splitting PW
 
 ## Implementation Status
 
-**Current Phase**: Phase 6 - Advanced Features
-**Last Updated**: January 7, 2026
+**Current Phase**: Phase 8 - Polish & Production
+**Last Updated**: January 12, 2026
 
 ### Completed
+- ✅ **Phase 7**: Simplified Trusted Group Join (100% complete)
+  - Single group key (no rotation) embedded in URL fragment
+  - Member alias system for claiming virtual member identities
+  - Balance calculations with alias resolution
+  - Simplified invite flow with QR code support
+  - Activity feed for join events
+  - Export/import functionality for groups
+  - Fixed member display across all UI components
+  - All tests passing, 0 TypeScript errors
+
+- ✅ **Phase 6**: Advanced Features (100% complete)
+  - Entry modification with versioning
+  - Entry soft deletion with undo
+  - Activity feed showing recent changes
+  - Filtering and search for entries
+  - Multi-currency support with exchange rates
+  - Settlement suggestions with debt optimization
+  - Export/import functionality (JSON)
+  - Incremental snapshot storage (performance optimization)
+  - 140 tests passing, 0 TypeScript errors
+
 - ✅ **Phase 5**: Multi-User Features (100% complete)
   - Invite link generation and joining flow
   - Public key exchange protocol (ECDH + ECDSA)
@@ -58,10 +79,10 @@ Set up a monorepo structure for a fully encrypted, local-first bill-splitting PW
   - All dependencies updated to latest versions
 
 ### In Progress
-- 🔄 **Phase 6**: Advanced Features
+- 🔄 **Phase 8**: Polish & Production
 
 ### Upcoming
-- ⏳ Phase 7: Polish & Production
+- ⏳ Phase 9: Future enhancements (subgroup encryption, etc.)
 
 ## Project Structure
 
@@ -331,32 +352,58 @@ Set up a monorepo structure for a fully encrypted, local-first bill-splitting PW
 
 **Deliverable Achieved**: Users can create invitations, join groups via links, and collaborate with encrypted group keys - fully integrated and working!
 
-### Phase 6: Advanced Features (Weeks 13-16)
+### Phase 6: Advanced Features ✅ COMPLETED
 **Goal**: Complete feature set
 
-**Tasks**:
+**Status**: ✅ **100% Complete** (January 7, 2026)
+
+**Completed Tasks**:
 1. ✅ Entry modification with versioning
-2. ✅ Entry soft deletion
-3. ✅ Activity feed
-4. ✅ Filtering and search
+2. ✅ Entry soft deletion with undo
+3. ✅ Activity feed showing recent changes
+4. ✅ Filtering and search for entries
 5. ✅ Multi-currency support with exchange rates
 6. ✅ Settlement suggestions (debt optimization)
-7. ✅ Export functionality (JSON)
+7. ✅ Export/import functionality (JSON)
 8. ✅ Incremental snapshot storage (performance optimization)
-9. PWA service worker for offline
 
-**Deliverable**: Full-featured application
+**Deliverable**: Full-featured application with complete entry lifecycle and performance optimizations
 
-### Phase 7: Polish (Weeks 17-20)
+### Phase 7: Simplified Trusted Group Join ✅ COMPLETED
+**Goal**: Streamlined joining experience for trusted groups
+
+**Status**: ✅ **100% Complete** (January 12, 2026)
+
+**Completed Tasks**:
+1. ✅ Single group key (no rotation) embedded in URL fragment
+2. ✅ Member alias system for claiming virtual member identities
+3. ✅ Balance calculations with alias resolution across all components
+4. ✅ Simplified invite flow with instant join
+5. ✅ Fixed member display across EntryCard, BalanceTab, SettleTab, ActivityCard
+6. ✅ Fixed settlement involvement detection for aliased members
+7. ✅ Fixed member count and filtering in group selection
+8. ✅ Fixed remove button state based on aliased balance lookup
+
+**Key Changes**:
+- Removed complex key exchange protocol (ECDH, key packages, join approvals)
+- Simplified from versioned group keys to single group key
+- Added member alias system to link new members to existing virtual members
+- Updated balance calculator to resolve member IDs through aliases
+- Fixed all UI components to properly display and interact with aliased members
+
+**Deliverable**: Simple, frictionless group joining experience suitable for trusted groups
+
+### Phase 8: Polish & Production
 **Goal**: Production readiness
 
 **Tasks**:
-1. Error handling and loading states
-2. Mobile UX refinement
-3. User onboarding flow
-4. Security audit
-5. Performance optimization
-6. Deployment setup
+1. PWA service worker for full offline support
+2. Error handling and loading states
+3. Mobile UX refinement
+4. User onboarding flow
+5. Security audit
+6. Performance optimization
+7. Deployment setup
 
 ## Critical Technical Decisions
 
@@ -462,373 +509,14 @@ Set up a monorepo structure for a fully encrypted, local-first bill-splitting PW
 
 ## Next Steps
 
-**Current Focus**: Simplified Trusted Group Join Flow
-
-See detailed implementation plan below.
-
----
-
-## Simplified Trusted Group Join Flow
-
-### Overview
-
-Redesign the group joining process for trusted groups (the primary use case). The new approach:
-- **Single group key**: Created at group creation, never rotated
-- **Key in URL fragment**: Join link contains the group symmetric key (never sent to server)
-- **No approval required**: Anyone with the link can join immediately
-- **Member linking**: Support claiming existing virtual member identities
-
-### Motivation
-
-The current implementation is designed for high-security scenarios with:
-- Key rotation on member join/leave
-- ECDH key exchange protocol
-- Server-side approval workflow
-- Complex subscription management
-
-For trusted groups (friends, family, roommates), this complexity creates friction without proportional benefit. If users share the join link via trusted channels (WhatsApp, Signal, in person), the simpler approach is secure enough.
-
-### Security Model
-
-**Trust assumption**: Group members share the join link only via secure channels. If the link leaks, the group is compromised.
-
-**What's protected**:
-- Server never sees the group key (it's in the URL fragment)
-- Server cannot decrypt any group data
-- All entries remain end-to-end encrypted
-
-**What's NOT protected** (acceptable for trusted groups):
-- Anyone with the link can join without approval
-- Historical data is accessible to new members
-- No forward secrecy (compromised key = all data accessible)
-
-### URL Structure
-
-**New format**:
-```
-https://app.example/#/join/{groupId}/{base64url-encoded-group-key}
-```
-
-The `#` fragment is never sent to the server. The key is Base64URL encoded (URL-safe characters).
-
-**Example**:
-```
-https://app.example/#/join/abc123/SGVsbG8gV29ybGQh...
-```
-
-### Data Model Changes
-
-#### New: Member Alias Type
-
-Add to `/packages/shared/src/types/member.ts`:
-
-```typescript
-/**
- * Links a new member ID to an existing virtual member ID
- * Used when someone joins and claims an existing identity
- */
-export interface MemberAlias {
-  newMemberId: string;        // The joining member's ID
-  existingMemberId: string;   // The virtual member being claimed
-  linkedAt: number;           // Unix timestamp
-  linkedBy: string;           // Who created the link (same as newMemberId)
-}
-```
-
-#### New: Activity Type for Member Linked
-
-Add to `/packages/shared/src/types/activity.ts`:
-
-```typescript
-export type ActivityType =
-  | 'entry_added'
-  | 'entry_modified'
-  | 'entry_deleted'
-  | 'entry_undeleted'
-  | 'member_joined'
-  | 'member_linked';  // NEW
-
-export interface MemberLinkedActivity extends BaseActivity {
-  type: 'member_linked';
-  newMemberId: string;
-  newMemberName: string;
-  existingMemberId: string;
-  existingMemberName: string;
-}
-```
-
-### CRDT Changes
-
-#### LoroEntryStore Updates
-
-Add new Loro map for member aliases in `/packages/client/src/core/crdt/loro-wrapper.ts`:
-
-```typescript
-private memberAliases: LoroMap;
-
-constructor(peerId?: string) {
-  // ... existing code ...
-  this.memberAliases = this.loro.getMap('memberAliases');
-}
-
-/**
- * Link a new member to an existing virtual member
- */
-addMemberAlias(alias: MemberAlias): void {
-  this.transact(() => {
-    const aliasMap = this.memberAliases.setContainer(
-      alias.newMemberId,
-      new LoroMap()
-    ) as LoroMap;
-    aliasMap.set('newMemberId', alias.newMemberId);
-    aliasMap.set('existingMemberId', alias.existingMemberId);
-    aliasMap.set('linkedAt', alias.linkedAt);
-    aliasMap.set('linkedBy', alias.linkedBy);
-  });
-}
-
-/**
- * Get all member aliases
- */
-getMemberAliases(): MemberAlias[] {
-  const aliases: MemberAlias[] = [];
-  for (const id of this.memberAliases.keys()) {
-    const aliasMap = this.memberAliases.get(id);
-    if (!aliasMap || !(aliasMap instanceof LoroMap)) continue;
-    aliases.push({
-      newMemberId: aliasMap.get('newMemberId') as string,
-      existingMemberId: aliasMap.get('existingMemberId') as string,
-      linkedAt: aliasMap.get('linkedAt') as number,
-      linkedBy: aliasMap.get('linkedBy') as string,
-    });
-  }
-  return aliases;
-}
-
-/**
- * Resolve a member ID to its canonical ID (following aliases)
- */
-resolveCanonicalMemberId(memberId: string): string {
-  const aliases = this.getMemberAliases();
-  // Check if this ID is an alias for another
-  for (const alias of aliases) {
-    if (alias.newMemberId === memberId) {
-      return alias.existingMemberId;
-    }
-  }
-  return memberId;
-}
-```
-
-### Balance Calculator Changes
-
-Update `/packages/client/src/domain/calculations/balance-calculator.ts` to use member aliases:
-
-```typescript
-/**
- * Calculate balances with member alias resolution
- */
-export function calculateBalances(
-  entries: Entry[],
-  memberAliases: MemberAlias[] = []
-): Map<string, Balance> {
-  // Build alias lookup: newId -> existingId
-  const aliasMap = new Map<string, string>();
-  for (const alias of memberAliases) {
-    aliasMap.set(alias.newMemberId, alias.existingMemberId);
-  }
-
-  // Resolve member ID to canonical ID
-  const resolve = (id: string): string => aliasMap.get(id) ?? id;
-
-  // ... rest of calculation uses resolve() for all member IDs ...
-}
-```
-
-### Files to Remove/Simplify
-
-**Remove entirely** (not needed for trusted groups):
-- `/packages/client/src/core/crypto/key-exchange.ts` - ECDH key exchange
-- `/packages/client/src/domain/invitations/key-sharing.ts` - Key payload building
-
-**Simplify significantly**:
-- `/packages/client/src/domain/invitations/invite-manager.ts` - Just URL generation
-- `/packages/client/src/api/pocketbase-client.ts` - Remove invitation/join_request/key_package methods
-
-**Remove UI components**:
-- `/packages/client/src/ui/components/invites/PendingRequestsList.tsx` - No approvals needed
-
-### Files to Modify
-
-#### 1. `/packages/shared/src/types/member.ts`
-- Add `MemberAlias` interface
-
-#### 2. `/packages/shared/src/types/activity.ts`
-- Add `member_linked` activity type
-- Add `MemberLinkedActivity` interface
-
-#### 3. `/packages/client/src/core/crdt/loro-wrapper.ts`
-- Add `memberAliases` Loro map
-- Add `addMemberAlias()`, `getMemberAliases()`, `resolveCanonicalMemberId()`
-- Update `importSnapshot()` and `applyUpdate()` to refresh `memberAliases` handle
-
-#### 4. `/packages/client/src/domain/calculations/balance-calculator.ts`
-- Accept `memberAliases` parameter
-- Resolve all member IDs through alias lookup
-
-#### 5. `/packages/client/src/domain/invitations/invite-manager.ts`
-- Replace with simple URL generation:
-  ```typescript
-  export function generateInviteLink(groupId: string, groupKeyBase64: string): string {
-    const keyBase64Url = base64ToBase64Url(groupKeyBase64);
-    return `${window.location.origin}/#/join/${groupId}/${keyBase64Url}`;
-  }
-
-  export function parseInviteLink(fragment: string): { groupId: string; groupKey: string } | null {
-    const match = fragment.match(/^\/join\/([^/]+)\/(.+)$/);
-    if (!match) return null;
-    return {
-      groupId: match[1],
-      groupKey: base64UrlToBase64(match[2]),
-    };
-  }
-  ```
-
-#### 6. `/packages/client/src/App.tsx`
-- Change route from `/join/:inviteData` to use hash-based routing
-- Parse fragment for join data
-
-#### 7. `/packages/client/src/ui/screens/JoinGroupScreen.tsx`
-- Simplify to:
-  1. Parse group key from URL fragment
-  2. Import group key, fetch CRDT state from server
-  3. Decrypt and display existing members
-  4. Let user choose: "I'm new" or "I'm [existing member]"
-  5. Add member (with alias if claiming existing)
-  6. Show activity feed entry
-  7. Navigate to group view
-
-#### 8. `/packages/client/src/ui/components/invites/InviteModal.tsx`
-- Simplify to just show link and QR code
-- No invitation creation on server
-
-#### 9. `/packages/client/src/ui/context/AppContext.tsx`
-- Remove `approveJoinRequest`, `processReceivedKeyPackage`
-- Remove pending join request state and subscriptions
-- Add `joinGroupWithKey(groupId, groupKeyBase64, memberName, existingMemberId?)`
-- Update balance calculations to use member aliases
-
-#### 10. `/packages/client/src/api/pocketbase-client.ts`
-- Remove: `createInvitation`, `getInvitation`, `listInvitations`, `updateInvitation`
-- Remove: `createJoinRequest`, `getJoinRequest`, `listJoinRequests`, `updateJoinRequest`
-- Remove: `createKeyPackage`, `getKeyPackagesForRecipient`, `getKeyPackageForJoinRequest`
-- Remove: `subscribeToJoinRequests`, `subscribeToKeyPackages`
-- Keep: Operation sync methods (these are still needed)
-
-#### 11. `/packages/client/src/core/storage/indexeddb.ts`
-- Remove multiple key version storage (single key per group)
-- Simplify `saveGroupKey` / `getGroupKey` to not need version parameter
-
-### Implementation Steps
-
-#### Step 1: Types and Interfaces
-1. Add `MemberAlias` to `/packages/shared/src/types/member.ts`
-2. Add `member_linked` activity type to `/packages/shared/src/types/activity.ts`
-3. Update type exports in `/packages/shared/src/types/index.ts`
-
-#### Step 2: CRDT Layer
-1. Add `memberAliases` map to `LoroEntryStore`
-2. Implement `addMemberAlias()`, `getMemberAliases()`, `resolveCanonicalMemberId()`
-3. Update snapshot import/export to include aliases
-4. Add tests for member alias operations
-
-#### Step 3: Balance Calculator
-1. Add `memberAliases` parameter to `calculateBalances()`
-2. Add alias resolution in all member ID usages
-3. Update `computeDebtGraph()` and `computeSettlementPlan()` similarly
-4. Add tests for balance calculation with aliases
-
-#### Step 4: Invite URL Generation
-1. Rewrite `invite-manager.ts` with simple URL functions
-2. Add Base64URL encoding/decoding helpers
-3. Add tests for URL parsing
-
-#### Step 5: Remove Complex Key Exchange
-1. Delete `/packages/client/src/core/crypto/key-exchange.ts`
-2. Delete `/packages/client/src/domain/invitations/key-sharing.ts`
-3. Remove related tests
-4. Clean up imports
-
-#### Step 6: Simplify Storage
-1. Update IndexedDB to store single key per group (no versions)
-2. Migration: keep existing key as the single key
-3. Update all key retrieval calls
-
-#### Step 7: Simplify PocketBase Client
-1. Remove invitation/join_request/key_package methods
-2. Remove related subscriptions
-3. Keep operation sync methods
-
-#### Step 8: Update App Routing
-1. Change to hash-based routing for join links
-2. Update `App.tsx` route configuration
-
-#### Step 9: Rewrite JoinGroupScreen
-1. Parse group key from URL fragment
-2. Fetch and decrypt group data
-3. Show member selection UI
-4. Handle join flow (new member or claim existing)
-5. Create activity feed entry
-6. Navigate to group
-
-#### Step 10: Simplify InviteModal
-1. Generate link with embedded key
-2. Display QR code
-3. Share functionality
-
-#### Step 11: Update AppContext
-1. Remove approval workflow methods
-2. Remove pending request state
-3. Add `joinGroupWithKey()` method
-4. Update balance calculations to use aliases
-
-#### Step 12: Delete Unused Components
-1. Remove `PendingRequestsList.tsx`
-2. Clean up any unused imports
-
-#### Step 13: Testing
-1. Unit tests for member aliases
-2. Unit tests for balance calculation with aliases
-3. Integration test for full join flow
-4. Test URL generation and parsing
-
-### Migration Notes
-
-**For existing groups**: This is a breaking change. Existing groups using the old key rotation system will need migration or will be incompatible.
-
-**Recommendation**: Since this is pre-production, implement the new system cleanly without backward compatibility concerns.
-
-### Future Work (Out of Scope)
-
-**For less-trusted groups** (future Phase):
-- Subgroup encryption: Different keys for different member subsets
-- Only members involved in an entry can decrypt it
-- More complex but enables privacy within groups
-
----
-
-## Previous Next Steps (Archived)
-
-**Previously Current Focus**: Phase 6 - Advanced Features
-
-1. ✅ Entry modification with versioning UI
-2. ✅ Entry soft deletion with undo
-3. ✅ Activity feed showing recent changes
-4. ✅ Filtering and search for entries
-5. ✅ Multi-currency support with exchange rates
-6. ✅ Settlement suggestions (debt optimization)
-7. ✅ Export functionality (JSON)
-8. ✅ Incremental snapshot storage (performance optimization)
-9. ⏳ PWA service worker for full offline support (deferred)
-
-**Goal**: Complete feature set with full entry lifecycle, activity tracking, and offline capabilities
+**Current Focus**: Phase 8 - Polish & Production
+
+1. PWA service worker for full offline support
+2. Error handling and loading states throughout the app
+3. Mobile UX refinement and touch interactions
+4. User onboarding flow with helpful tips
+5. Security audit and penetration testing
+6. Performance optimization and bundle size reduction
+7. Deployment setup and CI/CD pipeline
+
+**Goal**: Production-ready application with polished UX, robust error handling, and seamless offline support
