@@ -1,12 +1,11 @@
 import { Component, Show, createSignal, createMemo } from 'solid-js'
 import { useAppContext } from '../../context/AppContext'
 import { MemberList } from './MemberList'
-import { PendingRequestsList } from '../invites/PendingRequestsList'
 import { InviteModal } from '../invites/InviteModal'
 import { Button } from '../common/Button'
 
 export const MembersTab: Component = () => {
-  const { members, pendingJoinRequests, activeGroup, createInvitation, approveJoinRequest, addVirtualMember, renameMember, removeMember, identity, balances } = useAppContext()
+  const { members, activeGroup, createInvitation, addVirtualMember, renameMember, removeMember, identity, balances } = useAppContext()
   const [showInviteModal, setShowInviteModal] = createSignal(false)
   const [inviteLink, setInviteLink] = createSignal<string | null>(null)
   const [showAddMemberModal, setShowAddMemberModal] = createSignal(false)
@@ -25,15 +24,6 @@ export const MembersTab: Component = () => {
 
     const result = await createInvitation(group.id, group.name)
     setInviteLink(result.inviteLink)
-  }
-
-  const handleApproveRequest = async (requestId: string) => {
-    await approveJoinRequest(requestId)
-  }
-
-  const handleRejectRequest = async (requestId: string, reason?: string) => {
-    // TODO: Implement reject functionality in AppContext
-    console.log('Rejecting request:', requestId, reason)
   }
 
   const handleAddVirtualMember = async () => {
@@ -66,18 +56,6 @@ export const MembersTab: Component = () => {
           </Button>
         </div>
       </div>
-
-      {/* Pending Join Requests */}
-      <Show when={pendingJoinRequests().length > 0}>
-        <div class="members-section">
-          <h2 class="members-section-title">Pending Requests</h2>
-          <PendingRequestsList
-            requests={pendingJoinRequests()}
-            onApprove={handleApproveRequest}
-            onReject={handleRejectRequest}
-          />
-        </div>
-      </Show>
 
       {/* Member List */}
       <div class="members-section">

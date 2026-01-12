@@ -1,212 +1,110 @@
 /**
- * Invite Manager - Orchestrates the invitation and joining workflow
+ * Simplified Invite Manager for Trusted Groups
  *
- * Flow:
- * 1. Member creates invitation -> generates invite link
- * 2. New user clicks invite link -> sees group info
- * 3. New user submits join request (with their public key)
- * 4. Existing member(s) approve and send encrypted keys
- * 5. New user receives keys and joins group
+ * This simplified approach embeds the group key directly in the URL fragment.
+ * The fragment (#) portion is never sent to the server, ensuring the key remains client-side only.
+ *
+ * URL format: https://app.example/#/join/{groupId}/{base64url-group-key}
+ *
+ * Security model:
+ * - Anyone with the link can join without approval
+ * - The link should only be shared via trusted channels (WhatsApp, Signal, in person)
+ * - Server never sees the group key
+ * - All data remains end-to-end encrypted
  */
-
-import type {
-  Invitation,
-  JoinRequest,
-  EncryptedKeyPackage,
-  GroupKeysPayload,
-  InviteLinkData,
-} from '@partage/shared';
-import type { UserKeypair } from '@partage/shared';
-import { exportPublicKey } from '../../core/crypto/keypair.js';
-import { createKeyPackage } from '../../core/crypto/key-exchange.js';
 
 /**
- * Create an invitation for a group
- *
- * @param groupId - ID of the group to invite to
- * @param groupName - Name of the group (for display in invite link)
- * @param inviterKeypair - Inviter's keypair (for identification)
- * @param options - Optional invite settings
- * @returns Invitation record and shareable invite link
+ * Convert Base64 to Base64URL (URL-safe encoding)
+ * Replaces + with -, / with _, and removes = padding
  */
-export async function createInvitation(
+function base64ToBase64Url(base64: string): string {
+  return base64.replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '');
+}
+
+/**
+ * Convert Base64URL back to Base64
+ * Replaces - with +, _ with /, and adds back = padding
+ */
+function base64UrlToBase64(base64Url: string): string {
+  let base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+  // Add padding if needed
+  while (base64.length % 4 !== 0) {
+    base64 += '=';
+  }
+  return base64;
+}
+
+/**
+ * Generate an invite link with embedded group key
+ *
+ * @param groupId - ID of the group
+ * @param groupKeyBase64 - Base64-encoded group symmetric key
+ * @param groupName - Name of the group (optional, for display)
+ * @returns Shareable invite link with key in fragment
+ */
+export function generateInviteLink(
   groupId: string,
-  groupName: string,
-  inviterKeypair: UserKeypair,
-  options?: {
-    expiresAt?: number;
-    maxUses?: number;
-  }
-): Promise<{ invitation: Invitation; inviteLink: string }> {
-  const invitation: Invitation = {
-    id: crypto.randomUUID(), // Client-generated ID
-    groupId,
-    inviterPublicKeyHash: inviterKeypair.publicKeyHash,
-    createdAt: Date.now(),
-    expiresAt: options?.expiresAt,
-    maxUses: options?.maxUses,
-    usedCount: 0,
-    status: 'active',
-  };
+  groupKeyBase64: string,
+  groupName?: string
+): string {
+  const keyBase64Url = base64ToBase64Url(groupKeyBase64);
+  const baseUrl = `${window.location.origin}/#/join/${groupId}/${keyBase64Url}`;
 
-  // Create invite link data
-  const linkData: InviteLinkData = {
-    invitationId: invitation.id,
-    groupId,
-    groupName,
-  };
-
-  // Encode link data as Base64 for URL
-  const linkDataJSON = JSON.stringify(linkData);
-  const linkDataBase64 = btoa(linkDataJSON);
-  const inviteLink = `${window.location.origin}/join/${linkDataBase64}`;
-
-  return { invitation, inviteLink };
-}
-
-/**
- * Parse an invite link to extract invitation data
- *
- * @param inviteLink - Full invite URL
- * @returns Parsed invitation link data
- */
-export function parseInviteLink(inviteLink: string): InviteLinkData {
-  // Extract Base64 portion from URL (last segment after /join/)
-  const linkDataBase64 = inviteLink.split('/join/')[1];
-  if (!linkDataBase64) {
-    throw new Error('Invalid invite link format');
+  // Optionally append group name as query parameter (not in fragment)
+  if (groupName) {
+    return `${baseUrl}?name=${encodeURIComponent(groupName)}`;
   }
 
-  const linkDataJSON = atob(linkDataBase64);
-  return JSON.parse(linkDataJSON) as InviteLinkData;
+  return baseUrl;
 }
 
 /**
- * Create a join request when user clicks invite link
+ * Parse an invite link to extract group ID and key
  *
- * @param invitationId - ID of the invitation being used
- * @param groupId - ID of the group to join
- * @param requesterKeypair - New user's keypair
- * @param requesterName - Display name chosen by user
- * @returns Join request record
+ * @param fragment - URL fragment (portion after #)
+ * @returns Object with groupId and groupKey, or null if invalid
  */
-export async function createJoinRequest(
-  invitationId: string,
-  groupId: string,
-  requesterKeypair: UserKeypair,
-  requesterName: string
-): Promise<JoinRequest> {
-  const requesterPublicKey = await exportPublicKey(requesterKeypair.publicKey);
-
-  const joinRequest: JoinRequest = {
-    id: crypto.randomUUID(),
-    invitationId,
-    groupId,
-    requesterPublicKey,
-    requesterPublicKeyHash: requesterKeypair.publicKeyHash,
-    requesterName,
-    requestedAt: Date.now(),
-    status: 'pending',
-  };
-
-  return joinRequest;
-}
-
-/**
- * Process a join request by sending encrypted keys to the new member
- * This is called by existing group members
- *
- * @param joinRequest - The join request to approve
- * @param groupKeys - All historical group keys to share
- * @param senderKeypair - Sender's keypair (for ECDH)
- * @param senderSigningKeypair - Sender's signing keypair (for signatures)
- * @returns Encrypted key package to send to new member
- */
-export async function processJoinRequest(
-  joinRequest: JoinRequest,
-  groupKeys: GroupKeysPayload,
-  senderKeypair: UserKeypair,
-  senderSigningKeypair: CryptoKeyPair
-): Promise<EncryptedKeyPackage> {
-  // Create encrypted key package for the requester
-  const { encryptedKeys, signature } = await createKeyPackage(
-    groupKeys,
-    joinRequest.requesterPublicKey,
-    senderKeypair.privateKey,
-    senderSigningKeypair.privateKey
-  );
-
-  // Export sender's ECDH public key for decryption
-  const senderPublicKeyBuffer = await crypto.subtle.exportKey('raw', senderKeypair.publicKey);
-  const senderPublicKey = btoa(String.fromCharCode(...new Uint8Array(senderPublicKeyBuffer)));
-
-  // Export sender's signing public key for verification
-  const senderSigningPublicKeyBuffer = await crypto.subtle.exportKey('raw', senderSigningKeypair.publicKey);
-  const senderSigningPublicKey = btoa(String.fromCharCode(...new Uint8Array(senderSigningPublicKeyBuffer)));
-
-  const keyPackage: EncryptedKeyPackage = {
-    id: crypto.randomUUID(),
-    joinRequestId: joinRequest.id,
-    groupId: joinRequest.groupId,
-    recipientPublicKeyHash: joinRequest.requesterPublicKeyHash,
-    senderPublicKeyHash: senderKeypair.publicKeyHash,
-    senderPublicKey,
-    senderSigningPublicKey,
-    encryptedKeys,
-    createdAt: Date.now(),
-    signature,
-  };
-
-  return keyPackage;
-}
-
-/**
- * Check if an invitation is still valid
- *
- * @param invitation - Invitation to validate
- * @returns true if invitation can still be used
- */
-export function isInvitationValid(invitation: Invitation): boolean {
-  // Check status
-  if (invitation.status !== 'active') {
-    return false;
+export function parseInviteLink(fragment: string): { groupId: string; groupKey: string } | null {
+  // Expected format: /join/{groupId}/{base64url-key}
+  const match = fragment.match(/^\/join\/([^/]+)\/(.+)$/);
+  if (!match) {
+    return null;
   }
 
-  // Check expiration
-  if (invitation.expiresAt && invitation.expiresAt < Date.now()) {
-    return false;
+  const groupId = match[1];
+  const keyBase64Url = match[2];
+
+  if (!groupId || !keyBase64Url) {
+    return null;
   }
 
-  // Check usage limit
-  if (invitation.maxUses && invitation.usedCount >= invitation.maxUses) {
-    return false;
+  // Remove any query parameters from the key if present
+  const keyWithoutQuery = keyBase64Url.split('?')[0];
+
+  if (!keyWithoutQuery) {
+    return null;
   }
 
-  return true;
+  try {
+    const groupKey = base64UrlToBase64(keyWithoutQuery);
+    return { groupId, groupKey };
+  } catch (error) {
+    console.error('Failed to parse invite link:', error);
+    return null;
+  }
 }
 
 /**
- * Mark an invitation as used (increment usedCount)
+ * Extract group name from invite URL query parameters (if present)
  *
- * @param invitation - Invitation to update
- * @returns Updated invitation
+ * @param fullUrl - Complete URL including query parameters
+ * @returns Group name or null if not present
  */
-export function markInvitationUsed(invitation: Invitation): Invitation {
-  return {
-    ...invitation,
-    usedCount: invitation.usedCount + 1,
-  };
-}
-
-/**
- * Revoke an invitation
- *
- * @param invitation - Invitation to revoke
- * @returns Updated invitation
- */
-export function revokeInvitation(invitation: Invitation): Invitation {
-  return {
-    ...invitation,
-    status: 'revoked',
-  };
+export function extractGroupNameFromUrl(fullUrl: string): string | null {
+  try {
+    const url = new URL(fullUrl);
+    return url.searchParams.get('name');
+  } catch (error) {
+    return null;
+  }
 }

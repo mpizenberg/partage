@@ -13,13 +13,27 @@ import type {
   DebtEdge,
   SettlementPlan,
   SettlementPreference,
+  MemberAlias,
 } from '@partage/shared';
 
 /**
  * Calculate balances for all members in a group
+ * Resolves member aliases to canonical IDs before calculation
  */
-export function calculateBalances(entries: Entry[]): Map<string, Balance> {
+export function calculateBalances(
+  entries: Entry[],
+  memberAliases: MemberAlias[] = []
+): Map<string, Balance> {
   const balances = new Map<string, Balance>();
+
+  // Build alias lookup: newId -> existingId
+  const aliasMap = new Map<string, string>();
+  for (const alias of memberAliases) {
+    aliasMap.set(alias.newMemberId, alias.existingMemberId);
+  }
+
+  // Resolve member ID to canonical ID
+  const resolve = (id: string): string => aliasMap.get(id) ?? id;
 
   // Initialize balances for all members
   const allMemberIds = new Set<string>();
@@ -28,12 +42,12 @@ export function calculateBalances(entries: Entry[]): Map<string, Balance> {
 
     if (entry.type === 'expense') {
       const expense = entry as ExpenseEntry;
-      expense.payers.forEach((p) => allMemberIds.add(p.memberId));
-      expense.beneficiaries.forEach((b) => allMemberIds.add(b.memberId));
+      expense.payers.forEach((p) => allMemberIds.add(resolve(p.memberId)));
+      expense.beneficiaries.forEach((b) => allMemberIds.add(resolve(b.memberId)));
     } else {
       const transfer = entry as TransferEntry;
-      allMemberIds.add(transfer.from);
-      allMemberIds.add(transfer.to);
+      allMemberIds.add(resolve(transfer.from));
+      allMemberIds.add(resolve(transfer.to));
     }
   }
 
@@ -53,9 +67,9 @@ export function calculateBalances(entries: Entry[]): Map<string, Balance> {
     const amount = entry.defaultCurrencyAmount ?? entry.amount;
 
     if (entry.type === 'expense') {
-      processExpense(entry as ExpenseEntry, amount, balances);
+      processExpense(entry as ExpenseEntry, amount, balances, resolve);
     } else {
-      processTransfer(entry as TransferEntry, amount, balances);
+      processTransfer(entry as TransferEntry, amount, balances, resolve);
     }
   }
 
@@ -70,11 +84,16 @@ export function calculateBalances(entries: Entry[]): Map<string, Balance> {
 /**
  * Process an expense entry
  */
-function processExpense(expense: ExpenseEntry, totalAmount: number, balances: Map<string, Balance>): void {
+function processExpense(
+  expense: ExpenseEntry,
+  totalAmount: number,
+  balances: Map<string, Balance>,
+  resolve: (id: string) => string
+): void {
   // Calculate payer amounts (with currency conversion if needed)
   const payerSplits = expense.defaultCurrencyAmount
-    ? calculatePayerSplits(expense.payers, expense.defaultCurrencyAmount)
-    : new Map(expense.payers.map(p => [p.memberId, p.amount]));
+    ? calculatePayerSplits(expense.payers, expense.defaultCurrencyAmount, resolve)
+    : new Map(expense.payers.map(p => [resolve(p.memberId), p.amount]));
 
   // Record who paid
   for (const [memberId, amount] of payerSplits.entries()) {
@@ -83,7 +102,7 @@ function processExpense(expense: ExpenseEntry, totalAmount: number, balances: Ma
   }
 
   // Calculate split amounts
-  const splits = calculateSplits(expense.beneficiaries, totalAmount);
+  const splits = calculateSplits(expense.beneficiaries, totalAmount, resolve);
 
   // Record who owes
   for (const [memberId, amount] of splits.entries()) {
@@ -105,7 +124,8 @@ function processExpense(expense: ExpenseEntry, totalAmount: number, balances: Ma
  */
 function calculatePayerSplits(
   payers: ExpenseEntry['payers'],
-  totalDefaultCurrencyAmount: number
+  totalDefaultCurrencyAmount: number,
+  resolve: (id: string) => string
 ): Map<string, number> {
   const splits = new Map<string, number>();
 
@@ -119,25 +139,26 @@ function calculatePayerSplits(
   // Convert to cents for integer arithmetic
   const totalDefaultCents = Math.round(totalDefaultCurrencyAmount * 100);
 
-  // Sort payers by member ID for deterministic distribution
+  // Sort payers by resolved member ID for deterministic distribution
   const sortedPayers = [...payers].sort((a, b) =>
-    a.memberId.localeCompare(b.memberId)
+    resolve(a.memberId).localeCompare(resolve(b.memberId))
   );
 
   // Calculate each payer's proportional share in cents
   let distributedCents = 0;
   for (let i = 0; i < sortedPayers.length; i++) {
     const payer = sortedPayers[i]!; // Safe because we're iterating up to length
+    const canonicalId = resolve(payer.memberId);
 
     if (i === sortedPayers.length - 1) {
       // Last payer gets the remainder to ensure exact sum
       const remainingCents = totalDefaultCents - distributedCents;
-      splits.set(payer.memberId, remainingCents / 100);
+      splits.set(canonicalId, remainingCents / 100);
     } else {
       // Calculate proportional amount in cents
       const proportion = payer.amount / totalOriginalAmount;
       const payerCents = Math.round(proportion * totalDefaultCents);
-      splits.set(payer.memberId, payerCents / 100);
+      splits.set(canonicalId, payerCents / 100);
       distributedCents += payerCents;
     }
   }
@@ -153,7 +174,8 @@ function calculatePayerSplits(
  */
 function calculateSplits(
   beneficiaries: ExpenseEntry['beneficiaries'],
-  totalAmount: number
+  totalAmount: number,
+  resolve: (id: string) => string
 ): Map<string, number> {
   const splits = new Map<string, number>();
 
@@ -165,7 +187,7 @@ function calculateSplits(
   let exactTotal = 0;
   for (const beneficiary of exactBeneficiaries) {
     const amount = beneficiary.amount ?? 0;
-    splits.set(beneficiary.memberId, amount);
+    splits.set(resolve(beneficiary.memberId), amount);
     exactTotal += amount;
   }
 
@@ -183,9 +205,9 @@ function calculateSplits(
     // Calculate remainder to distribute
     let remainderCents = remainingCents - (centsPerShare * totalShares);
 
-    // Sort beneficiaries by member ID for deterministic distribution
+    // Sort beneficiaries by resolved member ID for deterministic distribution
     const sortedBeneficiaries = [...sharesBeneficiaries].sort((a, b) =>
-      a.memberId.localeCompare(b.memberId)
+      resolve(a.memberId).localeCompare(resolve(b.memberId))
     );
 
     // Distribute amounts
@@ -201,7 +223,8 @@ function calculateSplits(
       }
 
       // Convert back to dollars
-      splits.set(beneficiary.memberId, amountCents / 100);
+      const canonicalId = resolve(beneficiary.memberId);
+      splits.set(canonicalId, amountCents / 100);
     }
   }
 
@@ -211,9 +234,14 @@ function calculateSplits(
 /**
  * Process a transfer entry
  */
-function processTransfer(transfer: TransferEntry, amount: number, balances: Map<string, Balance>): void {
-  const fromBalance = balances.get(transfer.from)!;
-  const toBalance = balances.get(transfer.to)!;
+function processTransfer(
+  transfer: TransferEntry,
+  amount: number,
+  balances: Map<string, Balance>,
+  resolve: (id: string) => string
+): void {
+  const fromBalance = balances.get(resolve(transfer.from))!;
+  const toBalance = balances.get(resolve(transfer.to))!;
 
   // Transfer sender paid
   fromBalance.totalPaid += amount;

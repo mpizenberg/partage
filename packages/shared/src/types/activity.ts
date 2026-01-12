@@ -8,7 +8,8 @@ export type ActivityType =
   | 'entry_modified'
   | 'entry_deleted'
   | 'entry_undeleted'
-  | 'member_joined';
+  | 'member_joined'
+  | 'member_linked';
 
 /**
  * Base activity interface
@@ -115,6 +116,18 @@ export interface MemberJoinedActivity extends BaseActivity {
 }
 
 /**
+ * Member linked activity
+ * When a new member claims an existing virtual member identity
+ */
+export interface MemberLinkedActivity extends BaseActivity {
+  type: 'member_linked';
+  newMemberId: string;
+  newMemberName: string;
+  existingMemberId: string;
+  existingMemberName: string;
+}
+
+/**
  * Union type of all activities
  */
 export type Activity =
@@ -122,7 +135,8 @@ export type Activity =
   | EntryModifiedActivity
   | EntryDeletedActivity
   | EntryUndeletedActivity
-  | MemberJoinedActivity;
+  | MemberJoinedActivity
+  | MemberLinkedActivity;
 
 /**
  * Activity filter options

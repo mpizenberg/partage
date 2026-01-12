@@ -123,7 +123,5 @@ packages/server/
 ├── bin/
 │   ├── pocketbase          # PocketBase binary
 │   └── pb_data/            # Database and config
-├── schema.md               # Detailed schema documentation
-├── setup-schema.js         # Schema setup helper
 └── README.md               # This file
 ```

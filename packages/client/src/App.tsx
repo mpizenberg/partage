@@ -1,5 +1,5 @@
 import { Component, Show, Match, Switch } from 'solid-js'
-import { Router, Route } from '@solidjs/router'
+import { HashRouter, Route } from '@solidjs/router'
 import { AppProvider, useAppContext } from './ui/context/AppContext'
 import { SetupScreen } from './ui/screens/SetupScreen'
 import { GroupSelectionScreen } from './ui/screens/GroupSelectionScreen'
@@ -42,10 +42,10 @@ const MainApp: Component = () => {
 const App: Component = () => {
   return (
     <AppProvider>
-      <Router>
-        <Route path="/join/:inviteData" component={JoinGroupScreen} />
+      <HashRouter>
+        <Route path="/join/:groupId/:groupKey" component={JoinGroupScreen} />
         <Route path="/*" component={MainApp} />
-      </Router>
+      </HashRouter>
     </AppProvider>
   )
 }

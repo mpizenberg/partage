@@ -19,7 +19,7 @@
 
 import { Loro, LoroMap } from 'loro-crdt';
 import { encryptJSON, decryptJSON } from '../crypto/symmetric.js';
-import type { Entry, ExpenseEntry, TransferEntry, Member } from '@partage/shared';
+import type { Entry, ExpenseEntry, TransferEntry, Member, MemberAlias } from '@partage/shared';
 import { PartageDB } from '../storage/indexeddb.js';
 
 /**
@@ -100,6 +100,7 @@ export class LoroEntryStore {
   private loro: Loro;
   private entries: LoroMap;
   private members: LoroMap;
+  private memberAliases: LoroMap;
   private settlementPreferences: LoroMap;
   private lastSavedVersion: any | null = null; // Track last saved version for incremental updates
 
@@ -114,6 +115,7 @@ export class LoroEntryStore {
     }
     this.entries = this.loro.getMap('entries');
     this.members = this.loro.getMap('members');
+    this.memberAliases = this.loro.getMap('memberAliases');
     this.settlementPreferences = this.loro.getMap('settlementPreferences');
   }
 
@@ -482,6 +484,61 @@ export class LoroEntryStore {
     });
   }
 
+  // ==================== Member Alias Management ====================
+
+  /**
+   * Link a new member to an existing virtual member
+   * Used when someone joins and claims an existing identity
+   */
+  addMemberAlias(alias: MemberAlias): void {
+    this.transact(() => {
+      const aliasMap = this.memberAliases.setContainer(
+        alias.newMemberId,
+        new LoroMap()
+      ) as LoroMap;
+      aliasMap.set('newMemberId', alias.newMemberId);
+      aliasMap.set('existingMemberId', alias.existingMemberId);
+      aliasMap.set('linkedAt', alias.linkedAt);
+      aliasMap.set('linkedBy', alias.linkedBy);
+    });
+  }
+
+  /**
+   * Get all member aliases
+   */
+  getMemberAliases(): MemberAlias[] {
+    const aliases: MemberAlias[] = [];
+    for (const id of this.memberAliases.keys()) {
+      const aliasMap = this.memberAliases.get(id);
+      if (!aliasMap || !(aliasMap instanceof LoroMap)) continue;
+      aliases.push({
+        newMemberId: aliasMap.get('newMemberId') as string,
+        existingMemberId: aliasMap.get('existingMemberId') as string,
+        linkedAt: aliasMap.get('linkedAt') as number,
+        linkedBy: aliasMap.get('linkedBy') as string,
+      });
+    }
+    return aliases;
+  }
+
+  /**
+   * Resolve a member ID to its canonical ID (following aliases)
+   * If the ID is linked to an existing member, return the existing member ID
+   * Otherwise, return the original ID
+   */
+  resolveCanonicalMemberId(memberId: string): string {
+    const aliases = this.getMemberAliases();
+    // Check if this ID is an alias for another
+    for (const alias of aliases) {
+      if (alias.newMemberId === memberId) {
+        return alias.existingMemberId;
+      }
+    }
+    return memberId;
+  }
+
+  // ==================== Settlement Preferences ====================
+
   /**
    * Set settlement preference for a user
    * Latest preference simply overrides any previous ones
@@ -542,6 +599,7 @@ export class LoroEntryStore {
     this.loro.import(snapshot);
     this.entries = this.loro.getMap('entries');
     this.members = this.loro.getMap('members');
+    this.memberAliases = this.loro.getMap('memberAliases');
     this.settlementPreferences = this.loro.getMap('settlementPreferences');
     this.lastSavedVersion = this.loro.oplogVersion(); // Mark as saved
   }
@@ -588,6 +646,8 @@ export class LoroEntryStore {
     // (same as importSnapshot - critical for seeing entries created by other peers)
     this.entries = this.loro.getMap('entries');
     this.members = this.loro.getMap('members');
+    this.memberAliases = this.loro.getMap('memberAliases');
+    this.settlementPreferences = this.loro.getMap('settlementPreferences');
   }
 
   /**
@@ -748,13 +808,13 @@ export class LoroEntryStore {
   }
 
   /**
-   * Load a group key (Base64 string) from IndexedDB by version.
-   * Kept here to allow decrypting entries with their recorded key version.
+   * Load a group key (Base64 string) from IndexedDB.
+   * Note: With simplified single-key approach, version parameter is ignored.
    */
-  private async getGroupKeyString(groupId: string, version: number): Promise<string | null> {
+  private async getGroupKeyString(groupId: string, _version?: number): Promise<string | null> {
     const db = new PartageDB();
     await db.open();
-    return await db.getGroupKey(groupId, version);
+    return await db.getGroupKey(groupId);
   }
 
   /**

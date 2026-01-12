@@ -146,20 +146,19 @@ describe('IndexedDB Storage', () => {
 
     it('should delete a group and all related data', async () => {
       await db.saveGroup(mockGroup);
-      await db.saveGroupKey('group1', 1, 'key1');
-      await db.saveGroupKey('group1', 2, 'key2');
-      await db.saveLoroSnapshot('group1', new Uint8Array([1, 2, 3]));
+      await db.saveGroupKey('group1', 'key1');
+      await db.saveLoroSnapshot('group1', new Uint8Array([1, 2, 3]), { counter: 1 });
       await db.savePendingOperation('group1', 'op1', { test: 'data' });
 
       await db.deleteGroup('group1');
 
       const group = await db.getGroup('group1');
-      const keys = await db.getAllGroupKeys('group1');
+      const key = await db.getGroupKey('group1');
       const snapshot = await db.getLoroSnapshot('group1');
       const pendingOps = await db.getPendingOperations('group1');
 
       expect(group).toBeNull();
-      expect(keys.size).toBe(0);
+      expect(key).toBeNull();
       expect(snapshot).toBeNull();
       expect(pendingOps).toHaveLength(0);
     });
@@ -167,67 +166,33 @@ describe('IndexedDB Storage', () => {
 
   describe('Group Keys Management', () => {
     it('should save and retrieve a group key', async () => {
-      await db.saveGroupKey('group1', 1, 'encryptedKey123');
-      const key = await db.getGroupKey('group1', 1);
+      await db.saveGroupKey('group1', 'encryptedKey123');
+      const key = await db.getGroupKey('group1');
 
       expect(key).toBe('encryptedKey123');
     });
 
     it('should return null for non-existent key', async () => {
-      const key = await db.getGroupKey('nonexistent', 1);
+      const key = await db.getGroupKey('nonexistent');
       expect(key).toBeNull();
     });
 
-    it('should save multiple key versions', async () => {
-      await db.saveGroupKey('group1', 1, 'key_v1');
-      await db.saveGroupKey('group1', 2, 'key_v2');
-      await db.saveGroupKey('group1', 3, 'key_v3');
-
-      const key1 = await db.getGroupKey('group1', 1);
-      const key2 = await db.getGroupKey('group1', 2);
-      const key3 = await db.getGroupKey('group1', 3);
-
-      expect(key1).toBe('key_v1');
-      expect(key2).toBe('key_v2');
-      expect(key3).toBe('key_v3');
-    });
-
-    it('should get all key versions for a group', async () => {
-      await db.saveGroupKey('group1', 1, 'key_v1');
-      await db.saveGroupKey('group1', 2, 'key_v2');
-      await db.saveGroupKey('group1', 3, 'key_v3');
-
-      const keys = await db.getAllGroupKeys('group1');
-
-      expect(keys.size).toBe(3);
-      expect(keys.get(1)).toBe('key_v1');
-      expect(keys.get(2)).toBe('key_v2');
-      expect(keys.get(3)).toBe('key_v3');
-    });
-
     it('should not mix keys from different groups', async () => {
-      await db.saveGroupKey('group1', 1, 'group1_key');
-      await db.saveGroupKey('group2', 1, 'group2_key');
+      await db.saveGroupKey('group1', 'group1_key');
+      await db.saveGroupKey('group2', 'group2_key');
 
-      const group1Keys = await db.getAllGroupKeys('group1');
-      const group2Keys = await db.getAllGroupKeys('group2');
+      const group1Key = await db.getGroupKey('group1');
+      const group2Key = await db.getGroupKey('group2');
 
-      expect(group1Keys.size).toBe(1);
-      expect(group2Keys.size).toBe(1);
-      expect(group1Keys.get(1)).toBe('group1_key');
-      expect(group2Keys.get(1)).toBe('group2_key');
+      expect(group1Key).toBe('group1_key');
+      expect(group2Key).toBe('group2_key');
     });
 
-    it('should return empty map for group with no keys', async () => {
-      const keys = await db.getAllGroupKeys('nonexistent');
-      expect(keys.size).toBe(0);
-    });
+    it('should update existing key', async () => {
+      await db.saveGroupKey('group1', 'original_key');
+      await db.saveGroupKey('group1', 'updated_key');
 
-    it('should update existing key version', async () => {
-      await db.saveGroupKey('group1', 1, 'original_key');
-      await db.saveGroupKey('group1', 1, 'updated_key');
-
-      const key = await db.getGroupKey('group1', 1);
+      const key = await db.getGroupKey('group1');
       expect(key).toBe('updated_key');
     });
   });

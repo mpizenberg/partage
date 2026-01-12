@@ -22,7 +22,7 @@ import {
 } from '../../domain/calculations/activity-generator';
 import { SyncManager, type SyncState } from '../../core/sync';
 import { SnapshotManager } from '../../core/storage/snapshot-manager';
-import { pbClient } from '../../api';
+import { pbClient, PocketBaseClient } from '../../api';
 import {
   generateKeypair,
   exportKeypair,
@@ -43,17 +43,13 @@ import type {
   Balance,
   SettlementPlan,
   GroupSettings,
-  JoinRequest,
   Activity,
   ActivityFilter,
   EntryFilter,
+  MemberAlias,
 } from '@partage/shared';
-import { createJoinRequest as createJoinRequestUtil } from '../../domain/invitations/invite-manager';
-import { processJoinRequest as processJoinRequestUtil } from '../../domain/invitations/invite-manager';
-import { buildGroupKeysPayload, importGroupKeys } from '../../domain/invitations/key-sharing';
-import { importKeypair } from '../../core/crypto/keypair';
-import { importSigningKeypair } from '../../core/crypto/signatures';
-import { verifyAndDecryptKeyPackage } from '../../core/crypto/key-exchange';
+import { DEFAULT_GROUP_SETTINGS } from '@partage/shared';
+import { generateInviteLink } from '../../domain/invitations/invite-manager';
 
 // Expense form data interface
 export interface ExpenseFormData {
@@ -141,11 +137,14 @@ interface AppContextValue {
   activityFilter: Accessor<ActivityFilter>;
   setActivityFilter: (filter: ActivityFilter) => void;
 
-  // Invitations & Multi-User (Phase 5)
+  // Invitations & Multi-User (Simplified)
   createInvitation: (groupId: string, groupName: string) => Promise<{ inviteLink: string }>;
-  submitJoinRequest: (invitationId: string, groupId: string, userName: string) => Promise<void>;
-  pendingJoinRequests: Accessor<any[]>; // JoinRequest[] from @partage/shared
-  approveJoinRequest: (requestId: string) => Promise<void>;
+  joinGroupWithKey: (
+    groupId: string,
+    groupKeyBase64: string,
+    memberName: string,
+    existingMemberId?: string
+  ) => Promise<void>;
 
   // Sync state and controls
   syncState: Accessor<SyncState>;
@@ -177,7 +176,7 @@ export interface ExportData {
 
 export interface GroupExport {
   group: Group;
-  keys: Map<number, string>; // All group key versions
+  key: string; // Single group key (Base64-encoded)
   loroSnapshot: Uint8Array;
 }
 
@@ -231,7 +230,6 @@ export const AppProvider: Component<{ children: JSX.Element }> = (props) => {
   const [activityFilter, setActivityFilter] = createSignal<ActivityFilter>({});
 
   // Phase 5: Invitations & Multi-User
-  const [pendingJoinRequests, setPendingJoinRequests] = createSignal<JoinRequest[]>([]);
 
   // Sync state
   const [syncState, setSyncState] = createSignal<SyncState>({
@@ -484,7 +482,7 @@ export const AppProvider: Component<{ children: JSX.Element }> = (props) => {
       console.log('[AppContext] Saving group locally with ID:', groupId);
       console.log('[AppContext] Group members:', group.members);
       await db.saveGroup(group);
-      await db.saveGroupKey(groupId, 1, exportedKey);
+      await db.saveGroupKey(groupId, exportedKey);
 
       const initialSnapshot = newLoroStore.exportSnapshot();
       const initialVersion = newLoroStore.getVersion();
@@ -632,68 +630,6 @@ export const AppProvider: Component<{ children: JSX.Element }> = (props) => {
         console.log('[AppContext] Offline mode - skipping sync');
       }
 
-      // Fetch and subscribe to join requests (for existing members)
-      if (navigator.onLine) {
-        try {
-          // Fetch existing pending join requests
-          try {
-            const existingRequests = await pbClient.listJoinRequests(groupId, {
-              status: 'pending',
-            });
-            const typedRequests: JoinRequest[] = existingRequests.map((req) => ({
-              id: req.id,
-              invitationId: req.invitationId,
-              groupId: req.groupId,
-              requesterPublicKey: req.requesterPublicKey,
-              requesterPublicKeyHash: req.requesterPublicKeyHash,
-              requesterName: req.requesterName,
-              requestedAt: req.requestedAt,
-              status: req.status as 'pending' | 'approved' | 'rejected',
-              approvedBy: req.approvedBy,
-              approvedAt: req.approvedAt,
-              rejectedBy: req.rejectedBy,
-              rejectedAt: req.rejectedAt,
-              rejectionReason: req.rejectionReason,
-            }));
-            setPendingJoinRequests(typedRequests);
-            console.log('[AppContext] Loaded pending join requests:', typedRequests.length);
-          } catch (fetchErr) {
-            // Collection might not exist yet or no records - that's ok
-            console.log(
-              '[AppContext] Could not fetch join requests (collection may not exist):',
-              fetchErr
-            );
-            setPendingJoinRequests([]);
-          }
-
-          // Subscribe to new join requests
-          try {
-            await pbClient.subscribeToJoinRequests(groupId, (joinRequest) => {
-              console.log('[AppContext] New join request received:', joinRequest);
-              const typedRequest: JoinRequest = {
-                id: joinRequest.id,
-                invitationId: joinRequest.invitationId,
-                groupId: joinRequest.groupId,
-                requesterPublicKey: joinRequest.requesterPublicKey,
-                requesterPublicKeyHash: joinRequest.requesterPublicKeyHash,
-                requesterName: joinRequest.requesterName,
-                requestedAt: joinRequest.requestedAt,
-                status: joinRequest.status as 'pending' | 'approved' | 'rejected',
-                approvedBy: joinRequest.approvedBy,
-                approvedAt: joinRequest.approvedAt,
-                rejectedBy: joinRequest.rejectedBy,
-                rejectedAt: joinRequest.rejectedAt,
-                rejectionReason: joinRequest.rejectionReason,
-              };
-              setPendingJoinRequests((prev) => [...prev, typedRequest]);
-            });
-          } catch (subscribeErr) {
-            console.log('[AppContext] Could not subscribe to join requests:', subscribeErr);
-          }
-        } catch (err) {
-          console.warn('[AppContext] Failed to setup join requests:', err);
-        }
-      }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load group');
       throw err;
@@ -711,9 +647,6 @@ export const AppProvider: Component<{ children: JSX.Element }> = (props) => {
       setSyncManager(null);
     }
 
-    // Clear pending join requests
-    setPendingJoinRequests([]);
-
     setActiveGroup(null);
     setLoroStore(null);
     setEntries([]);
@@ -728,7 +661,7 @@ export const AppProvider: Component<{ children: JSX.Element }> = (props) => {
   };
 
   // Refresh entries from Loro store
-  const refreshEntries = async (groupId: string, keyVersion: number) => {
+  const refreshEntries = async (groupId: string, _keyVersion: number) => {
     try {
       const store = loroStore();
       if (!store) return;
@@ -736,7 +669,7 @@ export const AppProvider: Component<{ children: JSX.Element }> = (props) => {
       // Best-effort: pass the current group key as the first decryption attempt.
       // Proper rotation support is implemented in the store by falling back to the
       // per-entry `keyVersion` lookup when this key doesn't work.
-      const keyString = await db.getGroupKey(groupId, keyVersion);
+      const keyString = await db.getGroupKey(groupId);
       if (!keyString) {
         throw new Error('Group key not found');
       }
@@ -789,9 +722,7 @@ export const AppProvider: Component<{ children: JSX.Element }> = (props) => {
       }
 
       // Create expense entry
-      // IMPORTANT (key rotation): record the group key version used for encryption.
-      // This is not part of the shared `Entry` type yet, so we attach it as an
-      // internal field consumed by `LoroEntryStore.splitEntry(...)`.
+      // Note: keyVersion is always 1 in the simplified single-key model
       const entry: ExpenseEntry & { keyVersion: number } = {
         id: crypto.randomUUID(),
         groupId: group.id,
@@ -815,7 +746,7 @@ export const AppProvider: Component<{ children: JSX.Element }> = (props) => {
       };
 
       // Get group key
-      const keyString = await db.getGroupKey(group.id, group.currentKeyVersion);
+      const keyString = await db.getGroupKey(group.id);
       if (!keyString) {
         throw new Error('Group key not found');
       }
@@ -879,9 +810,7 @@ export const AppProvider: Component<{ children: JSX.Element }> = (props) => {
       }
 
       // Create transfer entry
-      // IMPORTANT (key rotation): record the group key version used for encryption.
-      // This is not part of the shared `Entry` type yet, so we attach it as an
-      // internal field consumed by `LoroEntryStore.splitEntry(...)`.
+      // Note: keyVersion is always 1 in the simplified single-key model
       const entry: TransferEntry & { keyVersion: number } = {
         id: crypto.randomUUID(),
         groupId: group.id,
@@ -902,7 +831,7 @@ export const AppProvider: Component<{ children: JSX.Element }> = (props) => {
       };
 
       // Get group key
-      const keyString = await db.getGroupKey(group.id, group.currentKeyVersion);
+      const keyString = await db.getGroupKey(group.id);
       if (!keyString) {
         throw new Error('Group key not found');
       }
@@ -966,7 +895,7 @@ export const AppProvider: Component<{ children: JSX.Element }> = (props) => {
       }
 
       // Get group key
-      const keyString = await db.getGroupKey(group.id, group.currentKeyVersion);
+      const keyString = await db.getGroupKey(group.id);
       if (!keyString) {
         throw new Error('Group key not found');
       }
@@ -1058,7 +987,7 @@ export const AppProvider: Component<{ children: JSX.Element }> = (props) => {
       }
 
       // Get group key
-      const keyString = await db.getGroupKey(group.id, group.currentKeyVersion);
+      const keyString = await db.getGroupKey(group.id);
       if (!keyString) {
         throw new Error('Group key not found');
       }
@@ -1147,7 +1076,7 @@ export const AppProvider: Component<{ children: JSX.Element }> = (props) => {
       }
 
       // Get group key
-      const keyString = await db.getGroupKey(group.id, group.currentKeyVersion);
+      const keyString = await db.getGroupKey(group.id);
       if (!keyString) {
         throw new Error('Group key not found');
       }
@@ -1215,7 +1144,7 @@ export const AppProvider: Component<{ children: JSX.Element }> = (props) => {
       }
 
       // Get group key
-      const keyString = await db.getGroupKey(group.id, group.currentKeyVersion);
+      const keyString = await db.getGroupKey(group.id);
       if (!keyString) {
         throw new Error('Group key not found');
       }
@@ -1267,42 +1196,22 @@ export const AppProvider: Component<{ children: JSX.Element }> = (props) => {
     }
   };
 
-  // Phase 5: Create invitation for a group
+  // Simplified: Create invitation with embedded group key
   const createInvitation = async (groupId: string, groupName: string) => {
     try {
-      const currentIdentity = identity();
-      if (!currentIdentity) {
-        throw new Error('No identity found');
+      const group = activeGroup();
+      if (!group || group.id !== groupId) {
+        throw new Error('Group not found or not active');
       }
 
-      // Get signing keypair from storage
-      const storedKeypairs = await db.getUserKeypair();
-      if (!storedKeypairs?.signingKeypair) {
-        throw new Error('Signing keypair not found');
+      // Get the group key from storage
+      const groupKeyBase64 = await db.getGroupKey(groupId);
+      if (!groupKeyBase64) {
+        throw new Error('Group key not found');
       }
 
-      // Save invitation to server first to get PocketBase-generated ID
-      if (!navigator.onLine) {
-        throw new Error('Must be online to create invitations');
-      }
-
-      const invitationRecord = await pbClient.createInvitation({
-        groupId: groupId,
-        inviterPublicKeyHash: currentIdentity.publicKeyHash,
-        createdAt: Date.now(),
-        usedCount: 0,
-        status: 'active',
-      });
-
-      // Create invite link using the PocketBase-generated ID
-      const linkData = {
-        invitationId: invitationRecord.id,
-        groupId,
-        groupName,
-      };
-      const linkDataJSON = JSON.stringify(linkData);
-      const linkDataBase64 = btoa(linkDataJSON);
-      const inviteLink = `${window.location.origin}/join/${linkDataBase64}`;
+      // Generate invite link with embedded key
+      const inviteLink = generateInviteLink(groupId, groupKeyBase64, groupName);
 
       return { inviteLink };
     } catch (err) {
@@ -1311,353 +1220,137 @@ export const AppProvider: Component<{ children: JSX.Element }> = (props) => {
     }
   };
 
-  // Phase 5: Submit join request (for new users)
-  const submitJoinRequest = async (invitationId: string, groupId: string, userName: string) => {
+  // Simplified: Join group with embedded key (no approval needed)
+  const joinGroupWithKey = async (
+    groupId: string,
+    groupKeyBase64: string,
+    memberName: string,
+    existingMemberId?: string
+  ) => {
     try {
       const currentIdentity = identity();
       if (!currentIdentity) {
         throw new Error('No identity found');
       }
 
-      const userKeypair = await importKeypair(currentIdentity);
-
-      const joinRequest = await createJoinRequestUtil(invitationId, groupId, userKeypair, userName);
-
-      // Submit to server
-      if (navigator.onLine) {
-        const createdRequest = await pbClient.createJoinRequest({
-          invitationId: joinRequest.invitationId,
-          groupId: joinRequest.groupId,
-          requesterPublicKey: joinRequest.requesterPublicKey,
-          requesterPublicKeyHash: joinRequest.requesterPublicKeyHash,
-          requesterName: joinRequest.requesterName,
-          requestedAt: joinRequest.requestedAt,
-          status: joinRequest.status,
-        });
-
-        console.log('Join request created with ID:', createdRequest.id);
-
-        // Subscribe to key packages for this user
-        await pbClient.subscribeToKeyPackages(currentIdentity.publicKeyHash, async (keyPackage) => {
-          console.log('Received key package:', keyPackage);
-          // Process the key package
-          await processReceivedKeyPackage(keyPackage);
-        });
-      }
-    } catch (err) {
-      console.error('Failed to submit join request:', err);
-      throw err;
-    }
-  };
-
-  // Phase 5: Process received key package
-  const processReceivedKeyPackage = async (keyPackageRecord: any) => {
-    try {
-      const currentIdentity = identity();
-      const storedKeypairs = await db.getUserKeypair();
-
-      if (!currentIdentity || !storedKeypairs?.signingKeypair) {
-        throw new Error('Missing identity or signing keypair');
+      // Check if we already have this group
+      const existingGroup = groups().find(g => g.id === groupId);
+      if (existingGroup) {
+        throw new Error('You are already a member of this group');
       }
 
-      const userKeypair = await importKeypair(currentIdentity);
+      // Fetch all updates from server to build the Loro state
+      const updates = await pbClient.fetchAllUpdates(groupId);
 
-      // Use sender's public keys for decryption and verification
-      const senderPublicKey = keyPackageRecord.senderPublicKey;
-      const senderSigningKey = keyPackageRecord.senderSigningPublicKey;
-
-      // Verify and decrypt
-      const payload = await verifyAndDecryptKeyPackage(
-        keyPackageRecord.encryptedKeys,
-        keyPackageRecord.signature,
-        senderPublicKey, // Sender's ECDH public key for decryption
-        senderSigningKey, // Sender's signing public key for verification
-        userKeypair.privateKey
-      );
-
-      // Import group keys
-      await importGroupKeys(payload);
-
-      // Fetch group metadata and join request
-      const groupRecord = await pbClient.getGroup(payload.groupId);
-      const joinRequest = await pbClient.getJoinRequest(keyPackageRecord.joinRequestId);
-
-      // Initialize or load Loro CRDT for this group
+      // Create a new Loro store and apply all updates
       const newLoroStore = new LoroEntryStore(currentIdentity.publicKeyHash);
-      const existingSnapshot = await db.getLoroSnapshot(payload.groupId);
-      if (existingSnapshot) {
-        newLoroStore.importSnapshot(existingSnapshot);
+      
+      for (const update of updates) {
+        const updateBytes = PocketBaseClient.decodeUpdateData(update.updateData);
+        newLoroStore.applyUpdate(updateBytes);
       }
 
-      // Add new member to Loro CRDT
-      const newMember: Member = {
-        id: currentIdentity.publicKeyHash,
-        name: joinRequest.requesterName,
-        publicKey: joinRequest.requesterPublicKey,
-        joinedAt: Date.now(),
-        status: 'active',
-        isVirtual: false,
-      };
-      newLoroStore.addMember(newMember);
+      // Get existing members
+      const existingMembers = newLoroStore.getMembers();
 
-      // Initialize sync manager for this group and do initial sync FIRST
-      // This ensures we get all existing entries and members before saving
-      const manager = new SyncManager({
-        loroStore: newLoroStore,
-        storage: db,
-        apiClient: pbClient,
-        enableAutoSync: true,
-        onUpdate: async (updatedGroupId) => {
-          console.log('[AppContext] New member received update for group:', updatedGroupId);
-        },
-      });
+      // Get group metadata from server (or create default)
+      let groupRecord;
+      try {
+        groupRecord = await pbClient.getGroup(groupId);
+      } catch (err) {
+        console.warn('Could not fetch group metadata, using defaults');
+      }
 
-      console.log('[AppContext] New member starting initial sync...');
-      await manager.initialSync(payload.groupId, currentIdentity.publicKeyHash);
-      console.log('[AppContext] New member initial sync completed');
-
-      // CRITICAL: Push our local state (including our member add) to the server
-      // This ensures other peers can properly import our future updates,
-      // since Loro updates may have causal dependencies on our local operations.
-      const versionAfterSync = newLoroStore.getVersion();
-      const ourStateUpdate = newLoroStore.exportSnapshot(); // Export full state to ensure compatibility
-      console.log(
-        '[AppContext] New member pushing local state to server, bytes:',
-        ourStateUpdate.byteLength
-      );
-      await manager.pushUpdate(
-        payload.groupId,
-        currentIdentity.publicKeyHash,
-        ourStateUpdate,
-        versionAfterSync
-      );
-
-      // Now get all members from Loro (includes members from synced data)
-      const allMembers = newLoroStore.getMembers();
-      console.log('[AppContext] Members after sync:', allMembers.length);
-
-      // Save final Loro snapshot (with all synced data)
-      const finalSnapshot = newLoroStore.exportSnapshot();
-      const finalVersion = newLoroStore.getVersion();
-      await db.saveLoroSnapshot(payload.groupId, finalSnapshot, finalVersion);
-      newLoroStore.markAsSaved(); // Mark as saved for future incremental updates
-
-      // Convert to Group type with all required fields
+      // Create the group object
       const group: Group = {
-        id: groupRecord.id,
-        name: groupRecord.name,
-        defaultCurrency: 'USD', // Default currency for now
-        createdAt: groupRecord.createdAt,
-        createdBy: groupRecord.createdBy,
-        currentKeyVersion: payload.currentKeyVersion,
-        settings: {
-          anyoneCanAddEntries: true,
-          anyoneCanModifyEntries: true,
-          anyoneCanDeleteEntries: true,
-          anyoneCanInvite: true,
-          anyoneCanShareKeys: true,
-        },
-        members: allMembers,
+        id: groupId,
+        name: groupRecord?.name || 'Group',
+        defaultCurrency: 'USD', // Default, will be synced from CRDT
+        createdAt: groupRecord?.createdAt || Date.now(),
+        createdBy: groupRecord?.createdBy || currentIdentity.publicKeyHash,
+        currentKeyVersion: 1, // Simplified: always version 1
+        settings: DEFAULT_GROUP_SETTINGS,
+        members: existingMembers,
       };
 
-      // Save group to local storage
+      // Save group and key locally
       await db.saveGroup(group);
-      console.log('[AppContext] Successfully joined group:', group.name);
+      await db.saveGroupKey(groupId, groupKeyBase64);
 
-      // Properly destroy the temporary sync manager before navigation
-      // (the subscription callback won't be useful after navigation anyway)
-      await manager.destroy();
+      // Add member to Loro (with alias if claiming existing member)
+      const versionBefore = newLoroStore.getVersion();
 
-      // Refresh groups list
+      if (existingMemberId) {
+        // Claiming an existing virtual member identity
+        const existingMember = existingMembers.find(m => m.id === existingMemberId);
+        if (!existingMember) {
+          throw new Error('Selected member not found');
+        }
+
+        // Add the new real member
+        const newMember: Member = {
+          id: currentIdentity.publicKeyHash,
+          name: memberName,
+          publicKey: currentIdentity.publicKey,
+          joinedAt: Date.now(),
+          status: 'active',
+          isVirtual: false,
+        };
+        newLoroStore.addMember(newMember);
+
+        // Create member alias linking new ID to existing ID
+        const alias: MemberAlias = {
+          newMemberId: currentIdentity.publicKeyHash,
+          existingMemberId: existingMemberId,
+          linkedAt: Date.now(),
+          linkedBy: currentIdentity.publicKeyHash,
+        };
+        newLoroStore.addMemberAlias(alias);
+
+        console.log('[AppContext] Created member alias:', alias);
+      } else {
+        // New member (not claiming existing identity)
+        const newMember: Member = {
+          id: currentIdentity.publicKeyHash,
+          name: memberName,
+          publicKey: currentIdentity.publicKey,
+          joinedAt: Date.now(),
+          status: 'active',
+          isVirtual: false,
+        };
+        newLoroStore.addMember(newMember);
+
+        console.log('[AppContext] Added new member:', newMember);
+      }
+
+      // Save the Loro snapshot
+      const snapshot = newLoroStore.exportSnapshot();
+      const version = newLoroStore.getVersion();
+      await db.saveLoroSnapshot(groupId, snapshot, version);
+      newLoroStore.markAsSaved();
+
+      // Push the member update to server
+      const updateBytes = newLoroStore.exportFrom(versionBefore);
+      if (updateBytes.length > 0) {
+        await pbClient.pushUpdate({
+          groupId,
+          timestamp: Date.now(),
+          actorId: currentIdentity.publicKeyHash,
+          updateData: PocketBaseClient.encodeUpdateData(updateBytes),
+          version: PocketBaseClient.serializeVersion(version),
+        });
+      }
+
+      // Update groups list
       const allGroups = await db.getAllGroups();
       setGroups(allGroups);
 
-      // Navigate to the new group - use router if available, otherwise fallback
-      // Small delay to ensure all IndexedDB writes are flushed
-      await new Promise((resolve) => setTimeout(resolve, 100));
-      window.location.href = '/';
+      // Select the new group
+      await selectGroup(groupId);
+
+      console.log('[AppContext] Successfully joined group:', groupId);
     } catch (err) {
-      console.error('Failed to process key package:', err);
-      throw err;
-    }
-  };
-
-  // Phase 5: Approve join request (for existing members)
-  const approveJoinRequest = async (requestId: string) => {
-    try {
-      const currentIdentity = identity();
-      const storedKeypairs = await db.getUserKeypair();
-      const group = activeGroup();
-
-      if (!currentIdentity || !storedKeypairs?.signingKeypair || !group) {
-        throw new Error('Missing identity, signing keypair, or active group');
-      }
-
-      if (!navigator.onLine) {
-        throw new Error('Must be online to approve join requests');
-      }
-
-      // Get the join request
-      const joinRequest = await pbClient.getJoinRequest(requestId);
-
-      // Import keypairs
-      const userKeypair = await importKeypair(currentIdentity);
-      const signingKeypair = await importSigningKeypair(storedKeypairs.signingKeypair);
-
-      // Add new member to Loro CRDT (so membership is consistent before rotation)
-      const store = loroStore();
-      const manager = syncManager();
-
-      if (store) {
-        const newMember: Member = {
-          id: joinRequest.requesterPublicKeyHash,
-          name: joinRequest.requesterName,
-          publicKey: joinRequest.requesterPublicKey,
-          joinedAt: Date.now(),
-          status: 'active',
-          isVirtual: false,
-        };
-
-        const versionBefore = store.getVersion();
-        store.addMember(newMember);
-
-        // Push the member update to server
-        if (manager) {
-          const updateBytes = store.exportFrom(versionBefore);
-          await manager.pushUpdate(
-            group.id,
-            currentIdentity.publicKeyHash,
-            updateBytes,
-            versionBefore
-          );
-        }
-
-        // Update local group members list
-        const updatedMembers = store.getMembers();
-        const updatedGroup = { ...group, members: updatedMembers };
-        await db.saveGroup(updatedGroup);
-        setActiveGroup(updatedGroup);
-      }
-
-      // =========================
-      // Proper key rotation on join
-      // =========================
-      // Generate a new group key version locally and persist it.
-      //
-      // IMPORTANT: keep the previous current key version available locally before rotating.
-      // If the local key history is incomplete (e.g. missing v1), rotating would make
-      // previously created entries undecryptable and/or cause decryption failures.
-      const previousKeyVersion = group.currentKeyVersion;
-      const previousKey = await db.getGroupKey(group.id, previousKeyVersion);
-      if (!previousKey) {
-        throw new Error(
-          `Cannot rotate keys: missing previous group key v${previousKeyVersion} in local storage`
-        );
-      }
-
-      const newKeyVersion = previousKeyVersion + 1;
-      const newGroupKey = await generateSymmetricKey();
-      const exportedNewKey = await exportSymmetricKey(newGroupKey);
-      await db.saveGroupKey(group.id, newKeyVersion, exportedNewKey);
-
-      // Build a payload that includes *all* historical keys (including the previous current key)
-      // and sets currentKeyVersion=newKeyVersion.
-      // This payload will be encrypted separately for each real member.
-      const rotatedKeysPayload = await buildGroupKeysPayload(
-        group.id,
-        newKeyVersion,
-        currentIdentity.publicKeyHash
-      );
-
-      // Determine real members (non-virtual) that must receive the rotated key package,
-      // including: existing real members + the newly approved member.
-      const currentMembers = (activeGroup()?.members || []).filter((m) => !m.isVirtual);
-      const recipients: Member[] = (() => {
-        const byId = new Map<string, Member>();
-        for (const m of currentMembers) byId.set(m.id, m);
-        byId.set(joinRequest.requesterPublicKeyHash, {
-          id: joinRequest.requesterPublicKeyHash,
-          name: joinRequest.requesterName,
-          publicKey: joinRequest.requesterPublicKey,
-          joinedAt: Date.now(),
-          status: 'active',
-          isVirtual: false,
-        });
-        return Array.from(byId.values()).filter((m) => !!m.publicKey);
-      })();
-
-      // Create a key package for each recipient.
-      // Note: Each package is encrypted to the recipient, so we use JoinRequest-shaped input for each.
-      for (const recipient of recipients) {
-        const recipientJoinRequest: JoinRequest = {
-          id: requestId,
-          invitationId: joinRequest.invitationId,
-          groupId: group.id,
-          requesterPublicKey: recipient.publicKey as string,
-          requesterPublicKeyHash: recipient.id,
-          requesterName: recipient.name,
-          requestedAt: Date.now(),
-          status: 'approved',
-          approvedBy: currentIdentity.publicKeyHash,
-          approvedAt: Date.now(),
-        };
-
-        const pkg = await processJoinRequestUtil(
-          recipientJoinRequest,
-          rotatedKeysPayload,
-          userKeypair,
-          signingKeypair
-        );
-
-        const keyPackageData = {
-          joinRequestId: requestId,
-          groupId: pkg.groupId,
-          recipientPublicKeyHash: pkg.recipientPublicKeyHash,
-
-          // Key rotation metadata (required by updated PocketBase schema)
-          keyVersion: rotatedKeysPayload.currentKeyVersion,
-          reason: 'rotate',
-
-          senderPublicKeyHash: pkg.senderPublicKeyHash,
-          senderPublicKey: pkg.senderPublicKey,
-          senderSigningPublicKey: pkg.senderSigningPublicKey,
-          encryptedKeys: pkg.encryptedKeys,
-          createdAt: pkg.createdAt,
-          signature: pkg.signature,
-        };
-
-        await pbClient.createKeyPackage(keyPackageData);
-      }
-
-      // Mark join request approved on server
-      await pbClient.updateJoinRequest(requestId, {
-        status: 'approved',
-        approvedBy: currentIdentity.publicKeyHash,
-        approvedAt: Date.now(),
-      });
-
-      // Remove from pending list
-      setPendingJoinRequests((prev) => prev.filter((req) => req.id !== requestId));
-
-      // Update local group currentKeyVersion and persist (this is the version new entries must use).
-      const finalGroup = { ...(activeGroup() || group), currentKeyVersion: newKeyVersion };
-      await db.saveGroup(finalGroup);
-      setActiveGroup(finalGroup);
-
-      // As a safety measure, ensure we still have the previous key version stored locally
-      // so older entries remain decryptable after rotation.
-      const stillHasPreviousKey = await db.getGroupKey(group.id, previousKeyVersion);
-      if (!stillHasPreviousKey) {
-        console.warn(
-          `[AppContext] Key rotation completed but previous key v${previousKeyVersion} is missing locally; older entries may fail to decrypt`
-        );
-      }
-
-      console.log(
-        `[AppContext] Rotated group key from v${previousKeyVersion} to v${newKeyVersion} and distributed to ${recipients.length} real members`
-      );
-    } catch (err) {
-      console.error('Failed to approve join request:', err);
+      console.error('[AppContext] Failed to join group:', err);
       throw err;
     }
   };
@@ -1722,8 +1415,12 @@ export const AppProvider: Component<{ children: JSX.Element }> = (props) => {
       const groupExports: GroupExport[] = [];
 
       for (const group of groupsToExport) {
-        // Get all keys for this group
-        const keys = await db.getAllGroupKeys(group.id);
+        // Get the group key
+        const key = await db.getGroupKey(group.id);
+        if (!key) {
+          console.warn(`No key found for group ${group.id}, skipping`);
+          continue;
+        }
 
         // Get Loro snapshot
         const snapshot = await db.getLoroSnapshot(group.id);
@@ -1734,7 +1431,7 @@ export const AppProvider: Component<{ children: JSX.Element }> = (props) => {
 
         groupExports.push({
           group,
-          keys,
+          key,
           loroSnapshot: snapshot,
         });
       }
@@ -1950,10 +1647,8 @@ export const AppProvider: Component<{ children: JSX.Element }> = (props) => {
           // New group - import directly
           await db.saveGroup(groupExport.group);
 
-          // Save all keys
-          for (const [version, keyString] of groupExport.keys.entries()) {
-            await db.saveGroupKey(groupExport.group.id, version, keyString);
-          }
+          // Save the group key
+          await db.saveGroupKey(groupExport.group.id, groupExport.key);
 
           // Save Loro snapshot (get version from imported snapshot)
           const tempStore = new LoroEntryStore(currentIdentity.publicKeyHash);
@@ -1988,12 +1683,10 @@ export const AppProvider: Component<{ children: JSX.Element }> = (props) => {
             await db.saveLoroSnapshot(groupExport.group.id, groupExport.loroSnapshot, importVersion2);
           }
 
-          // Import any missing keys
-          for (const [version, keyString] of groupExport.keys.entries()) {
-            const existingKey = await db.getGroupKey(groupExport.group.id, version);
-            if (!existingKey) {
-              await db.saveGroupKey(groupExport.group.id, version, keyString);
-            }
+          // Import key if missing
+          const existingKey = await db.getGroupKey(groupExport.group.id);
+          if (!existingKey) {
+            await db.saveGroupKey(groupExport.group.id, groupExport.key);
           }
 
           console.log(`[AppContext] Merged group: ${groupExport.group.name}`);
@@ -2271,7 +1964,7 @@ export const AppProvider: Component<{ children: JSX.Element }> = (props) => {
       }
 
       // Get group key
-      const keyString = await db.getGroupKey(groupId, group.currentKeyVersion);
+      const keyString = await db.getGroupKey(groupId);
       if (!keyString) {
         return null;
       }
@@ -2335,9 +2028,7 @@ export const AppProvider: Component<{ children: JSX.Element }> = (props) => {
     activityFilter,
     setActivityFilter,
     createInvitation,
-    submitJoinRequest,
-    pendingJoinRequests,
-    approveJoinRequest,
+    joinGroupWithKey,
     syncState,
     manualSync,
     toggleAutoSync,

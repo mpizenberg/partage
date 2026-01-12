@@ -45,9 +45,8 @@ interface GroupRecord {
 }
 
 interface GroupKeyRecord {
-  id: string; // `${groupId}:${version}`
+  id: string; // groupId (single key per group, no versioning)
   groupId: string;
-  version: number;
   key: string; // Base64 encoded symmetric key
 }
 
@@ -332,15 +331,14 @@ export class PartageDB {
   // Group Keys Management
 
   /**
-   * Save a group key with version
+   * Save a group key (single key per group, no versioning)
    */
-  async saveGroupKey(groupId: string, version: number, keyString: string): Promise<void> {
+  async saveGroupKey(groupId: string, keyString: string): Promise<void> {
     await this.ensureOpen();
 
     const record: GroupKeyRecord = {
-      id: `${groupId}:${version}`,
+      id: groupId,
       groupId,
-      version,
       key: keyString,
     };
 
@@ -348,33 +346,13 @@ export class PartageDB {
   }
 
   /**
-   * Get a specific group key version
+   * Get the group key (single key per group)
    */
-  async getGroupKey(groupId: string, version: number): Promise<string | null> {
+  async getGroupKey(groupId: string): Promise<string | null> {
     await this.ensureOpen();
 
-    const record = await this.get<GroupKeyRecord>(STORES.GROUP_KEYS, `${groupId}:${version}`);
+    const record = await this.get<GroupKeyRecord>(STORES.GROUP_KEYS, groupId);
     return record?.key ?? null;
-  }
-
-  /**
-   * Get all key versions for a group
-   */
-  async getAllGroupKeys(groupId: string): Promise<Map<number, string>> {
-    await this.ensureOpen();
-
-    const records = await this.getAllFromIndex<GroupKeyRecord>(
-      STORES.GROUP_KEYS,
-      'groupId',
-      groupId
-    );
-
-    const keys = new Map<number, string>();
-    for (const record of records) {
-      keys.set(record.version, record.key);
-    }
-
-    return keys;
   }
 
   // Loro Snapshots Management
