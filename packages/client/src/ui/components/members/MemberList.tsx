@@ -5,12 +5,14 @@
 
 import { Component, For, Show, createSignal, createMemo } from 'solid-js';
 import type { Member, Balance } from '@partage/shared';
+import type { LoroEntryStore } from '../../../core/crdt/loro-wrapper';
 
 export interface MemberListProps {
   members: Member[];
   currentUserPublicKeyHash?: string;
   showStatus?: boolean;
   balances?: Map<string, Balance>;
+  loroStore?: LoroEntryStore | null;
   onRenameMember?: (memberId: string, newName: string) => Promise<void>;
   onRemoveMember?: (memberId: string) => Promise<void>;
 }
@@ -107,7 +109,14 @@ export const MemberList: Component<MemberListProps> = (props) => {
 
   const canRemoveMember = (memberId: string): boolean => {
     if (!props.balances) return true;
-    const balance = props.balances.get(memberId);
+
+    // Resolve canonical member ID (for aliased members, this returns the old virtual member ID)
+    let lookupId = memberId;
+    if (props.loroStore) {
+      lookupId = props.loroStore.resolveCanonicalMemberId(memberId);
+    }
+
+    const balance = props.balances.get(lookupId);
     if (!balance) return true;
     // Allow removal only if balance is essentially zero (within 0.01 tolerance)
     return Math.abs(balance.netBalance) < 0.01;

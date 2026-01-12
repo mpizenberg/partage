@@ -22,7 +22,7 @@ export interface EntryCardProps {
 }
 
 export const EntryCard: Component<EntryCardProps> = (props) => {
-  const { members, identity, setEditingEntry, deleteEntry, undeleteEntry } = useAppContext()
+  const { members, identity, setEditingEntry, deleteEntry, undeleteEntry, loroStore } = useAppContext()
   const [showDeleteModal, setShowDeleteModal] = createSignal(false)
   const [isDeleting, setIsDeleting] = createSignal(false)
   const [isUndeleting, setIsUndeleting] = createSignal(false)
@@ -101,8 +101,40 @@ export const EntryCard: Component<EntryCardProps> = (props) => {
   }
 
   const getMemberName = (memberId: string): string => {
-    if (memberId === identity()?.publicKeyHash) return 'You'
-    const member = members().find(m => m.id === memberId)
+    const userId = identity()?.publicKeyHash
+    if (!userId) return 'Unknown'
+
+    // Check if this is the current user (considering aliases)
+    if (memberId === userId) return 'You'
+    const store = loroStore()
+    if (store) {
+      const canonicalUserId = store.resolveCanonicalMemberId(userId)
+      if (memberId === canonicalUserId) return 'You'
+
+      // Check if this is a canonical ID (old virtual member) that has been claimed
+      const aliases = store.getMemberAliases()
+      const alias = aliases.find(a => a.existingMemberId === memberId)
+      if (alias) {
+        // This is a claimed virtual member - show the NEW member's name
+        const newMember = members().find(m => m.id === alias.newMemberId)
+        if (newMember) return newMember.name
+
+        // Fallback to full Loro member list
+        const allMembers = store.getMembers()
+        const newMemberFull = allMembers.find(m => m.id === alias.newMemberId)
+        if (newMemberFull) return newMemberFull.name
+      }
+    }
+
+    // Try filtered members list first
+    let member = members().find(m => m.id === memberId)
+
+    // If not found, check full Loro member list (includes replaced virtual members)
+    if (!member && store) {
+      const allMembers = store.getMembers()
+      member = allMembers.find(m => m.id === memberId)
+    }
+
     return member?.name || 'Unknown'
   }
 
@@ -165,17 +197,24 @@ export const EntryCard: Component<EntryCardProps> = (props) => {
     const userId = identity()?.publicKeyHash
     if (!userId) return false
 
+    // Get canonical user ID (if user claimed a virtual member)
+    const store = loroStore()
+    const canonicalUserId = store ? store.resolveCanonicalMemberId(userId) : userId
+
     if (isExpense()) {
       const expense = expenseEntry()!
       return (
-        expense.payers.some(p => p.memberId === userId) ||
-        expense.beneficiaries.some(b => b.memberId === userId)
+        expense.payers.some(p => p.memberId === userId || p.memberId === canonicalUserId) ||
+        expense.beneficiaries.some(b => b.memberId === userId || b.memberId === canonicalUserId)
       )
     }
 
     if (isTransfer()) {
       const transfer = transferEntry()!
-      return transfer.from === userId || transfer.to === userId
+      return (
+        transfer.from === userId || transfer.from === canonicalUserId ||
+        transfer.to === userId || transfer.to === canonicalUserId
+      )
     }
 
     return false

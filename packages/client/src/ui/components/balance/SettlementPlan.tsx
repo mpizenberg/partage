@@ -10,7 +10,7 @@ export interface SettlementPlanProps {
 }
 
 export const SettlementPlan: Component<SettlementPlanProps> = (props) => {
-  const { addTransfer, identity } = useAppContext()
+  const { addTransfer, identity, loroStore } = useAppContext()
   const [isSettling, setIsSettling] = createSignal<string | null>(null)
 
   const formatCurrency = (amount: number): string => {
@@ -21,8 +21,40 @@ export const SettlementPlan: Component<SettlementPlanProps> = (props) => {
   }
 
   const getMemberName = (memberId: string): string => {
-    if (memberId === identity()?.publicKeyHash) return 'You'
-    const member = props.members.find(m => m.id === memberId)
+    const userId = identity()?.publicKeyHash
+    if (!userId) return 'Unknown'
+
+    // Check if this is the current user (considering aliases)
+    if (memberId === userId) return 'You'
+    const store = loroStore()
+    if (store) {
+      const canonicalUserId = store.resolveCanonicalMemberId(userId)
+      if (memberId === canonicalUserId) return 'You'
+
+      // Check if this is a canonical ID (old virtual member) that has been claimed
+      const aliases = store.getMemberAliases()
+      const alias = aliases.find(a => a.existingMemberId === memberId)
+      if (alias) {
+        // This is a claimed virtual member - show the NEW member's name
+        const newMember = props.members.find(m => m.id === alias.newMemberId)
+        if (newMember) return newMember.name
+
+        // Fallback to full Loro member list
+        const allMembers = store.getMembers()
+        const newMemberFull = allMembers.find(m => m.id === alias.newMemberId)
+        if (newMemberFull) return newMemberFull.name
+      }
+    }
+
+    // Try filtered members list first
+    let member = props.members.find(m => m.id === memberId)
+
+    // If not found, check full Loro member list (includes replaced virtual members)
+    if (!member && store) {
+      const allMembers = store.getMembers()
+      member = allMembers.find(m => m.id === memberId)
+    }
+
     return member?.name || 'Unknown'
   }
 
@@ -51,7 +83,19 @@ export const SettlementPlan: Component<SettlementPlanProps> = (props) => {
 
   const isUserInvolved = (fromId: string, toId: string): boolean => {
     const userId = identity()?.publicKeyHash
-    return userId === fromId || userId === toId
+    if (!userId) return false
+
+    // Check direct match
+    if (userId === fromId || userId === toId) return true
+
+    // Check if user has claimed a virtual member (canonical ID)
+    const store = loroStore()
+    if (store) {
+      const canonicalUserId = store.resolveCanonicalMemberId(userId)
+      if (canonicalUserId === fromId || canonicalUserId === toId) return true
+    }
+
+    return false
   }
 
   return (
@@ -95,16 +139,14 @@ export const SettlementPlan: Component<SettlementPlanProps> = (props) => {
                     </div>
                   </div>
 
-                  <Show when={involved}>
-                    <Button
-                      variant="primary"
-                      size="small"
-                      onClick={() => handleSettle(transaction.from, transaction.to, transaction.amount)}
-                      disabled={loading}
-                    >
-                      {loading ? 'Recording...' : 'Mark as Paid'}
-                    </Button>
-                  </Show>
+                  <Button
+                    variant="primary"
+                    size="small"
+                    onClick={() => handleSettle(transaction.from, transaction.to, transaction.amount)}
+                    disabled={loading}
+                  >
+                    {loading ? 'Recording...' : 'Mark as Paid'}
+                  </Button>
                 </div>
               )
             }}

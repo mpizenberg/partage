@@ -5,7 +5,7 @@ import { InviteModal } from '../invites/InviteModal'
 import { Button } from '../common/Button'
 
 export const MembersTab: Component = () => {
-  const { members, activeGroup, createInvitation, addVirtualMember, renameMember, removeMember, identity, balances } = useAppContext()
+  const { members, activeGroup, createInvitation, addVirtualMember, renameMember, removeMember, identity, balances, loroStore } = useAppContext()
   const [showInviteModal, setShowInviteModal] = createSignal(false)
   const [inviteLink, setInviteLink] = createSignal<string | null>(null)
   const [showAddMemberModal, setShowAddMemberModal] = createSignal(false)
@@ -64,6 +64,7 @@ export const MembersTab: Component = () => {
           members={members()}
           currentUserPublicKeyHash={identity()?.publicKeyHash}
           balances={balances()}
+          loroStore={loroStore()}
           onRenameMember={renameMember}
           onRemoveMember={removeMember}
         />

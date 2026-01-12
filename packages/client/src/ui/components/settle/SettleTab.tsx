@@ -36,8 +36,40 @@ export const SettleTab: Component = () => {
   }
 
   const getMemberName = (memberId: string): string => {
-    if (memberId === identity()?.publicKeyHash) return 'You'
-    const member = members().find(m => m.id === memberId)
+    const userId = identity()?.publicKeyHash
+    if (!userId) return 'Unknown'
+
+    // Check if this is the current user (considering aliases)
+    if (memberId === userId) return 'You'
+    const store = loroStore()
+    if (store) {
+      const canonicalUserId = store.resolveCanonicalMemberId(userId)
+      if (memberId === canonicalUserId) return 'You'
+
+      // Check if this is a canonical ID (old virtual member) that has been claimed
+      const aliases = store.getMemberAliases()
+      const alias = aliases.find(a => a.existingMemberId === memberId)
+      if (alias) {
+        // This is a claimed virtual member - show the NEW member's name
+        const newMember = members().find(m => m.id === alias.newMemberId)
+        if (newMember) return newMember.name
+
+        // Fallback to full Loro member list
+        const allMembers = store.getMembers()
+        const newMemberFull = allMembers.find(m => m.id === alias.newMemberId)
+        if (newMemberFull) return newMemberFull.name
+      }
+    }
+
+    // Try filtered members list first
+    let member = members().find(m => m.id === memberId)
+
+    // If not found, check full Loro member list (includes replaced virtual members)
+    if (!member && store) {
+      const allMembers = store.getMembers()
+      member = allMembers.find(m => m.id === memberId)
+    }
+
     return member?.name || 'Unknown'
   }
 

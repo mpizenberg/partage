@@ -245,14 +245,32 @@ export const AppProvider: Component<{ children: JSX.Element }> = (props) => {
   const [isLoading, setIsLoading] = createSignal(true);
   const [error, setError] = createSignal<string | null>(null);
 
-  // Members for active group (all members: real + virtual)
+  // Members for active group (all members: real + virtual, excluding replaced virtual members)
   const members = createMemo(() => {
     const group = activeGroup();
     if (!group) {
       console.log('[AppContext] members() called but no active group');
       return [];
     }
-    const membersList = group.members || [];
+    const store = loroStore();
+    if (!store) {
+      const membersList = group.members || [];
+      console.log('[AppContext] members() returning:', membersList);
+      return membersList;
+    }
+
+    // Get member aliases to filter out replaced virtual members
+    const aliases = store.getMemberAliases();
+    const replacedMemberIds = new Set(aliases.map(a => a.existingMemberId));
+
+    // Filter out replaced virtual members (those claimed by new members)
+    const membersList = (group.members || []).filter(m => {
+      // Keep all real members (non-virtual)
+      if (!m.isVirtual) return true;
+      // Keep virtual members that haven't been replaced
+      return !replacedMemberIds.has(m.id);
+    });
+
     console.log('[AppContext] members() returning:', membersList);
     return membersList;
   });
@@ -557,10 +575,19 @@ export const AppProvider: Component<{ children: JSX.Element }> = (props) => {
       const store = new LoroEntryStore(currentIdentity.publicKeyHash);
       await snapshotManager().load(groupId, store);
 
-      // Sync members from Loro to group object
-      const members = store.getMembers();
-      const updatedGroup = { ...group, members };
-      if (members.length > 0) {
+      // Sync members from Loro to group object (filter out replaced virtual members)
+      const allMembers = store.getMembers();
+      const aliases = store.getMemberAliases();
+      const replacedMemberIds = new Set(aliases.map(a => a.existingMemberId));
+
+      // Filter out replaced virtual members
+      const activeMembers = allMembers.filter(m => {
+        if (!m.isVirtual) return true; // Keep all real members
+        return !replacedMemberIds.has(m.id); // Keep virtual members that haven't been replaced
+      });
+
+      const updatedGroup = { ...group, members: activeMembers };
+      if (activeMembers.length > 0) {
         await db.saveGroup(updatedGroup);
       }
 
@@ -580,9 +607,17 @@ export const AppProvider: Component<{ children: JSX.Element }> = (props) => {
           if (updatedGroupId === groupId) {
             await refreshEntries(groupId, group.currentKeyVersion);
 
-            // Update members from Loro
-            const updatedMembers = store.getMembers();
-            const refreshedGroup = { ...group, members: updatedMembers };
+            // Update members from Loro (filter out replaced virtual members)
+            const allUpdatedMembers = store.getMembers();
+            const updatedAliases = store.getMemberAliases();
+            const updatedReplacedMemberIds = new Set(updatedAliases.map(a => a.existingMemberId));
+
+            const filteredMembers = allUpdatedMembers.filter(m => {
+              if (!m.isVirtual) return true;
+              return !updatedReplacedMemberIds.has(m.id);
+            });
+
+            const refreshedGroup = { ...group, members: filteredMembers };
             await db.saveGroup(refreshedGroup);
             setActiveGroup(refreshedGroup);
 
@@ -689,7 +724,8 @@ export const AppProvider: Component<{ children: JSX.Element }> = (props) => {
 
       // Calculate balances (always use only active entries for balance calculation)
       const activeEntries = await store.getActiveEntries(groupId, groupKey);
-      const calculatedBalances = calculateBalances(activeEntries);
+      const memberAliases = store.getMemberAliases();
+      const calculatedBalances = calculateBalances(activeEntries, memberAliases);
       setBalances(calculatedBalances);
 
       // Generate activities from ALL entries (including all versions for audit trail)
@@ -1341,6 +1377,16 @@ export const AppProvider: Component<{ children: JSX.Element }> = (props) => {
         });
       }
 
+      // Update the group with filtered members (excluding replaced virtual members)
+      const finalAliases = newLoroStore.getMemberAliases();
+      const finalReplacedMemberIds = new Set(finalAliases.map(a => a.existingMemberId));
+      const finalMembers = newLoroStore.getMembers().filter(m => {
+        if (!m.isVirtual) return true;
+        return !finalReplacedMemberIds.has(m.id);
+      });
+      const updatedGroup = { ...group, members: finalMembers };
+      await db.saveGroup(updatedGroup);
+
       // Update groups list
       const allGroups = await db.getAllGroups();
       setGroups(allGroups);
@@ -1980,13 +2026,17 @@ export const AppProvider: Component<{ children: JSX.Element }> = (props) => {
 
       // Get active entries and calculate balances
       const activeEntries = await tempStore.getActiveEntries(groupId, groupKey);
-      const calculatedBalances = calculateBalances(activeEntries);
+      const memberAliases = tempStore.getMemberAliases();
+      const calculatedBalances = calculateBalances(activeEntries, memberAliases);
 
-      // Find user's member ID in this group
-      // The user's member ID is their public key hash
+      // Find user's member ID in this group (considering aliases)
+      // The balance calculator uses canonical (existing) member IDs
       const userMemberId = currentIdentity.publicKeyHash;
 
-      return calculatedBalances.get(userMemberId) || null;
+      // Resolve to canonical ID (if user claimed a virtual member)
+      const canonicalUserId = tempStore.resolveCanonicalMemberId(userMemberId);
+
+      return calculatedBalances.get(canonicalUserId) || null;
     } catch (err) {
       console.error('Failed to get group balance:', err);
       return null;

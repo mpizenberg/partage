@@ -21,6 +21,7 @@ export const GroupViewScreen: Component = () => {
     modifyTransfer,
     editingEntry,
     setEditingEntry,
+    loroStore,
   } = useAppContext()
   const [activeTab, setActiveTab] = createSignal<TabType>('balance')
   const [showAddEntry, setShowAddEntry] = createSignal(false)
@@ -65,7 +66,13 @@ export const GroupViewScreen: Component = () => {
   const myBalance = () => {
     const userIdentity = identity()
     if (!userIdentity) return null
-    return balances().get(userIdentity.publicKeyHash)
+
+    // Resolve to canonical ID (if user claimed a virtual member)
+    const store = loroStore()
+    if (!store) return balances().get(userIdentity.publicKeyHash)
+
+    const canonicalUserId = store.resolveCanonicalMemberId(userIdentity.publicKeyHash)
+    return balances().get(canonicalUserId)
   }
 
   const getBalanceText = (): string => {
