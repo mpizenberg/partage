@@ -10,6 +10,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:ui": "vitest --ui",
+    "test:bench": "vitest run src/benchmarks/",
     "typecheck": "tsc --noEmit",
     "lint": "eslint src --ext ts,tsx",
     "clean": "rm -rf dist node_modules .vite"
