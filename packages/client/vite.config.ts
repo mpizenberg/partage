@@ -73,14 +73,11 @@ export default defineConfig({
     port: 5173,
     https: true,
     proxy: {
-      '/api': {
-        target: 'http://127.0.0.1:8090', // PocketBase on HTTP
-        changeOrigin: true,
-        secure: false,
-      },
-      '/_/': {
+      // requires the following in .env: VITE_POCKETBASE_URL=/pb
+      '/pb': {
         target: 'http://127.0.0.1:8090', // PocketBase realtime endpoint
         changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/pb/, ''),
         secure: false,
         ws: true, // WebSocket support for real-time subscriptions
       },
