@@ -9,6 +9,9 @@ build/
 .vite/
 *.tsbuildinfo
 
+# Vite/Vitest temporary files
+*.timestamp-*
+
 # TypeScript compiled files (Vite handles TS compilation)
 packages/*/src/**/*.js
 packages/*/src/**/*.jsx

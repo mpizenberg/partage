@@ -64,7 +64,7 @@ export async function verify(
       signature as BufferSource,
       data as BufferSource
     );
-  } catch (error) {
+  } catch {
     // If verification throws (e.g., invalid key), treat as failed verification
     return false;
   }

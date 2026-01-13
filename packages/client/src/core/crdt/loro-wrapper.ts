@@ -342,7 +342,8 @@ export class LoroEntryStore {
     try {
       const payload = await this.decryptPayload(metadata.encryptedPayload, groupKey);
       return this.mergeEntry(metadata, payload);
-    } catch (primaryError) {
+    } catch {
+      // Ignore decryption failure, try with versioned key below
     }
 
     // 2) Resolve the correct group key version for this entry (with caching).

@@ -1324,7 +1324,7 @@ export const AppProvider: Component<{ children: JSX.Element }> = (props) => {
       let groupRecord;
       try {
         groupRecord = await pbClient.getGroup(groupId);
-      } catch (err) {
+      } catch {
         console.warn('Could not fetch group metadata, using defaults');
       }
 

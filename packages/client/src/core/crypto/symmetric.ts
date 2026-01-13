@@ -69,7 +69,7 @@ export async function decrypt(encrypted: EncryptedData, key: CryptoKey): Promise
     );
 
     return new Uint8Array(decryptedBuffer);
-  } catch (error) {
+  } catch {
     throw new Error('Decryption failed: Invalid key or corrupted data');
   }
 }

@@ -104,7 +104,7 @@ export function extractGroupNameFromUrl(fullUrl: string): string | null {
   try {
     const url = new URL(fullUrl);
     return url.searchParams.get('name');
-  } catch (error) {
+  } catch {
     return null;
   }
 }

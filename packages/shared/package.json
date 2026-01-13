@@ -10,8 +10,8 @@
     "./types/*": "./src/types/*"
   },
   "scripts": {
-    "test": "vitest run",
-    "test:watch": "vitest",
+    "test": "vitest run --passWithNoTests",
+    "test:watch": "vitest --passWithNoTests",
     "typecheck": "tsc --noEmit",
     "lint": "eslint src --ext ts",
     "clean": "rm -rf dist node_modules"
