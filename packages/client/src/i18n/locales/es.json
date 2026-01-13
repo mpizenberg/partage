@@ -436,6 +436,11 @@
     "enableTitle": "Mantente actualizado con notificaciones",
     "enableDescription": "Recibe notificaciones cuando se agregan gastos o cambian tus balances",
     "enable": "Activar",
-    "notNow": "Ahora no"
+    "notNow": "Ahora no",
+    "enablePush": "Activar Notificaciones Push",
+    "backgroundPush": "Notificaciones en segundo plano (NTFY)",
+    "ntfyDescription": "Para recibir notificaciones cuando la app está cerrada, suscríbete a esta URL usando la aplicación NTFY:",
+    "openNtfy": "Abrir en NTFY",
+    "ntfyHint": "Instala NTFY en tu teléfono, luego suscríbete a esta URL para recibir notificaciones incluso cuando Partage está cerrado."
   }
 }

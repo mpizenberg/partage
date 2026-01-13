@@ -2461,3 +2461,56 @@ body:has(.offline-banner) .fab {
     width: 100%;
   }
 }
+
+/* NTFY Subscribe Component */
+.ntfy-subscribe {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.ntfy-subscribe-info {
+  background: var(--color-bg-secondary);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  padding: var(--space-md);
+  width: 100%;
+  max-width: 500px;
+}
+
+.ntfy-subscribe-description {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-light);
+  margin: 0 0 var(--space-sm) 0;
+  line-height: 1.5;
+}
+
+.ntfy-subscribe-url {
+  background: var(--color-bg);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  padding: var(--space-sm) var(--space-md);
+  margin-bottom: var(--space-md);
+  overflow-x: auto;
+}
+
+.ntfy-subscribe-url code {
+  font-family: var(--font-mono);
+  font-size: var(--font-size-sm);
+  color: var(--color-primary);
+  word-break: break-all;
+}
+
+.ntfy-subscribe-actions {
+  display: flex;
+  gap: var(--space-sm);
+  flex-wrap: wrap;
+  margin-bottom: var(--space-sm);
+}
+
+.ntfy-subscribe-hint {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+  margin: 0;
+  line-height: 1.4;
+}

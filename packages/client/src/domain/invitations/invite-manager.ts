@@ -50,7 +50,7 @@ export function generateInviteLink(
   const keyBase64Url = base64ToBase64Url(groupKeyBase64);
   const baseUrl = `${window.location.origin}/#/join/${groupId}/${keyBase64Url}`;
 
-  // Optionally append group name as query parameter (not in fragment)
+  // Append group name as query parameter in the fragment (for hash routing)
   if (groupName) {
     return `${baseUrl}?name=${encodeURIComponent(groupName)}`;
   }

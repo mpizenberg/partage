@@ -435,6 +435,11 @@
     "enableTitle": "Stay updated with notifications",
     "enableDescription": "Get notified when expenses are added or your balances change",
     "enable": "Enable",
-    "notNow": "Not now"
+    "notNow": "Not now",
+    "enablePush": "Enable Push Notifications",
+    "backgroundPush": "Background Notifications (NTFY)",
+    "ntfyDescription": "To receive notifications when the app is closed, subscribe to this URL using the NTFY app:",
+    "openNtfy": "Open in NTFY",
+    "ntfyHint": "Install NTFY on your phone, then subscribe to this URL to get notifications even when Partage is closed."
   }
 }

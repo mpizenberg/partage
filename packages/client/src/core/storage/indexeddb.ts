@@ -21,6 +21,7 @@ const STORES = {
   GROUP_KEYS: 'groupKeys',
   LORO_SNAPSHOTS: 'loroSnapshots',
   PENDING_OPS: 'pendingOperations',
+  SW_NOTIFICATION_STATE: 'swNotificationState',
 } as const;
 
 // Database schema interfaces
@@ -129,6 +130,11 @@ export class PartageDB {
         if (!db.objectStoreNames.contains(STORES.PENDING_OPS)) {
           const pendingOpsStore = db.createObjectStore(STORES.PENDING_OPS, { keyPath: 'id' });
           pendingOpsStore.createIndex('groupId', 'groupId', { unique: false });
+        }
+
+        // Service worker notification state store (for background sync)
+        if (!db.objectStoreNames.contains(STORES.SW_NOTIFICATION_STATE)) {
+          db.createObjectStore(STORES.SW_NOTIFICATION_STATE, { keyPath: 'id' });
         }
       };
     });

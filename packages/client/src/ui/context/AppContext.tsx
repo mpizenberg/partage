@@ -54,6 +54,7 @@ import type {
 } from '@partage/shared';
 import { DEFAULT_GROUP_SETTINGS } from '@partage/shared';
 import { generateInviteLink } from '../../domain/invitations/invite-manager';
+import { publishNotification } from '../../domain/notifications/ntfy-client';
 
 // Expense form data interface
 export interface ExpenseFormData {
@@ -107,6 +108,7 @@ interface AppContextValue {
   ) => Promise<void>;
   selectGroup: (groupId: string) => Promise<void>;
   deselectGroup: () => void;
+  getActiveGroupKey: () => Promise<CryptoKey | null>;
 
   // Members for active group
   members: Accessor<Member[]>;
@@ -668,6 +670,17 @@ export const AppProvider: Component<{ children: JSX.Element }> = (props) => {
     });
   };
 
+  // Get the cryptographic key for the active group
+  const getActiveGroupKey = async (): Promise<CryptoKey | null> => {
+    const group = activeGroup();
+    if (!group) return null;
+
+    const keyString = await db.getGroupKey(group.id);
+    if (!keyString) return null;
+
+    return importSymmetricKey(keyString);
+  };
+
   // Refresh entries from Loro store
   const refreshEntries = async (groupId: string, _keyVersion: number) => {
     try {
@@ -856,6 +869,14 @@ export const AppProvider: Component<{ children: JSX.Element }> = (props) => {
 
       // Refresh UI incrementally (faster than full regeneration)
       await refreshEntriesIncremental(group.id, entry, null, 'add');
+
+      // Publish NTFY notification for other users
+      publishNotification({
+        groupId: group.id,
+        groupName: group.name,
+        groupKey,
+        actorId: currentIdentity.publicKeyHash,
+      }).catch(err => console.warn('[AppContext] Failed to publish NTFY notification:', err));
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to add expense');
       throw err;
@@ -937,6 +958,14 @@ export const AppProvider: Component<{ children: JSX.Element }> = (props) => {
 
       // Refresh UI incrementally (faster than full regeneration)
       await refreshEntriesIncremental(group.id, entry, null, 'add');
+
+      // Publish NTFY notification for other users
+      publishNotification({
+        groupId: group.id,
+        groupName: group.name,
+        groupKey,
+        actorId: currentIdentity.publicKeyHash,
+      }).catch(err => console.warn('[AppContext] Failed to publish NTFY notification:', err));
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to add transfer');
       throw err;
@@ -1024,6 +1053,14 @@ export const AppProvider: Component<{ children: JSX.Element }> = (props) => {
       // Refresh UI incrementally (faster than full regeneration)
       await refreshEntriesIncremental(group.id, updatedEntry, originalEntry, 'modify');
 
+      // Publish NTFY notification for other users
+      publishNotification({
+        groupId: group.id,
+        groupName: group.name,
+        groupKey,
+        actorId: currentIdentity.publicKeyHash,
+      }).catch(err => console.warn('[AppContext] Failed to publish NTFY notification:', err));
+
       // Clear editing state
       setEditingEntry(null);
     } catch (err) {
@@ -1110,6 +1147,14 @@ export const AppProvider: Component<{ children: JSX.Element }> = (props) => {
       // Refresh UI incrementally (faster than full regeneration)
       await refreshEntriesIncremental(group.id, updatedEntry, originalEntry, 'modify');
 
+      // Publish NTFY notification for other users
+      publishNotification({
+        groupId: group.id,
+        groupName: group.name,
+        groupKey,
+        actorId: currentIdentity.publicKeyHash,
+      }).catch(err => console.warn('[AppContext] Failed to publish NTFY notification:', err));
+
       // Clear editing state
       setEditingEntry(null);
     } catch (err) {
@@ -1185,6 +1230,14 @@ export const AppProvider: Component<{ children: JSX.Element }> = (props) => {
 
       // Refresh UI incrementally (faster than full regeneration)
       await refreshEntriesIncremental(group.id, deletedEntry, originalEntry, 'delete');
+
+      // Publish NTFY notification for other users
+      publishNotification({
+        groupId: group.id,
+        groupName: group.name,
+        groupKey,
+        actorId: currentIdentity.publicKeyHash,
+      }).catch(err => console.warn('[AppContext] Failed to publish NTFY notification:', err));
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to delete entry');
       throw err;
@@ -1257,6 +1310,14 @@ export const AppProvider: Component<{ children: JSX.Element }> = (props) => {
 
       // Refresh UI incrementally (faster than full regeneration)
       await refreshEntriesIncremental(group.id, undeletedEntry, deletedEntry, 'undelete');
+
+      // Publish NTFY notification for other users
+      publishNotification({
+        groupId: group.id,
+        groupName: group.name,
+        groupKey,
+        actorId: currentIdentity.publicKeyHash,
+      }).catch(err => console.warn('[AppContext] Failed to publish NTFY notification:', err));
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to undelete entry');
       throw err;
@@ -1400,6 +1461,16 @@ export const AppProvider: Component<{ children: JSX.Element }> = (props) => {
           updateData: PocketBaseClient.encodeUpdateData(updateBytes),
           version: PocketBaseClient.serializeVersion(version),
         });
+
+        // Publish NTFY notification for other users
+        const groupName = groupRecord?.name || 'Group';
+        const groupKey = await importSymmetricKey(groupKeyBase64);
+        publishNotification({
+          groupId,
+          groupName,
+          groupKey,
+          actorId: currentIdentity.publicKeyHash,
+        }).catch(err => console.warn('[AppContext] Failed to publish NTFY notification:', err));
       }
 
       // Update the group with filtered members using event-based system or legacy fallback
@@ -2068,6 +2139,7 @@ export const AppProvider: Component<{ children: JSX.Element }> = (props) => {
     createGroup,
     selectGroup,
     deselectGroup,
+    getActiveGroupKey,
     members,
     addVirtualMember,
     renameMember,
