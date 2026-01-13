@@ -37,13 +37,18 @@ export interface CreateGroupScreenProps {
 }
 
 export const CreateGroupScreen: Component<CreateGroupScreenProps> = (props) => {
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
   const { identity, createGroup, isLoading, error, clearError } = useAppContext();
+
+  // Pre-select currency based on language
+  const getDefaultCurrency = (): string => {
+    return locale() === 'fr' ? 'EUR' : 'USD';
+  };
 
   // Form state
   const [groupName, setGroupName] = createSignal('');
-  const [currency, setCurrency] = createSignal('USD');
-  const [myName, setMyName] = createSignal(t('common.you'));
+  const [currency, setCurrency] = createSignal(getDefaultCurrency());
+  const [myName, setMyName] = createSignal('');
   const [members, setMembers] = createSignal<Member[]>([]);
   const [validationError, setValidationError] = createSignal<string | null>(null);
 
@@ -82,6 +87,11 @@ export const CreateGroupScreen: Component<CreateGroupScreenProps> = (props) => {
 
     if (!groupName().trim()) {
       setValidationError(t('createGroup.groupNameRequired'));
+      return false;
+    }
+
+    if (!myName().trim()) {
+      setValidationError(t('createGroup.yourNameRequired'));
       return false;
     }
 
@@ -208,7 +218,12 @@ export const CreateGroupScreen: Component<CreateGroupScreenProps> = (props) => {
             >
               {t('common.cancel')}
             </Button>
-            <Button type="submit" variant="primary" disabled={isLoading()} class="flex-1">
+            <Button
+              type="submit"
+              variant="primary"
+              disabled={isLoading() || !groupName().trim() || !myName().trim()}
+              class="flex-1"
+            >
               <Show when={isLoading()} fallback={t('createGroup.createButton')}>
                 <LoadingSpinner size="small" />
               </Show>
