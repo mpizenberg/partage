@@ -10,14 +10,14 @@
  * 5. Sync to server and navigate to group
  */
 
-import { Component, createSignal, onMount, Show, For } from 'solid-js';
+import { Component, createSignal, onMount, Show, For, createEffect } from 'solid-js';
 import { useNavigate, useParams } from '@solidjs/router';
 import { useI18n } from '../../i18n';
 import { useAppContext } from '../context/AppContext';
 import { Button } from '../components/common/Button';
 import { Input } from '../components/common/Input';
-import { Select } from '../components/common/Select';
 import { LoadingSpinner } from '../components/common/LoadingSpinner';
+import { LanguageSwitcher } from '../components/common/LanguageSwitcher';
 import { pbClient, PocketBaseClient } from '../../api';
 import type { Member } from '@partage/shared';
 
@@ -42,14 +42,45 @@ export const JoinGroupScreen: Component = () => {
   const [groupName, setGroupName] = createSignal<string>('');
   const [groupKeyBase64, setGroupKeyBase64] = createSignal<string>('');
   const [existingMembers, setExistingMembers] = createSignal<Member[]>([]);
+  const [claimedVirtualMemberIds, setClaimedVirtualMemberIds] = createSignal<Set<string>>(new Set());
   const [userName, setUserName] = createSignal('');
-  const [selectedExistingMember, setSelectedExistingMember] = createSignal<string | null>(null);
-  const [joinAsNewMember, setJoinAsNewMember] = createSignal(true);
   const [loading, setLoading] = createSignal(false);
   const [error, setError] = createSignal<string | null>(null);
   const [status, setStatus] = createSignal<
     'loading' | 'ready' | 'joining' | 'success' | 'error'
   >('loading');
+  const [showRealMembers, setShowRealMembers] = createSignal(false);
+  const [nameError, setNameError] = createSignal<string>('');
+
+  // Separate members into virtual (unclaimed) and real
+  const virtualMembers = () =>
+    existingMembers()
+      .filter(m => m.isVirtual === true)
+      .filter(m => !claimedVirtualMemberIds().has(m.id));
+
+  const realMembers = () =>
+    existingMembers().filter(m => m.isVirtual !== true);
+
+  // Validate that name is not already taken
+  const validateName = (name: string): boolean => {
+    const trimmedName = name.trim();
+    if (!trimmedName) {
+      setNameError(t('joinGroup.nameRequired'));
+      return false;
+    }
+    if (existingMembers().some(m => m.name === trimmedName)) {
+      setNameError(t('joinGroup.duplicateName'));
+      return false;
+    }
+    setNameError('');
+    return true;
+  };
+
+  createEffect(() => {
+    if (userName()) {
+      validateName(userName());
+    }
+  });
 
   onMount(async () => {
     try {
@@ -110,6 +141,16 @@ export const JoinGroupScreen: Component = () => {
 
         const members = tempStore.getMembers();
         setExistingMembers(members.filter(m => m.status === 'active'));
+
+        // Get member aliases to identify which virtual members have been claimed
+        const aliases = tempStore.getMemberAliases();
+        const claimed = new Set(aliases.map(a => a.existingMemberId));
+        setClaimedVirtualMemberIds(claimed);
+      }
+
+      // Auto-expand real members list if no unclaimed virtual members
+      if (virtualMembers().length === 0 && realMembers().length > 0) {
+        setShowRealMembers(true);
       }
 
       setStatus('ready');
@@ -120,17 +161,12 @@ export const JoinGroupScreen: Component = () => {
     }
   });
 
-  const handleJoinGroup = async (e: Event) => {
-    e.preventDefault();
-
-    if (joinAsNewMember() && !userName().trim()) {
-      setError(t('joinGroup.nameRequired'));
-      return;
-    }
-
-    if (!joinAsNewMember() && !selectedExistingMember()) {
-      setError(t('joinGroup.selectMemberRequired'));
-      return;
+  const handleJoinGroup = async (memberId?: string) => {
+    // Validate if joining as new member
+    if (!memberId) {
+      if (!validateName(userName())) {
+        return;
+      }
     }
 
     setLoading(true);
@@ -145,12 +181,16 @@ export const JoinGroupScreen: Component = () => {
         throw new Error('Identity not found');
       }
 
+      const memberName = memberId
+        ? existingMembers().find(m => m.id === memberId)?.name || ''
+        : userName();
+
       // Join the group using the simplified method (with converted Base64 key)
       await joinGroupWithKey(
         groupId,
         groupKeyBase64(),
-        joinAsNewMember() ? userName() : existingMembers().find(m => m.id === selectedExistingMember())?.name || userName(),
-        joinAsNewMember() ? undefined : selectedExistingMember() || undefined
+        memberName,
+        memberId // Pass memberId if claiming existing member
       );
 
       setStatus('success');
@@ -167,11 +207,23 @@ export const JoinGroupScreen: Component = () => {
   };
 
   return (
-    <div class="container" style="padding-top: var(--space-xl); max-width: 500px; margin: 0 auto;">
-      <div style="margin-bottom: var(--space-xl);">
-        <h1 style="font-size: var(--font-size-2xl); font-weight: var(--font-weight-bold); margin-bottom: var(--space-sm);">
+    <div class="container" style="padding-top: var(--space-xl); max-width: 500px; margin: 0 auto; padding-bottom: var(--space-xl);">
+      {/* Language switcher in top-right corner */}
+      <div style="position: absolute; top: 1rem; right: 1rem;">
+        <LanguageSwitcher />
+      </div>
+
+      {/* Header */}
+      <div style="margin-bottom: var(--space-lg);">
+        <h1 style="font-size: var(--font-size-2xl); font-weight: var(--font-weight-bold); margin-bottom: var(--space-md);">
           {t('joinGroup.title')}
         </h1>
+        <p style="color: var(--color-text); margin-bottom: var(--space-sm);">
+          {t('setup.subtitle')}
+        </p>
+        <p style="color: var(--color-text-light); font-size: var(--font-size-sm);">
+          {t('setup.privacy')}
+        </p>
       </div>
 
       <div>
@@ -195,107 +247,127 @@ export const JoinGroupScreen: Component = () => {
 
           <Show when={status() === 'ready'}>
             <div class="card" style="padding: var(--space-lg);">
+              {/* Group name header */}
               <div style="margin-bottom: var(--space-lg); text-align: center;">
-                <h2 style="font-size: var(--font-size-xl); font-weight: var(--font-weight-bold); color: var(--color-text); margin-bottom: var(--space-sm);">
+                <h2 style="font-size: var(--font-size-xl); font-weight: var(--font-weight-bold); color: var(--color-text);">
                   {groupName()}
                 </h2>
-                <p style="color: var(--color-text-light);">
-                  {t('joinGroup.selectIdentity')}
-                </p>
               </div>
 
-              <form onSubmit={handleJoinGroup}>
-                {/* Choice: New member or existing member */}
-                <div class="form-group">
-                  <label class="form-label">{t('joinGroup.selectIdentity')}</label>
-                  <div style="display: flex; gap: var(--space-sm); margin-bottom: var(--space-md);">
-                    <div style="flex: 1;">
-                      <Button
-                        type="button"
-                        variant={joinAsNewMember() ? 'primary' : 'secondary'}
-                        onClick={() => {
-                          setJoinAsNewMember(true);
-                          setSelectedExistingMember(null);
-                        }}
-                        class="btn-full-width"
-                      >
-                        {t('joinGroup.newMember')}
-                      </Button>
-                    </div>
-                    <div style="flex: 1;">
-                      <Button
-                        type="button"
-                        variant={!joinAsNewMember() ? 'primary' : 'secondary'}
-                        onClick={() => setJoinAsNewMember(false)}
-                        disabled={existingMembers().length === 0}
-                        class="btn-full-width"
-                      >
-                        {t('joinGroup.existingMember')}
-                      </Button>
-                    </div>
+              {/* Virtual members: Join as existing virtual member */}
+              <Show when={virtualMembers().length > 0}>
+                <div style="margin-bottom: var(--space-lg);">
+                  <p style="font-size: var(--font-size-sm); font-weight: var(--font-weight-semibold); margin-bottom: var(--space-md); color: var(--color-text);">
+                    {t('joinGroup.areYouOneOfThese')}
+                  </p>
+                  <div style="display: flex; flex-direction: column; gap: var(--space-sm);">
+                    <For each={virtualMembers()}>
+                      {(member) => (
+                        <Button
+                          variant="secondary"
+                          onClick={() => handleJoinGroup(member.id)}
+                          disabled={loading()}
+                          class="btn-full-width"
+                        >
+                          {member.name}
+                        </Button>
+                      )}
+                    </For>
                   </div>
                 </div>
+              </Show>
 
-                {/* New member: enter name */}
-                <Show when={joinAsNewMember()}>
-                  <div class="form-group">
-                    <label class="form-label">{t('joinGroup.enterName')}</label>
+              {/* Real members: Re-join as existing real member (collapsed/expanded based on context) */}
+              <Show when={realMembers().length > 0}>
+                <div style="margin-bottom: var(--space-lg); border-top: 1px solid var(--color-border); padding-top: var(--space-md);">
+                  <button
+                    type="button"
+                    onClick={() => setShowRealMembers(!showRealMembers())}
+                    style="
+                      background: none;
+                      border: none;
+                      padding: 0;
+                      cursor: pointer;
+                      font-size: var(--font-size-sm);
+                      font-weight: var(--font-weight-semibold);
+                      color: var(--color-text);
+                      display: flex;
+                      align-items: center;
+                      gap: var(--space-xs);
+                      margin-bottom: var(--space-md);
+                      width: 100%;
+                    "
+                  >
+                    <span>
+                      {t('joinGroup.rejoinAs')}
+                      <Show when={virtualMembers().length > 0}>
+                        <span style="font-size: var(--font-size-xs); color: var(--color-text-light); margin-left: var(--space-xs);">
+                          {t('joinGroup.clickToExpand')}
+                        </span>
+                      </Show>
+                    </span>
+                    <span style="margin-left: auto;">
+                      {showRealMembers() ? '▼' : '▶'}
+                    </span>
+                  </button>
+
+                  <Show when={showRealMembers()}>
+                    <div style="display: flex; flex-direction: column; gap: var(--space-sm);">
+                      <For each={realMembers()}>
+                        {(member) => (
+                          <Button
+                            variant="secondary"
+                            onClick={() => handleJoinGroup(member.id)}
+                            disabled={loading()}
+                            class="btn-full-width"
+                          >
+                            {member.name}
+                          </Button>
+                        )}
+                      </For>
+                    </div>
+                  </Show>
+                </div>
+              </Show>
+
+              {/* New member form */}
+              <div style="border-top: 1px solid var(--color-border); padding-top: var(--space-md);">
+                <p style="font-size: var(--font-size-sm); font-weight: var(--font-weight-semibold); margin-bottom: var(--space-md); color: var(--color-text);">
+                  {t('joinGroup.joinAsNewMember')}
+                </p>
+
+                <div style="display: flex; gap: var(--space-sm);">
+                  <div style="flex: 1;">
                     <Input
                       type="text"
                       value={userName()}
                       onInput={(e) => setUserName(e.currentTarget.value)}
                       placeholder={t('joinGroup.namePlaceholder')}
-                      required
+                      error={!!nameError()}
+                      disabled={loading()}
                     />
+                    <Show when={nameError()}>
+                      <p class="error-message" style="margin-top: var(--space-xs); font-size: var(--font-size-sm);">
+                        {nameError()}
+                      </p>
+                    </Show>
                   </div>
-                </Show>
-
-                {/* Existing member: select from list */}
-                <Show when={!joinAsNewMember()}>
-                  <div class="form-group">
-                    <label class="form-label">{t('joinGroup.selectMember')}</label>
-                    <Select
-                      value={selectedExistingMember() || ''}
-                      onChange={(e) => setSelectedExistingMember(e.currentTarget.value)}
-                      required
-                    >
-                      <option value="" disabled>
-                        {t('validation.selectOption')}
-                      </option>
-                      <For each={existingMembers()}>
-                        {(member) => (
-                          <option value={member.id}>{member.name}</option>
-                        )}
-                      </For>
-                    </Select>
-                    <p class="text-secondary text-small" style="margin-top: var(--space-xs);">
-                      {t('joinGroup.claimIdentityNote')}
-                    </p>
-                  </div>
-                </Show>
-
-                <Show when={error()}>
-                  <p class="error-message">{error()}</p>
-                </Show>
-
-                <div style="display: flex; flex-direction: column; gap: var(--space-sm); margin-top: var(--space-lg);">
                   <Button
-                    type="submit"
                     variant="primary"
-                    disabled={
-                      loading() ||
-                      (joinAsNewMember() && !userName().trim()) ||
-                      (!joinAsNewMember() && !selectedExistingMember())
-                    }
-                    class="btn-full-width"
+                    onClick={() => handleJoinGroup()}
+                    disabled={loading() || !userName().trim() || !!nameError()}
                   >
-                    {loading() ? t('joinGroup.joining') : t('joinGroup.joinButton')}
-                  </Button>
-                  <Button variant="secondary" onClick={() => navigate('/')} class="btn-full-width">
-                    {t('common.cancel')}
+                    {loading() ? t('joinGroup.joining') : t('common.ok')}
                   </Button>
                 </div>
-              </form>
+              </div>
+
+              {/* Global error message */}
+              <Show when={error()}>
+                <p class="error-message" style="margin-top: var(--space-md);">
+                  {error()}
+                </p>
+              </Show>
             </div>
           </Show>
 

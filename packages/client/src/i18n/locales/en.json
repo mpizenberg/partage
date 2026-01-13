@@ -85,7 +85,13 @@
     "selectMemberRequired": "Please select a member",
     "claimIdentityNote": "Claiming this identity will link your transactions under this name",
     "joinButton": "Join Group",
-    "joining": "Joining..."
+    "joining": "Joining...",
+    "areYouOneOfThese": "Are you one of these?",
+    "rejoinAs": "Re-join as:",
+    "clickToExpand": "(click to expand)",
+    "joinAsNewMember": "Join as a new member:",
+    "nameTaken": "This name is already taken",
+    "duplicateName": "A member with this name already exists"
   },
 
   "tabs": {

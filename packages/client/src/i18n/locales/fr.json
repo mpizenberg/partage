@@ -85,7 +85,13 @@
     "selectMemberRequired": "Veuillez sélectionner un membre",
     "claimIdentityNote": "Réclamer cette identité liera vos transactions sous ce nom",
     "joinButton": "Rejoindre le groupe",
-    "joining": "Connexion..."
+    "joining": "Connexion...",
+    "areYouOneOfThese": "Êtes-vous l'un d'eux ?",
+    "rejoinAs": "Rejoindre à nouveau en tant que :",
+    "clickToExpand": "(cliquer pour développer)",
+    "joinAsNewMember": "Rejoindre en tant que nouveau membre :",
+    "nameTaken": "Ce nom est déjà utilisé",
+    "duplicateName": "Un membre avec ce nom existe déjà"
   },
 
   "tabs": {
