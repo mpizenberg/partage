@@ -7,7 +7,10 @@ export const Footer: Component = () => {
   return (
     <footer class="footer">
       <div class="footer-content">
-        <span class="footer-brand">⚡ partage</span>
+        <span class="footer-brand">
+          <img src="/favicon.svg" alt="Partage" class="footer-icon" />
+          partage
+        </span>
         <span class="footer-separator">|</span>
         <a
           href="https://github.com/mpizenberg/partage"

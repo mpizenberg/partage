@@ -91,6 +91,7 @@
 .setup-container {
   max-width: 500px;
   margin: 0 auto;
+  padding-bottom: 60px; /* Space for footer (40px) + extra margin (20px) */
 }
 
 .setup-box {
@@ -413,7 +414,7 @@
 
 /* Group Selection */
 .group-selection-screen {
-  /* Container styling */
+  padding-bottom: 60px; /* Space for footer (40px) + extra margin (20px) */
 }
 
 .group-list {
@@ -495,7 +496,7 @@
 
 /* Create Group Screen */
 .create-group-screen {
-  /* Container styling */
+  padding-bottom: 60px; /* Space for footer (40px) + extra margin (20px) */
 }
 
 /* Group View Screen */
@@ -2267,8 +2268,17 @@ body:has(.offline-banner) .fab {
 }
 
 .footer-brand {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
   font-weight: var(--font-weight-semibold);
   color: var(--color-text);
+}
+
+.footer-icon {
+  width: 20px;
+  height: 20px;
+  display: block;
 }
 
 .footer-separator {

@@ -229,7 +229,7 @@ export const JoinGroupScreen: Component = () => {
   };
 
   return (
-    <div class="container" style="padding-top: var(--space-xl); max-width: 500px; margin: 0 auto; padding-bottom: var(--space-xl);">
+    <div class="container" style="padding-top: var(--space-xl); max-width: 500px; margin: 0 auto; padding-bottom: 60px;">
       {/* Language switcher in top-right corner */}
       <div style="position: absolute; top: 1rem; right: 1rem;">
         <LanguageSwitcher />
