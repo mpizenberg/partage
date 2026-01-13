@@ -6,7 +6,7 @@
 
 ## Executive Summary
 
-Analysis of the Partage codebase identified several performance patterns that could impact user experience at scale. All HIGH and MEDIUM priority issues have been fixed:
+Analysis of the Partage codebase identified several performance patterns that could impact user experience at scale. All HIGH and MEDIUM priority issues have been fixed, plus one LOW priority optimization:
 
 1. ✅ **Key Import Overhead** - Fixed with key caching (~62% savings measured)
 2. ✅ **Sequential Entry Decryption** - Fixed with parallel decryption (~2x speedup)
@@ -14,6 +14,7 @@ Analysis of the Partage codebase identified several performance patterns that co
 4. ✅ **Sequential Network Calls** - Fixed with parallel health check syncs
 5. ✅ **Batch IndexedDB writes** - Fixed with atomic replaceQueuedOperations
 6. ✅ **Linear Creditor Search** - Fixed with Map-based lookup
+7. ✅ **Activity Feed Regeneration** - Fixed with incremental updates (O(log n) vs O(n log n))
 
 ## Benchmark Results (After Optimizations)
 
@@ -200,11 +201,21 @@ const creditor = creditorMap.get(preferredId);
 **Impact**: Latency × page count
 **Note**: Acceptable for current scale, consider streaming for >1000 updates
 
-#### 8. Activity Feed Full Regeneration (activity-generator.ts)
+#### 8. ✅ Activity Feed Incremental Updates (activity-generator.ts, AppContext.tsx)
 
-**Problem**: Regenerates all activities on every entry change
-**Impact**: O(entries) sorting per update
-**Fix**: Incremental activity updates (future optimization)
+**Problem**: Regenerated all activities on every entry change (O(n log n) where n = total entry versions)
+**Impact**: Wasted CPU cycles sorting hundreds of entries for each add/modify/delete
+**Fix**: Implemented incremental activity generation (O(log n) binary search + O(n) array copy)
+
+**Implementation**:
+- Added `generateActivityForNewEntry()` for add operations
+- Added `generateActivityForModifiedEntry()` for modify operations
+- Added `generateActivityForDeletedEntry()` for delete operations
+- Added `generateActivityForUndeletedEntry()` for undelete operations
+- Added `insertActivitySorted()` for O(log n) insertion using binary search
+- Updated `addExpense`, `addTransfer`, `modifyExpense`, `modifyTransfer`, `deleteEntry`, `undeleteEntry` to use incremental refresh
+
+**Performance**: From O(n log n) full regeneration to O(log n) insertion for each operation
 
 ## Testing & Monitoring
 
@@ -243,7 +254,7 @@ async function timedGetAllEntries(...args) {
 
 ## Implementation Status
 
-All HIGH and MEDIUM priority optimizations have been implemented:
+All HIGH and MEDIUM priority optimizations have been implemented, plus one important LOW priority optimization:
 
 1. ✅ **Key caching** - `loro-wrapper.ts` - Added `keyCache` Map and `getCachedKey()` method
 2. ✅ **Member name memoization** - `BalanceTab.tsx`, `SettlementPlan.tsx` - Added `memberNameMap` createMemo
@@ -251,6 +262,7 @@ All HIGH and MEDIUM priority optimizations have been implemented:
 4. ✅ **Parallel health check** - `sync-manager.ts` - Changed to parallel sync with `Promise.all()`
 5. ✅ **Creditor Map lookup** - `balance-calculator.ts` - Added `creditorMap` for O(1) lookup
 6. ✅ **Batch offline queue** - `indexeddb.ts` - Added `replaceQueuedOperations()` for atomic batch writes
+7. ✅ **Incremental activities** - `activity-generator.ts`, `AppContext.tsx` - Added incremental generation functions and binary search insertion
 
 ## Files Modified
 
@@ -262,6 +274,8 @@ All HIGH and MEDIUM priority optimizations have been implemented:
 | `sync-manager.ts` | Parallel health check, batch offline queue via `replaceQueuedOperations` |
 | `balance-calculator.ts` | Added `creditorMap` for O(1) creditor lookup |
 | `indexeddb.ts` | Added `replaceQueuedOperations()` for atomic batch writes |
+| `activity-generator.ts` | Added incremental generation functions and `insertActivitySorted()` |
+| `AppContext.tsx` | Added `refreshEntriesIncremental()`, updated all entry operations |
 
 ## Validation
 

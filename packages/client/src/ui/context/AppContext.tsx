@@ -19,6 +19,11 @@ import {
 import {
   generateAllActivities,
   filterActivities,
+  generateActivityForNewEntry,
+  generateActivityForModifiedEntry,
+  generateActivityForDeletedEntry,
+  generateActivityForUndeletedEntry,
+  insertActivitySorted,
 } from '../../domain/calculations/activity-generator';
 import { SyncManager, type SyncState } from '../../core/sync';
 import { SnapshotManager } from '../../core/storage/snapshot-manager';
@@ -752,6 +757,67 @@ export const AppProvider: Component<{ children: JSX.Element }> = (props) => {
     }
   };
 
+  // Incremental refresh after adding/modifying/deleting a single entry
+  // This is much faster than regenerating all activities (O(log n) vs O(n log n))
+  const refreshEntriesIncremental = async (
+    groupId: string,
+    newEntry: Entry,
+    previousEntry: Entry | null,
+    operationType: 'add' | 'modify' | 'delete' | 'undelete'
+  ) => {
+    try {
+      const store = loroStore();
+      if (!store) return;
+
+      const keyString = await db.getGroupKey(groupId);
+      if (!keyString) {
+        throw new Error('Group key not found');
+      }
+      const groupKey = await importSymmetricKey(keyString);
+
+      // Update entries list
+      let allEntries: Entry[];
+      if (showDeleted()) {
+        allEntries = await store.getCurrentEntries(groupId, groupKey);
+      } else {
+        allEntries = await store.getActiveEntries(groupId, groupKey);
+      }
+      setEntries(allEntries);
+
+      // Recalculate balances
+      const activeEntries = await store.getActiveEntries(groupId, groupKey);
+      const memberAliases = store.getMemberAliases();
+      const calculatedBalances = calculateBalances(activeEntries, memberAliases);
+      setBalances(calculatedBalances);
+
+      // Generate single activity and insert incrementally
+      const currentMembers = members();
+      let newActivity: Activity;
+
+      switch (operationType) {
+        case 'add':
+          newActivity = generateActivityForNewEntry(newEntry, currentMembers, groupId);
+          break;
+        case 'modify':
+          newActivity = generateActivityForModifiedEntry(newEntry, previousEntry, currentMembers, groupId);
+          break;
+        case 'delete':
+          newActivity = generateActivityForDeletedEntry(newEntry, currentMembers, groupId);
+          break;
+        case 'undelete':
+          newActivity = generateActivityForUndeletedEntry(newEntry, currentMembers, groupId);
+          break;
+      }
+
+      // Insert activity in sorted order (O(log n) binary search + O(n) array copy)
+      const updatedActivities = insertActivitySorted(allActivities(), newActivity);
+      setAllActivities(updatedActivities);
+    } catch (err) {
+      console.error('Failed to refresh entries incrementally:', err);
+      setError(err instanceof Error ? err.message : 'Failed to update');
+    }
+  };
+
   // Add expense
   const addExpense = async (data: ExpenseFormData) => {
     try {
@@ -830,8 +896,8 @@ export const AppProvider: Component<{ children: JSX.Element }> = (props) => {
       // Save snapshot
       await snapshotManager().saveIncremental(group.id, store);
 
-      // Refresh UI
-      await refreshEntries(group.id, group.currentKeyVersion);
+      // Refresh UI incrementally (faster than full regeneration)
+      await refreshEntriesIncremental(group.id, entry, null, 'add');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to add expense');
       throw err;
@@ -913,8 +979,8 @@ export const AppProvider: Component<{ children: JSX.Element }> = (props) => {
       // Save snapshot
       await snapshotManager().saveIncremental(group.id, store);
 
-      // Refresh UI
-      await refreshEntries(group.id, group.currentKeyVersion);
+      // Refresh UI incrementally (faster than full regeneration)
+      await refreshEntriesIncremental(group.id, entry, null, 'add');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to add transfer');
       throw err;
@@ -1000,8 +1066,8 @@ export const AppProvider: Component<{ children: JSX.Element }> = (props) => {
       // Save snapshot
       await snapshotManager().saveIncremental(group.id, store);
 
-      // Refresh UI
-      await refreshEntries(group.id, group.currentKeyVersion);
+      // Refresh UI incrementally (faster than full regeneration)
+      await refreshEntriesIncremental(group.id, updatedEntry, originalEntry, 'modify');
 
       // Clear editing state
       setEditingEntry(null);
@@ -1087,8 +1153,8 @@ export const AppProvider: Component<{ children: JSX.Element }> = (props) => {
       // Save snapshot
       await snapshotManager().saveIncremental(group.id, store);
 
-      // Refresh UI
-      await refreshEntries(group.id, group.currentKeyVersion);
+      // Refresh UI incrementally (faster than full regeneration)
+      await refreshEntriesIncremental(group.id, updatedEntry, originalEntry, 'modify');
 
       // Clear editing state
       setEditingEntry(null);
@@ -1119,6 +1185,12 @@ export const AppProvider: Component<{ children: JSX.Element }> = (props) => {
       }
       const groupKey = await importSymmetricKey(keyString);
 
+      // Get original entry before deleting
+      const originalEntry = await store.getEntry(entryId, groupKey);
+      if (!originalEntry) {
+        throw new Error('Entry not found');
+      }
+
       // Get version BEFORE deleting entry
       const versionBefore = store.getVersion();
 
@@ -1130,6 +1202,12 @@ export const AppProvider: Component<{ children: JSX.Element }> = (props) => {
         group.currentKeyVersion,
         reason
       );
+
+      // Get the newly created deleted entry
+      const deletedEntry = await store.getEntry(newVersionId, groupKey);
+      if (!deletedEntry) {
+        throw new Error('Failed to get deleted entry');
+      }
 
       console.log(
         `[AppContext] Deleted entry ${entryId}, created new version ${newVersionId} with status=deleted`
@@ -1156,8 +1234,8 @@ export const AppProvider: Component<{ children: JSX.Element }> = (props) => {
       // Save snapshot
       await snapshotManager().saveIncremental(group.id, store);
 
-      // Refresh UI
-      await refreshEntries(group.id, group.currentKeyVersion);
+      // Refresh UI incrementally (faster than full regeneration)
+      await refreshEntriesIncremental(group.id, deletedEntry, originalEntry, 'delete');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to delete entry');
       throw err;
@@ -1185,6 +1263,12 @@ export const AppProvider: Component<{ children: JSX.Element }> = (props) => {
       }
       const groupKey = await importSymmetricKey(keyString);
 
+      // Get deleted entry before undeleting
+      const deletedEntry = await store.getEntry(entryId, groupKey);
+      if (!deletedEntry) {
+        throw new Error('Entry not found');
+      }
+
       // Get version BEFORE undeleting
       const versionBefore = store.getVersion();
 
@@ -1195,6 +1279,12 @@ export const AppProvider: Component<{ children: JSX.Element }> = (props) => {
         groupKey,
         group.currentKeyVersion
       );
+
+      // Get the newly created undeleted entry
+      const undeletedEntry = await store.getEntry(newVersionId, groupKey);
+      if (!undeletedEntry) {
+        throw new Error('Failed to get undeleted entry');
+      }
 
       console.log(
         `[AppContext] Undeleted entry ${entryId}, created new version ${newVersionId} with status=active`
@@ -1221,8 +1311,8 @@ export const AppProvider: Component<{ children: JSX.Element }> = (props) => {
       // Save snapshot
       await snapshotManager().saveIncremental(group.id, store);
 
-      // Refresh UI
-      await refreshEntries(group.id, group.currentKeyVersion);
+      // Refresh UI incrementally (faster than full regeneration)
+      await refreshEntriesIncremental(group.id, undeletedEntry, deletedEntry, 'undelete');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to undelete entry');
       throw err;

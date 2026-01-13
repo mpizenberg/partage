@@ -303,6 +303,236 @@ export function filterActivities(
 }
 
 /**
+ * Generate a single activity for a newly added entry
+ * Used for incremental activity updates
+ */
+export function generateActivityForNewEntry(
+  entry: Entry,
+  members: Member[],
+  groupId: string
+): Activity {
+  const memberMap = new Map(members.map((m) => [m.id, m]));
+  const actorName = memberMap.get(entry.createdBy)?.name || 'Unknown';
+  const description = entry.type === 'expense' ? (entry as ExpenseEntry).description : 'Transfer';
+
+  const activity: EntryAddedActivity = {
+    id: `activity-${entry.id}`,
+    type: 'entry_added',
+    timestamp: entry.createdAt,
+    actorId: entry.createdBy,
+    actorName,
+    groupId,
+    entryId: entry.id,
+    entryType: entry.type,
+    description,
+    amount: entry.amount,
+    currency: entry.currency || 'USD',
+    entryDate: entry.date,
+    ...(entry.type === 'expense' ? {
+      payers: (entry as ExpenseEntry).payers.map(p => p.memberId),
+      beneficiaries: (entry as ExpenseEntry).beneficiaries.map(b => b.memberId),
+    } : {}),
+    ...(entry.type === 'transfer' ? {
+      from: (entry as TransferEntry).from,
+      to: (entry as TransferEntry).to,
+    } : {}),
+  };
+
+  return activity;
+}
+
+/**
+ * Generate a single activity for a modified entry
+ * Used for incremental activity updates
+ */
+export function generateActivityForModifiedEntry(
+  entry: Entry,
+  previousEntry: Entry | null,
+  members: Member[],
+  groupId: string
+): Activity {
+  const memberMap = new Map(members.map((m) => [m.id, m]));
+  const actorName = memberMap.get(entry.modifiedBy || entry.createdBy)?.name || 'Unknown';
+  const description = entry.type === 'expense' ? (entry as ExpenseEntry).description : 'Transfer';
+
+  // Calculate changes
+  const changes: Record<string, { from: any; to: any }> = {};
+  if (previousEntry) {
+    if (previousEntry.amount !== entry.amount) {
+      changes.amount = { from: previousEntry.amount, to: entry.amount };
+    }
+    if (previousEntry.currency !== entry.currency) {
+      changes.currency = { from: previousEntry.currency, to: entry.currency };
+    }
+    if (previousEntry.date !== entry.date) {
+      changes.date = { from: previousEntry.date, to: entry.date };
+    }
+
+    if (previousEntry.type === 'expense' && entry.type === 'expense') {
+      const oldExpense = previousEntry as ExpenseEntry;
+      const newExpense = entry as ExpenseEntry;
+
+      if (oldExpense.description !== newExpense.description) {
+        changes.description = { from: oldExpense.description, to: newExpense.description };
+      }
+      if (oldExpense.category !== newExpense.category) {
+        changes.category = { from: oldExpense.category, to: newExpense.category };
+      }
+      if (JSON.stringify(oldExpense.payers) !== JSON.stringify(newExpense.payers)) {
+        changes.payers = { from: oldExpense.payers, to: newExpense.payers };
+      }
+      if (JSON.stringify(oldExpense.beneficiaries) !== JSON.stringify(newExpense.beneficiaries)) {
+        changes.beneficiaries = { from: oldExpense.beneficiaries, to: newExpense.beneficiaries };
+      }
+    }
+
+    if (previousEntry.type === 'transfer' && entry.type === 'transfer') {
+      const oldTransfer = previousEntry as TransferEntry;
+      const newTransfer = entry as TransferEntry;
+
+      if (oldTransfer.from !== newTransfer.from) {
+        changes.from = { from: oldTransfer.from, to: newTransfer.from };
+      }
+      if (oldTransfer.to !== newTransfer.to) {
+        changes.to = { from: oldTransfer.to, to: newTransfer.to };
+      }
+    }
+  }
+
+  const activity: EntryModifiedActivity = {
+    id: `activity-${entry.id}`,
+    type: 'entry_modified',
+    timestamp: entry.modifiedAt || entry.createdAt,
+    actorId: entry.modifiedBy || entry.createdBy,
+    actorName,
+    groupId,
+    entryId: entry.id,
+    originalEntryId: entry.previousVersionId || '',
+    entryType: entry.type,
+    description,
+    amount: entry.amount,
+    currency: entry.currency || 'USD',
+    entryDate: entry.date,
+    ...(entry.type === 'expense' ? {
+      payers: (entry as ExpenseEntry).payers.map(p => p.memberId),
+      beneficiaries: (entry as ExpenseEntry).beneficiaries.map(b => b.memberId),
+    } : {}),
+    ...(entry.type === 'transfer' ? {
+      from: (entry as TransferEntry).from,
+      to: (entry as TransferEntry).to,
+    } : {}),
+    changes,
+  };
+
+  return activity;
+}
+
+/**
+ * Generate a single activity for a deleted entry
+ * Used for incremental activity updates
+ */
+export function generateActivityForDeletedEntry(
+  entry: Entry,
+  members: Member[],
+  groupId: string
+): Activity {
+  const memberMap = new Map(members.map((m) => [m.id, m]));
+  const actorName = memberMap.get(entry.deletedBy || entry.createdBy)?.name || 'Unknown';
+  const description = entry.type === 'expense' ? (entry as ExpenseEntry).description : 'Transfer';
+
+  const activity: EntryDeletedActivity = {
+    id: `activity-${entry.id}`,
+    type: 'entry_deleted',
+    timestamp: entry.deletedAt || entry.createdAt,
+    actorId: entry.deletedBy || entry.createdBy,
+    actorName,
+    groupId,
+    entryId: entry.id,
+    originalEntryId: entry.previousVersionId || '',
+    entryType: entry.type,
+    description,
+    amount: entry.amount,
+    currency: entry.currency || 'USD',
+    entryDate: entry.date,
+    ...(entry.type === 'expense' ? {
+      payers: (entry as ExpenseEntry).payers.map(p => p.memberId),
+      beneficiaries: (entry as ExpenseEntry).beneficiaries.map(b => b.memberId),
+    } : {}),
+    ...(entry.type === 'transfer' ? {
+      from: (entry as TransferEntry).from,
+      to: (entry as TransferEntry).to,
+    } : {}),
+    reason: entry.deletionReason,
+  };
+
+  return activity;
+}
+
+/**
+ * Generate a single activity for an undeleted entry
+ * Used for incremental activity updates
+ */
+export function generateActivityForUndeletedEntry(
+  entry: Entry,
+  members: Member[],
+  groupId: string
+): Activity {
+  const memberMap = new Map(members.map((m) => [m.id, m]));
+  const actorName = memberMap.get(entry.modifiedBy || entry.createdBy)?.name || 'Unknown';
+  const description = entry.type === 'expense' ? (entry as ExpenseEntry).description : 'Transfer';
+
+  const activity: EntryUndeletedActivity = {
+    id: `activity-${entry.id}`,
+    type: 'entry_undeleted',
+    timestamp: entry.modifiedAt || entry.createdAt,
+    actorId: entry.modifiedBy || entry.createdBy,
+    actorName,
+    groupId,
+    entryId: entry.id,
+    originalEntryId: entry.previousVersionId || '',
+    entryType: entry.type,
+    description,
+    amount: entry.amount,
+    currency: entry.currency || 'USD',
+    entryDate: entry.date,
+    ...(entry.type === 'expense' ? {
+      payers: (entry as ExpenseEntry).payers.map(p => p.memberId),
+      beneficiaries: (entry as ExpenseEntry).beneficiaries.map(b => b.memberId),
+    } : {}),
+    ...(entry.type === 'transfer' ? {
+      from: (entry as TransferEntry).from,
+      to: (entry as TransferEntry).to,
+    } : {}),
+  };
+
+  return activity;
+}
+
+/**
+ * Insert an activity into a sorted list (newest first)
+ * Returns a new array with the activity inserted at the correct position
+ */
+export function insertActivitySorted(activities: Activity[], newActivity: Activity): Activity[] {
+  // Find insertion point using binary search for O(log n) performance
+  let left = 0;
+  let right = activities.length;
+
+  while (left < right) {
+    const mid = Math.floor((left + right) / 2);
+    if (activities[mid]!.timestamp > newActivity.timestamp) {
+      left = mid + 1;
+    } else {
+      right = mid;
+    }
+  }
+
+  // Insert at the found position
+  const newActivities = [...activities];
+  newActivities.splice(left, 0, newActivity);
+  return newActivities;
+}
+
+/**
  * Format relative time for display
  */
 export function formatRelativeTime(timestamp: number): string {
