@@ -95,7 +95,27 @@ RAILPACK_SPA_OUTPUT_DIR=packages/client/dist
 
 See [PLAN.md](./PLAN.md) for the complete implementation roadmap.
 
-### Current Phase: Phase 6 - Advanced Features 🔄
+### Current Phase: Phase 8 - Polish & Production 🔄
+
+**Phase 7 - Simplified Trusted Group Join: ✅ COMPLETED** (January 12, 2026)
+- ✅ Single group key (no rotation) embedded in URL fragment
+- ✅ Member alias system for claiming virtual member identities
+- ✅ Balance calculations with alias resolution
+- ✅ Simplified invite flow with instant join
+- ✅ QR code support for invite links
+- ✅ Activity feed for join events
+- ✅ Export/import functionality for groups
+- ✅ Fixed member display across all UI components
+
+**Phase 6 - Advanced Features: ✅ COMPLETED** (January 7, 2026)
+- ✅ Entry modification with versioning UI
+- ✅ Entry soft deletion with undo
+- ✅ Activity feed showing recent changes
+- ✅ Filtering and search for entries
+- ✅ Multi-currency support with exchange rates
+- ✅ Settlement suggestions with debt optimization
+- ✅ Export/import functionality (JSON)
+- ✅ Incremental snapshot storage (performance optimization)
 
 **Phase 5 - Multi-User Features: ✅ COMPLETED** (January 7, 2026)
 - ✅ Invitation link generation and sharing
@@ -108,7 +128,6 @@ See [PLAN.md](./PLAN.md) for the complete implementation roadmap.
 - ✅ AppContext integration complete
 - ✅ Router integration (@solidjs/router)
 - ✅ Signing keypair auto-generation
-- ✅ 140 tests passing, 0 TypeScript errors
 - ✅ Build successful
 
 **Phase 4 - Server & Sync: ✅ COMPLETED** (January 6, 2026)
@@ -144,44 +163,40 @@ See [PLAN.md](./PLAN.md) for the complete implementation roadmap.
 - ✅ 0 TypeScript errors, full type safety
 
 **Phase 2 - Local CRDT & Data Models: ✅ COMPLETED** (January 4, 2026)
-- ✅ Loro CRDT wrapper with two-layer encryption: 17 tests passing
+- ✅ Loro CRDT wrapper with two-layer encryption
   - Metadata stored in Loro (unencrypted): id, timestamp, actor, version, status
   - Sensitive data encrypted with AES-256-GCM: amounts, descriptions, member details
   - Entry operations: create, modify (versioning), soft delete
   - Snapshot export/import for persistence
   - Incremental sync support via version vectors
-- ✅ Balance calculation engine: 21 tests passing
+- ✅ Balance calculation engine
   - Calculate member balances from entries
   - Support for shares and exact split types
   - Multi-currency with conversion support
   - Debt graph generation (minimizes transactions)
   - Settlement plan optimization
-- ✅ 129 total tests passing, 100% type safety
+- ✅ Full type safety
 
 **Phase 1 - Foundation: ✅ COMPLETED** (January 4, 2026)
 - ✅ Monorepo structure with pnpm workspaces
 - ✅ TypeScript (v5.7.3), Vitest (v2.1.8), ESLint (v9)
 - ✅ All dependencies updated to latest versions
-- ✅ Cryptography module: 58 tests passing
+- ✅ Cryptography module
   - AES-256-GCM symmetric encryption
   - ECDH P-256 keypair management
   - ECDSA digital signatures
-- ✅ IndexedDB storage layer: 33 tests passing
+- ✅ IndexedDB storage layer
   - User keypair persistence
   - Group metadata & versioned keys
   - Loro snapshot storage
   - Offline operation queue
 - ✅ Shared TypeScript types (crypto, group, member, entry, balance)
 
-**Next Steps (Phase 6)**:
-1. Entry modification with versioning UI
-2. Entry soft deletion with undo
-3. Activity feed showing recent changes
-4. Filtering and search for entries
-5. Multi-currency support with exchange rates
-6. Settlement suggestions (debt optimization)
-7. Export functionality (JSON)
-8. PWA service worker for full offline support
+**Next Steps (Phase 8)**:
+1. Recursive member linking (link real members, not only virtual)
+2. Error handling and loading states
+3. Security audit
+4. Internationalization (i18n) with French language support
 
 ## Documentation
 

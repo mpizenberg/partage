@@ -306,7 +306,6 @@ Track and display all group actions:
 - Entry un-deleted
 - Member joined (new member)
 - Member linked (claimed virtual identity)
-- Member left
 - Group settings changed
 
 **Display Format**:

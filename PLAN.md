@@ -34,7 +34,7 @@ Set up a monorepo structure for a fully encrypted, local-first bill-splitting PW
   - Settlement suggestions with debt optimization
   - Export/import functionality (JSON)
   - Incremental snapshot storage (performance optimization)
-  - 140 tests passing, 0 TypeScript errors
+  - All tests passing, 0 TypeScript errors
 
 - ✅ **Phase 5**: Multi-User Features (100% complete)
   - Invite link generation and joining flow
@@ -45,7 +45,7 @@ Set up a monorepo structure for a fully encrypted, local-first bill-splitting PW
   - Fixed subscription management (callback-based routing)
   - Fixed Loro map handle refresh after remote updates
   - Fixed causal dependencies for cross-peer sync
-  - 140 tests passing, 0 TypeScript errors
+  - All tests passing, 0 TypeScript errors
 
 - ✅ **Phase 4**: Server & Sync (100% complete)
   - PocketBase server setup with encrypted operations collection
@@ -66,15 +66,15 @@ Set up a monorepo structure for a fully encrypted, local-first bill-splitting PW
   - 0 TypeScript errors
 
 - ✅ **Phase 2**: Local CRDT & Data Models (100% complete)
-  - Loro CRDT wrapper with two-layer encryption (17 tests)
-  - Balance calculation engine (21 tests)
+  - Loro CRDT wrapper with two-layer encryption
+  - Balance calculation engine
   - Entry operations: create, modify, delete
-  - Total: 129 tests passing
+  - All tests passing
 
 - ✅ **Phase 1**: Foundation & Infrastructure (100% complete)
   - Monorepo setup with pnpm workspaces
-  - Full cryptography module with 58 tests
-  - IndexedDB storage layer with 33 tests
+  - Full cryptography module
+  - IndexedDB storage layer
   - Shared TypeScript types (crypto, group, member, entry, balance)
   - All dependencies updated to latest versions
 
@@ -98,10 +98,18 @@ Set up a monorepo structure for a fully encrypted, local-first bill-splitting PW
 │   │   │   ├── /core              # Core business logic
 │   │   │   │   ├── /crypto        # WebCrypto operations ✅
 │   │   │   │   ├── /crdt          # Loro CRDT wrapper ✅
-│   │   │   │   ├── /sync          # Sync engine
+│   │   │   │   ├── /sync          # Sync engine ✅
 │   │   │   │   └── /storage       # IndexedDB wrapper ✅
 │   │   │   ├── /domain            # Domain models & calculations ✅
-│   │   │   ├── /api               # PocketBase client
+│   │   │   │   ├── /calculations  # Balance calculator ✅
+│   │   │   │   ├── /invitations   # Invite manager, key sharing ✅
+│   │   │   │   └── /members       # Member state management ✅
+│   │   │   ├── /api               # PocketBase client ✅
+│   │   │   ├── /i18n              # Internationalization ✅
+│   │   │   │   ├── context.tsx    # i18n provider ✅
+│   │   │   │   ├── formatters.ts  # Currency, date formatters ✅
+│   │   │   │   └── /locales       # en.json, fr.json ✅
+│   │   │   ├── /benchmarks        # Performance benchmarks ✅
 │   │   │   └── /ui                # Components & screens ✅
 │   │   │       ├── /context       # AppContext ✅
 │   │   │       ├── /screens       # Screen components ✅
@@ -109,12 +117,17 @@ Set up a monorepo structure for a fully encrypted, local-first bill-splitting PW
 │   │   │       │   ├── /common    # Button, Input, Modal, etc. ✅
 │   │   │       │   ├── /forms     # Entry forms ✅
 │   │   │       │   ├── /balance   # Balance display ✅
-│   │   │       │   └── /entries   # Entry display ✅
+│   │   │       │   ├── /entries   # Entry display ✅
+│   │   │       │   ├── /activities # Activity feed ✅
+│   │   │       │   ├── /settle    # Settlement tab ✅
+│   │   │       │   ├── /members   # Member management ✅
+│   │   │       │   ├── /invites   # Invite modal ✅
+│   │   │       │   └── /import    # Import preview ✅
 │   │   │       └── /styles        # CSS files ✅
 │   │   ├── /tests                 # Test files ✅
 │   │   └── vite.config.ts         # Vite + PWA config ✅
 │   ├── /shared                    # Shared TypeScript types ✅
-│   └── /server                    # PocketBase setup
+│   └── /server                    # PocketBase setup ✅
 ```
 
 ## Implementation Phases
@@ -129,16 +142,16 @@ Set up a monorepo structure for a fully encrypted, local-first bill-splitting PW
 2. ✅ Configure TypeScript (v5.7.3), Vitest (v2.1.8), ESLint (v9)
 3. ✅ Install and update all dependencies to latest versions
 4. ✅ Implement crypto module (`/packages/client/src/core/crypto/`):
-   - ✅ `keypair.ts`: ECDH P-256 keypair generation/export/import (14 tests)
-   - ✅ `symmetric.ts`: AES-256-GCM encryption/decryption (20 tests)
-   - ✅ `signatures.ts`: ECDSA digital signatures (24 tests)
+   - ✅ `keypair.ts`: ECDH P-256 keypair generation/export/import
+   - ✅ `symmetric.ts`: AES-256-GCM encryption/decryption
+   - ✅ `signatures.ts`: ECDSA digital signatures
 5. ✅ Implement storage module (`/packages/client/src/core/storage/indexeddb.ts`):
    - ✅ User keypair storage
    - ✅ Group metadata management
    - ✅ Versioned group keys storage
    - ✅ Loro snapshot persistence
    - ✅ Pending operations queue for offline support
-   - ✅ Full test coverage (33 tests)
+   - ✅ Full test coverage
 6. ✅ Define shared types (`/packages/shared/src/types/`):
    - ✅ `crypto.ts`: Encryption interfaces
    - ✅ `group.ts`: Group data models
@@ -147,10 +160,10 @@ Set up a monorepo structure for a fully encrypted, local-first bill-splitting PW
    - ✅ `balance.ts`: Balance calculation types
 
 **Test Results**:
-- ✅ 91 tests passing (4 test files)
+- ✅ All tests passing
 - ✅ 100% type safety (0 TypeScript errors)
-- ✅ Crypto module: 58 tests
-- ✅ Storage module: 33 tests
+- ✅ Crypto module comprehensive test coverage
+- ✅ Storage module comprehensive test coverage
 
 **Critical Files Implemented**:
 - ✅ `/packages/client/src/core/crypto/symmetric.ts`
@@ -187,15 +200,15 @@ Set up a monorepo structure for a fully encrypted, local-first bill-splitting PW
    - Multi-currency with conversion support
    - Debt graph computation (greedy algorithm minimizes transactions)
    - Settlement plan optimization with constraints
-4. ✅ Comprehensive unit tests (38 tests total):
-   - 17 tests for CRDT wrapper (entry creation, modification, deletion, sync)
-   - 21 tests for balance calculator (splits, debt graphs, settlements)
+4. ✅ Comprehensive unit tests:
+   - CRDT wrapper tests (entry creation, modification, deletion, sync)
+   - Balance calculator tests (splits, debt graphs, settlements)
 
 **Test Results**:
-- ✅ 129 tests passing (6 test files)
+- ✅ All tests passing
 - ✅ 100% type safety (0 TypeScript errors)
-- ✅ CRDT module: 17 tests
-- ✅ Balance calculations: 21 tests
+- ✅ CRDT module comprehensive coverage
+- ✅ Balance calculations comprehensive coverage
 
 **Critical Files Implemented**:
 - ✅ `/packages/client/src/core/crdt/loro-wrapper.ts`
