@@ -110,32 +110,21 @@ export const EntryCard: Component<EntryCardProps> = (props) => {
 
   const getMemberName = (memberId: string): string => {
     const store = loroStore()
-    if (!store) return t('common.unknown')
-
-    // Check if this is a canonical ID (old virtual member) that has been claimed
-    const aliases = store.getMemberAliases()
-    const alias = aliases.find(a => a.existingMemberId === memberId)
-    if (alias) {
-      // This is a claimed virtual member - show the NEW member's name
-      const newMember = members().find(m => m.id === alias.newMemberId)
-      if (newMember) return newMember.name
-
-      // Fallback to full Loro member list
-      const allMembers = store.getMembers()
-      const newMemberFull = allMembers.find(m => m.id === alias.newMemberId)
-      if (newMemberFull) return newMemberFull.name
+    if (!store) {
+      // Fallback to members list
+      const member = members().find(m => m.id === memberId)
+      return member?.name || t('common.unknown')
     }
 
-    // Try filtered members list first
-    let member = members().find(m => m.id === memberId)
+    // Use event-based system: resolve to canonical ID and get name
+    const canonicalIdMap = store.getCanonicalIdMap()
+    const allStates = store.getAllMemberStates()
 
-    // If not found, check full Loro member list (includes replaced virtual members)
-    if (!member) {
-      const allMembers = store.getMembers()
-      member = allMembers.find(m => m.id === memberId)
-    }
+    const canonicalId = canonicalIdMap.get(memberId) ?? memberId
+    const canonicalState = allStates.get(canonicalId)
+    const state = allStates.get(memberId)
 
-    return member?.name || t('common.unknown')
+    return canonicalState?.name ?? state?.name ?? t('common.unknown')
   }
 
   const isExpense = (): boolean => props.entry.type === 'expense'

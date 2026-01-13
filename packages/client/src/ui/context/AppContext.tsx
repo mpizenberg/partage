@@ -249,8 +249,8 @@ export const AppProvider: Component<{ children: JSX.Element }> = (props) => {
   const [isLoading, setIsLoading] = createSignal(true);
   const [error, setError] = createSignal<string | null>(null);
 
-  // Members for active group (all members: real + virtual, excluding replaced/retired members)
-  // Uses the new event-based system when available, with fallback to legacy
+  // Members for active group (both active and retired, excluding replaced members)
+  // Uses the event-based system exclusively
   const members = createMemo(() => {
     const group = activeGroup();
     if (!group) {
@@ -259,42 +259,40 @@ export const AppProvider: Component<{ children: JSX.Element }> = (props) => {
     }
     const store = loroStore();
     if (!store) {
+      // No store yet, return cached members from group
       const membersList = group.activeMembers || [];
       console.log('[AppContext] members() returning (no store):', membersList);
       return membersList;
     }
 
-    // Try new event-based system first
-    const memberEvents = store.getMemberEvents();
-    if (memberEvents.length > 0) {
-      // Use event-based system: get active member states and convert to Member format
-      const activeStates = store.getActiveMemberStates();
-      const membersList: Member[] = activeStates.map(state => ({
-        id: state.id,
-        name: state.name,
-        publicKey: state.publicKey,
-        joinedAt: state.createdAt,
-        status: 'active' as const,
-        isVirtual: state.isVirtual,
-        addedBy: state.createdBy,
-      }));
-      console.log('[AppContext] members() returning (from events):', membersList);
-      return membersList;
-    }
+    // Get active members
+    const activeStates = store.getActiveMemberStates();
+    const activeMembersList: Member[] = activeStates.map(state => ({
+      id: state.id,
+      name: state.name,
+      publicKey: state.publicKey,
+      joinedAt: state.createdAt,
+      leftAt: undefined,
+      status: 'active' as const,
+      isVirtual: state.isVirtual,
+      addedBy: state.createdBy,
+    }));
 
-    // Fall back to legacy system: filter out replaced virtual members
-    const aliases = store.getMemberAliases();
-    const replacedMemberIds = new Set(aliases.map(a => a.existingMemberId));
+    // Get retired members (departed but not replaced)
+    const retiredStates = store.getRetiredMemberStates();
+    const retiredMembersList: Member[] = retiredStates.map(state => ({
+      id: state.id,
+      name: state.name,
+      publicKey: state.publicKey,
+      joinedAt: state.createdAt,
+      leftAt: state.retiredAt,
+      status: 'departed' as const,
+      isVirtual: state.isVirtual,
+      addedBy: state.createdBy,
+    }));
 
-    // Filter out replaced virtual members (those claimed by new members)
-    const membersList = (group.activeMembers || []).filter(m => {
-      // Keep all real members (non-virtual)
-      if (!m.isVirtual) return true;
-      // Keep virtual members that haven't been replaced
-      return !replacedMemberIds.has(m.id);
-    });
-
-    console.log('[AppContext] members() returning (legacy):', membersList);
+    const membersList = [...activeMembersList, ...retiredMembersList];
+    console.log('[AppContext] members() returning:', { active: activeMembersList.length, retired: retiredMembersList.length });
     return membersList;
   });
 
@@ -501,22 +499,25 @@ export const AppProvider: Component<{ children: JSX.Element }> = (props) => {
         ],
       };
 
-      // Initialize Loro store and add initial members
+      // Initialize Loro store and add initial members using event-based system
       const newLoroStore = new LoroEntryStore(currentIdentity.publicKeyHash);
 
-      // Add creator as first member
-      newLoroStore.addMember({
-        id: currentIdentity.publicKeyHash,
-        name: myUserName,
-        publicKey: currentIdentity.publicKey,
-        joinedAt: Date.now(),
-        status: 'active',
-        isVirtual: false,
-      });
+      // Add creator as first member via event
+      newLoroStore.createMember(
+        currentIdentity.publicKeyHash,
+        myUserName,
+        currentIdentity.publicKeyHash,
+        { publicKey: currentIdentity.publicKey, isVirtual: false }
+      );
 
-      // Add virtual members to Loro
+      // Add virtual members to Loro via events
       for (const member of virtualMembers) {
-        newLoroStore.addMember(member);
+        newLoroStore.createMember(
+          member.id,
+          member.name,
+          currentIdentity.publicKeyHash,
+          { isVirtual: true }
+        );
       }
 
       // Save to database
@@ -599,7 +600,7 @@ export const AppProvider: Component<{ children: JSX.Element }> = (props) => {
       await snapshotManager().load(groupId, store);
 
       // Sync members from Loro to group object (using event-based system or legacy fallback)
-      const activeMembersList = getActiveMembers(store);
+      const activeMembersList = getAllMembersForCache(store);
       const updatedGroup = { ...group, activeMembers: activeMembersList };
       if (activeMembersList.length > 0) {
         await db.saveGroup(updatedGroup);
@@ -622,7 +623,7 @@ export const AppProvider: Component<{ children: JSX.Element }> = (props) => {
             await refreshEntries(groupId, group.currentKeyVersion);
 
             // Update members from Loro (using event-based system or legacy fallback)
-            const filteredMembers = getActiveMembers(store);
+            const filteredMembers = getAllMembersForCache(store);
             const refreshedGroup = { ...group, activeMembers: filteredMembers };
             await db.saveGroup(refreshedGroup);
             setActiveGroup(refreshedGroup);
@@ -653,7 +654,7 @@ export const AppProvider: Component<{ children: JSX.Element }> = (props) => {
 
           // Sync members from Loro after sync (in case new members were added)
           // Using event-based system or legacy fallback
-          const filteredSyncedMembers = getActiveMembers(store);
+          const filteredSyncedMembers = getAllMembersForCache(store);
           const syncedGroup = { ...updatedGroup, activeMembers: filteredSyncedMembers };
           if (filteredSyncedMembers.length > 0) {
             await db.saveGroup(syncedGroup);
@@ -730,11 +731,10 @@ export const AppProvider: Component<{ children: JSX.Element }> = (props) => {
       setEntries(allEntries);
 
       // Calculate balances (always use only active entries for balance calculation)
-      // Uses member events for recursive alias resolution when available
+      // Uses member events for recursive alias resolution
       const activeEntries = await store.getActiveEntries(groupId, groupKey);
-      const memberAliases = store.getMemberAliases();
       const memberEvents = store.getMemberEvents();
-      const calculatedBalances = calculateBalances(activeEntries, memberAliases, memberEvents);
+      const calculatedBalances = calculateBalances(activeEntries, memberEvents);
       setBalances(calculatedBalances);
 
       // Generate activities from ALL entries (including all versions for audit trail)
@@ -781,9 +781,8 @@ export const AppProvider: Component<{ children: JSX.Element }> = (props) => {
 
       // Recalculate balances with event-based alias resolution
       const activeEntries = await store.getActiveEntries(groupId, groupKey);
-      const memberAliases = store.getMemberAliases();
       const memberEvents = store.getMemberEvents();
-      const calculatedBalances = calculateBalances(activeEntries, memberAliases, memberEvents);
+      const calculatedBalances = calculateBalances(activeEntries, memberEvents);
       setBalances(calculatedBalances);
 
       // Generate single activity and insert incrementally
@@ -1369,8 +1368,8 @@ export const AppProvider: Component<{ children: JSX.Element }> = (props) => {
         newLoroStore.applyUpdate(updateBytes);
       }
 
-      // Get existing members
-      const existingMembers = newLoroStore.getMembers();
+      // Get existing members using event-based system
+      const existingMembers = getAllMembersForCache(newLoroStore);
 
       // Get group metadata from server (or create default)
       let groupRecord;
@@ -1459,7 +1458,7 @@ export const AppProvider: Component<{ children: JSX.Element }> = (props) => {
       }
 
       // Update the group with filtered members using event-based system or legacy fallback
-      const finalMembers = getActiveMembers(newLoroStore);
+      const finalMembers = getAllMembersForCache(newLoroStore);
       const updatedGroup = { ...group, activeMembers: finalMembers };
       await db.saveGroup(updatedGroup);
 
@@ -1793,17 +1792,9 @@ export const AppProvider: Component<{ children: JSX.Element }> = (props) => {
             const mergedVersion = mergedStore.getVersion();
             await db.saveLoroSnapshot(groupExport.group.id, mergedSnapshot, mergedVersion);
 
-            // Update members from merged Loro (filter out replaced virtual members)
-            const mergedMembers = mergedStore.getMembers();
-            const mergedAliases = mergedStore.getMemberAliases();
-            const mergedReplacedMemberIds = new Set(mergedAliases.map(a => a.existingMemberId));
-
-            const filteredMergedMembers = mergedMembers.filter(m => {
-              if (!m.isVirtual) return true;
-              return !mergedReplacedMemberIds.has(m.id);
-            });
-
-            const updatedGroup = { ...existingGroup, members: filteredMergedMembers };
+            // Update members from merged Loro using event-based system
+            const filteredMergedMembers = getAllMembersForCache(mergedStore);
+            const updatedGroup = { ...existingGroup, activeMembers: filteredMergedMembers };
             await db.saveGroup(updatedGroup);
           } else {
             // No existing snapshot - just import (get version from imported snapshot)
@@ -1970,7 +1961,7 @@ export const AppProvider: Component<{ children: JSX.Element }> = (props) => {
       await snapshotManager().saveIncremental(group.id, store);
 
       // Refresh members using event-based system or legacy fallback
-      const updatedMembers = getActiveMembers(store);
+      const updatedMembers = getAllMembersForCache(store);
       const updatedGroup = { ...group, activeMembers: updatedMembers };
       setActiveGroup(updatedGroup);
       await db.saveGroup(updatedGroup);
@@ -1985,34 +1976,37 @@ export const AppProvider: Component<{ children: JSX.Element }> = (props) => {
   };
 
   /**
-   * Helper function to get active members from store
-   * Uses event-based system when available, falls back to legacy
+   * Helper function to get all members (active + retired) from store for caching
+   * Uses the event-based system exclusively
    */
-  const getActiveMembers = (store: LoroEntryStore): Member[] => {
-    const memberEvents = store.getMemberEvents();
-    if (memberEvents.length > 0) {
-      // Use event-based system
-      const activeStates = store.getActiveMemberStates();
-      return activeStates.map(state => ({
-        id: state.id,
-        name: state.name,
-        publicKey: state.publicKey,
-        joinedAt: state.createdAt,
-        status: 'active' as const,
-        isVirtual: state.isVirtual,
-        addedBy: state.createdBy,
-      }));
-    }
+  const getAllMembersForCache = (store: LoroEntryStore): Member[] => {
+    // Get active members
+    const activeStates = store.getActiveMemberStates();
+    const activeMembersList: Member[] = activeStates.map(state => ({
+      id: state.id,
+      name: state.name,
+      publicKey: state.publicKey,
+      joinedAt: state.createdAt,
+      leftAt: undefined,
+      status: 'active' as const,
+      isVirtual: state.isVirtual,
+      addedBy: state.createdBy,
+    }));
 
-    // Legacy fallback
-    const allMembers = store.getMembers();
-    const aliases = store.getMemberAliases();
-    const replacedMemberIds = new Set(aliases.map(a => a.existingMemberId));
+    // Get retired members
+    const retiredStates = store.getRetiredMemberStates();
+    const retiredMembersList: Member[] = retiredStates.map(state => ({
+      id: state.id,
+      name: state.name,
+      publicKey: state.publicKey,
+      joinedAt: state.createdAt,
+      leftAt: state.retiredAt,
+      status: 'departed' as const,
+      isVirtual: state.isVirtual,
+      addedBy: state.createdBy,
+    }));
 
-    return allMembers.filter(m => {
-      if (!m.isVirtual) return true;
-      return !replacedMemberIds.has(m.id);
-    });
+    return [...activeMembersList, ...retiredMembersList];
   };
 
   /**
@@ -2055,7 +2049,7 @@ export const AppProvider: Component<{ children: JSX.Element }> = (props) => {
       await snapshotManager().saveIncremental(group.id, store);
 
       // Refresh members using event-based system or legacy fallback
-      const updatedMembers = getActiveMembers(store);
+      const updatedMembers = getAllMembersForCache(store);
       const updatedGroup = { ...group, activeMembers: updatedMembers };
       setActiveGroup(updatedGroup);
       await db.saveGroup(updatedGroup);
@@ -2109,7 +2103,7 @@ export const AppProvider: Component<{ children: JSX.Element }> = (props) => {
       await snapshotManager().saveIncremental(group.id, store);
 
       // Refresh members using event-based system or legacy fallback
-      const updatedMembers = getActiveMembers(store);
+      const updatedMembers = getAllMembersForCache(store);
       const updatedGroup = { ...group, activeMembers: updatedMembers };
       setActiveGroup(updatedGroup);
       await db.saveGroup(updatedGroup);
@@ -2157,9 +2151,8 @@ export const AppProvider: Component<{ children: JSX.Element }> = (props) => {
 
       // Get active entries and calculate balances with event-based alias resolution
       const activeEntries = await tempStore.getActiveEntries(groupId, groupKey);
-      const memberAliases = tempStore.getMemberAliases();
       const memberEvents = tempStore.getMemberEvents();
-      const calculatedBalances = calculateBalances(activeEntries, memberAliases, memberEvents);
+      const calculatedBalances = calculateBalances(activeEntries, memberEvents);
 
       // Find user's member ID in this group (considering aliases)
       // The balance calculator uses canonical (existing) member IDs

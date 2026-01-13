@@ -21,7 +21,7 @@ export const ActivityCard: Component<ActivityCardProps> = (props) => {
     return formatCurrency(amount, currency, locale());
   };
 
-  // Memoized member name lookup map - supports recursive alias resolution
+  // Memoized member name lookup map - uses canonical ID resolution
   const memberNameMap = createMemo(() => {
     const nameMap = new Map<string, string>();
     const store = loroStore();
@@ -32,40 +32,15 @@ export const ActivityCard: Component<ActivityCardProps> = (props) => {
       return nameMap;
     }
 
-    // Try new event-based system first
-    const memberEvents = store.getMemberEvents();
-    if (memberEvents.length > 0) {
-      const canonicalIdMap = store.getCanonicalIdMap();
-      const allStates = store.getAllMemberStates();
+    // Use event-based system: resolve each member to their canonical name
+    const canonicalIdMap = store.getCanonicalIdMap();
+    const allStates = store.getAllMemberStates();
 
-      for (const [memberId, state] of allStates) {
-        const canonicalId = canonicalIdMap.get(memberId) ?? memberId;
-        const canonicalState = allStates.get(canonicalId);
-        nameMap.set(memberId, canonicalState?.name ?? state.name);
-      }
-      return nameMap;
+    for (const [memberId, state] of allStates) {
+      const canonicalId = canonicalIdMap.get(memberId) ?? memberId;
+      const canonicalState = allStates.get(canonicalId);
+      nameMap.set(memberId, canonicalState?.name ?? state.name);
     }
-
-    // Fall back to legacy alias system
-    const aliases = store.getMemberAliases();
-    const aliasMap = new Map<string, string>();
-    for (const alias of aliases) {
-      aliasMap.set(alias.existingMemberId, alias.newMemberId);
-    }
-
-    const allMembers = store.getMembers();
-    const memberById = new Map(allMembers.map(m => [m.id, m]));
-
-    for (const member of allMembers) {
-      let displayName = member.name;
-      const claimerId = aliasMap.get(member.id);
-      if (claimerId) {
-        const claimer = memberById.get(claimerId);
-        if (claimer) displayName = claimer.name;
-      }
-      nameMap.set(member.id, displayName);
-    }
-
     return nameMap;
   });
 

@@ -13,7 +13,7 @@ import { LoroEntryStore } from '../core/crdt/loro-wrapper.js';
 import { PartageDB } from '../core/storage/indexeddb.js';
 import { generateSymmetricKey, encryptJSON } from '../core/crypto/symmetric.js';
 import { calculateBalances } from '../domain/calculations/balance-calculator.js';
-import type { ExpenseEntry, MemberAlias } from '@partage/shared';
+import type { ExpenseEntry } from '@partage/shared';
 
 // ==================== Test Utilities ====================
 
@@ -190,12 +190,6 @@ describe('Performance Benchmarks', () => {
 
       for (const memberCount of memberCounts) {
         const memberIds = Array.from({ length: memberCount }, (_, i) => `member-${i}`);
-        const aliases: MemberAlias[] = Array.from({ length: Math.floor(memberCount / 4) }, (_, i) => ({
-          newMemberId: `member-${i}`,
-          existingMemberId: `member-${memberCount - i - 1}`,
-          linkedAt: Date.now(),
-          linkedBy: 'admin',
-        }));
 
         for (const entryCount of entryCounts) {
           const entries: ExpenseEntry[] = Array.from({ length: entryCount }, (_, i) =>
@@ -205,7 +199,7 @@ describe('Performance Benchmarks', () => {
           const times: number[] = [];
           for (let run = 0; run < 10; run++) {
             const start = performance.now();
-            calculateBalances(entries, aliases);
+            calculateBalances(entries);
             times.push(performance.now() - start);
           }
 

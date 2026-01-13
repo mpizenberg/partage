@@ -18,7 +18,7 @@
 
 import { generateSymmetricKey, encryptJSON, decryptJSON } from '../core/crypto/symmetric.js';
 import { calculateBalances, generateSettlementPlan } from '../domain/calculations/balance-calculator.js';
-import type { ExpenseEntry, Member, MemberAlias } from '@partage/shared';
+import type { ExpenseEntry, Member } from '@partage/shared';
 
 // ==================== Types ====================
 
@@ -137,25 +137,6 @@ function generateTestMembers(count: number): Member[] {
     status: 'active' as const,
     isVirtual: i >= count / 2, // Half are virtual
   }));
-}
-
-function generateTestAliases(members: Member[]): MemberAlias[] {
-  const aliases: MemberAlias[] = [];
-  const virtualMembers = members.filter((m) => m.isVirtual);
-  const realMembers = members.filter((m) => !m.isVirtual);
-
-  // Link some virtual members to real ones
-  const linkCount = Math.min(virtualMembers.length, Math.floor(realMembers.length / 2));
-  for (let i = 0; i < linkCount; i++) {
-    aliases.push({
-      newMemberId: realMembers[i]!.id,
-      existingMemberId: virtualMembers[i]!.id,
-      linkedAt: Date.now(),
-      linkedBy: realMembers[0]!.id,
-    });
-  }
-
-  return aliases;
 }
 
 // ==================== Encryption Benchmarks ====================
@@ -397,12 +378,11 @@ export async function benchmarkBalanceCalculation(): Promise<BenchmarkResult[]> 
   const smallEntries = Array.from({ length: 20 }, (_, i) =>
     generateTestEntry(i, groupId, smallMemberIds)
   );
-  const smallAliases = generateTestAliases(smallMembers);
 
   results.push(
     await measure(
       'balance-5members-20entries',
-      () => calculateBalances(smallEntries, smallAliases),
+      () => calculateBalances(smallEntries),
       500
     )
   );
@@ -414,12 +394,11 @@ export async function benchmarkBalanceCalculation(): Promise<BenchmarkResult[]> 
   const mediumEntries = Array.from({ length: 100 }, (_, i) =>
     generateTestEntry(i, groupId, mediumMemberIds)
   );
-  const mediumAliases = generateTestAliases(mediumMembers);
 
   results.push(
     await measure(
       'balance-10members-100entries',
-      () => calculateBalances(mediumEntries, mediumAliases),
+      () => calculateBalances(mediumEntries),
       100
     )
   );
@@ -431,12 +410,11 @@ export async function benchmarkBalanceCalculation(): Promise<BenchmarkResult[]> 
   const largeEntries = Array.from({ length: 500 }, (_, i) =>
     generateTestEntry(i, groupId, largeMemberIds)
   );
-  const largeAliases = generateTestAliases(largeMembers);
 
   results.push(
     await measure(
       'balance-20members-500entries',
-      () => calculateBalances(largeEntries, largeAliases),
+      () => calculateBalances(largeEntries),
       50
     )
   );
@@ -448,12 +426,11 @@ export async function benchmarkBalanceCalculation(): Promise<BenchmarkResult[]> 
   const veryLargeEntries = Array.from({ length: 2000 }, (_, i) =>
     generateTestEntry(i, groupId, veryLargeMemberIds)
   );
-  const veryLargeAliases = generateTestAliases(veryLargeMembers);
 
   results.push(
     await measure(
       'balance-50members-2000entries',
-      () => calculateBalances(veryLargeEntries, veryLargeAliases),
+      () => calculateBalances(veryLargeEntries),
       10
     )
   );

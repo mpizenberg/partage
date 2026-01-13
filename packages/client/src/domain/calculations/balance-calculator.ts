@@ -13,7 +13,6 @@ import type {
   DebtEdge,
   SettlementPlan,
   SettlementPreference,
-  MemberAlias,
   MemberEvent,
 } from '@partage/shared';
 import { buildCanonicalIdMap } from '../members/member-state';
@@ -21,32 +20,16 @@ import { buildCanonicalIdMap } from '../members/member-state';
 /**
  * Calculate balances for all members in a group
  * Resolves member aliases to canonical IDs before calculation
- *
- * Supports both:
- * - New event-based system (via memberEvents parameter)
- * - Legacy alias system (via memberAliases parameter)
+ * Uses the event-based system for recursive alias resolution
  */
 export function calculateBalances(
   entries: Entry[],
-  memberAliases: MemberAlias[] = [],
   memberEvents: MemberEvent[] = []
 ): Map<string, Balance> {
   const balances = new Map<string, Balance>();
 
-  // Build canonical ID resolver
-  // Prefer event-based system (supports recursive aliases), fall back to legacy
-  let canonicalIdMap: Map<string, string>;
-
-  if (memberEvents.length > 0) {
-    // Use new event-based system with recursive alias resolution
-    canonicalIdMap = buildCanonicalIdMap(memberEvents);
-  } else {
-    // Fall back to legacy alias system (single-level only)
-    canonicalIdMap = new Map<string, string>();
-    for (const alias of memberAliases) {
-      canonicalIdMap.set(alias.newMemberId, alias.existingMemberId);
-    }
-  }
+  // Build canonical ID map from events for recursive alias resolution
+  const canonicalIdMap = buildCanonicalIdMap(memberEvents);
 
   // Resolve member ID to canonical ID
   const resolve = (id: string): string => canonicalIdMap.get(id) ?? id;

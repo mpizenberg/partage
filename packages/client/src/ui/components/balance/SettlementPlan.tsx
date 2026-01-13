@@ -24,7 +24,7 @@ export const SettlementPlan: Component<SettlementPlanProps> = (props) => {
     return store.resolveCanonicalMemberId(userId)
   })
 
-  // Memoized member name lookup map - O(1) lookups instead of O(n) finds
+  // Memoized member name lookup map - uses canonical ID resolution
   const memberNameMap = createMemo(() => {
     const nameMap = new Map<string, string>()
     const store = loroStore()
@@ -37,30 +37,14 @@ export const SettlementPlan: Component<SettlementPlanProps> = (props) => {
       return nameMap
     }
 
-    // Get aliases once
-    const aliases = store.getMemberAliases()
-    const aliasMap = new Map<string, string>() // existingMemberId -> newMemberId
-    for (const alias of aliases) {
-      aliasMap.set(alias.existingMemberId, alias.newMemberId)
-    }
+    // Use event-based system: resolve each member to their canonical name
+    const canonicalIdMap = store.getCanonicalIdMap()
+    const allStates = store.getAllMemberStates()
 
-    // Build name map from all members
-    const allMembers = store.getMembers()
-    const memberById = new Map(allMembers.map(m => [m.id, m]))
-
-    for (const member of allMembers) {
-      let displayName = member.name
-
-      // If this member was claimed by another (alias exists), use the claimer's name
-      const claimerId = aliasMap.get(member.id)
-      if (claimerId) {
-        const claimer = memberById.get(claimerId)
-        if (claimer) {
-          displayName = claimer.name
-        }
-      }
-
-      nameMap.set(member.id, displayName)
+    for (const [memberId, state] of allStates) {
+      const canonicalId = canonicalIdMap.get(memberId) ?? memberId
+      const canonicalState = allStates.get(canonicalId)
+      nameMap.set(memberId, canonicalState?.name ?? state.name)
     }
 
     return nameMap

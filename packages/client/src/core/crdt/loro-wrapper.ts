@@ -719,18 +719,6 @@ export class LoroEntryStore {
   ): MemberEvent {
     const event = createMemberCreatedEvent(memberId, name, actorId, options);
     this.addMemberEvent(event);
-
-    // Also add to legacy members map for backwards compatibility
-    this.addMember({
-      id: memberId,
-      name,
-      publicKey: options.publicKey,
-      joinedAt: event.timestamp,
-      status: 'active',
-      isVirtual: options.isVirtual,
-      addedBy: actorId,
-    });
-
     return event;
   }
 
@@ -754,10 +742,6 @@ export class LoroEntryStore {
 
     const event = createMemberRenamedEvent(memberId, previousName, newName, actorId);
     this.addMemberEvent(event);
-
-    // Also update legacy members map
-    this.updateMember(memberId, { name: newName });
-
     return event;
   }
 
@@ -777,10 +761,6 @@ export class LoroEntryStore {
 
     const event = createMemberRetiredEvent(memberId, actorId);
     this.addMemberEvent(event);
-
-    // Also update legacy members map
-    this.updateMember(memberId, { status: 'departed', leftAt: event.timestamp });
-
     return event;
   }
 
@@ -800,10 +780,6 @@ export class LoroEntryStore {
 
     const event = createMemberUnretiredEvent(memberId, actorId);
     this.addMemberEvent(event);
-
-    // Also update legacy members map
-    this.updateMember(memberId, { status: 'active', leftAt: undefined });
-
     return event;
   }
 
@@ -824,15 +800,6 @@ export class LoroEntryStore {
 
     const event = createMemberReplacedEvent(memberId, replacedById, actorId);
     this.addMemberEvent(event);
-
-    // Also add to legacy memberAliases map for backwards compatibility
-    this.addMemberAlias({
-      newMemberId: replacedById,
-      existingMemberId: memberId,
-      linkedAt: event.timestamp,
-      linkedBy: actorId,
-    });
-
     return event;
   }
 

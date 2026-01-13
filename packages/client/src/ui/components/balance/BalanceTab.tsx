@@ -25,61 +25,28 @@ export const BalanceTab: Component<BalanceTabProps> = (props) => {
   })
 
   // Memoized member name lookup map - O(1) lookups instead of O(n) finds
-  // This is built once per render cycle instead of on every getMemberName call
-  // Uses event-based system when available (supports recursive alias resolution)
+  // Uses event-based system with canonical ID resolution
   const memberNameMap = createMemo(() => {
     const nameMap = new Map<string, string>()
     const store = loroStore()
     if (!store) {
-      // Fallback to basic members list
+      // Fallback to basic members list when store not loaded
       for (const member of members()) {
         nameMap.set(member.id, member.name)
       }
       return nameMap
     }
 
-    // Try new event-based system first
-    const memberEvents = store.getMemberEvents()
-    if (memberEvents.length > 0) {
-      // Use event-based system: resolve each member to their canonical name
-      const canonicalIdMap = store.getCanonicalIdMap()
-      const allStates = store.getAllMemberStates()
+    // Use event-based system: resolve each member to their canonical name
+    const canonicalIdMap = store.getCanonicalIdMap()
+    const allStates = store.getAllMemberStates()
 
-      for (const [memberId, state] of allStates) {
-        // For each member, look up the canonical ID's name
-        const canonicalId = canonicalIdMap.get(memberId) ?? memberId
-        const canonicalState = allStates.get(canonicalId)
-        nameMap.set(memberId, canonicalState?.name ?? state.name)
-      }
-      return nameMap
+    for (const [memberId, state] of allStates) {
+      // For each member, look up the canonical ID's name
+      const canonicalId = canonicalIdMap.get(memberId) ?? memberId
+      const canonicalState = allStates.get(canonicalId)
+      nameMap.set(memberId, canonicalState?.name ?? state.name)
     }
-
-    // Fall back to legacy alias system
-    const aliases = store.getMemberAliases()
-    const aliasMap = new Map<string, string>() // existingMemberId -> newMemberId
-    for (const alias of aliases) {
-      aliasMap.set(alias.existingMemberId, alias.newMemberId)
-    }
-
-    // Build name map from all members
-    const allMembers = store.getMembers()
-    const memberById = new Map(allMembers.map(m => [m.id, m]))
-
-    for (const member of allMembers) {
-      let displayName = member.name
-
-      // If this member was claimed by another (alias exists), use the claimer's name
-      const claimerId = aliasMap.get(member.id)
-      if (claimerId) {
-        const claimer = memberById.get(claimerId)
-        if (claimer) {
-          displayName = claimer.name
-        }
-      }
-
-      nameMap.set(member.id, displayName)
-    }
-
     return nameMap
   })
 

@@ -142,12 +142,31 @@ export const JoinGroupScreen: Component = () => {
           tempStore.applyUpdate(updateBytes);
         }
 
-        const members = tempStore.getMembers();
-        setExistingMembers(members.filter(m => m.status === 'active'));
+        // Get all member states using the event-based system
+        const allStates = tempStore.getAllMemberStates();
+        const members: Member[] = [];
+        const claimed = new Set<string>();
 
-        // Get member aliases to identify which virtual members have been claimed
-        const aliases = tempStore.getMemberAliases();
-        const claimed = new Set(aliases.map(a => a.existingMemberId));
+        for (const [memberId, state] of allStates) {
+          // Track replaced members
+          if (state.isReplaced) {
+            claimed.add(memberId);
+          }
+          // Only include active members (not retired, not replaced)
+          if (state.isActive) {
+            members.push({
+              id: memberId,
+              name: state.name,
+              publicKey: state.publicKey,
+              joinedAt: state.createdAt,
+              status: 'active',
+              isVirtual: state.isVirtual,
+              addedBy: state.createdBy,
+            });
+          }
+        }
+
+        setExistingMembers(members);
         setClaimedVirtualMemberIds(claimed);
       }
 
