@@ -12,9 +12,19 @@ Set up a monorepo structure for a fully encrypted, local-first bill-splitting PW
 ## Implementation Status
 
 **Current Phase**: Phase 8 - Polish & Production
-**Last Updated**: January 12, 2026
+**Last Updated**: January 13, 2026
 
 ### Completed
+- ✅ **Phase 8 (Partial)**: UI/UX Improvements
+  - Spanish language support (full translation ~425 keys)
+  - Language selector with flags and shorthand (🇬🇧 EN, 🇫🇷 FR, 🇪🇸 ES)
+  - Global footer with GitHub repository link
+  - Toast notification system for relevant activities
+    - Smart filtering (only shows activities affecting the user)
+    - Color-coded by type (green/orange/red borders)
+    - Auto-dismiss after 5 seconds
+    - Multi-language support
+  - PWA push notifications (in progress)
 - ✅ **Phase 7**: Simplified Trusted Group Join (100% complete)
   - Single group key (no rotation) embedded in URL fragment
   - Member alias system for claiming virtual member identities
@@ -62,8 +72,9 @@ Set up a monorepo structure for a fully encrypted, local-first bill-splitting PW
   - Form components with validation (Expense/Transfer)
   - Real-time balance calculations and settlement plans
   - Virtual member support (name-only for MVP)
-  - Production build: 73.82 KB JS, 23.82 KB CSS (gzipped)
+  - Production build: 82.32 KB JS, 6.26 KB CSS (gzipped)
   - 0 TypeScript errors
+  - Multi-language support (EN, FR, ES)
 
 - ✅ **Phase 2**: Local CRDT & Data Models (100% complete)
   - Loro CRDT wrapper with two-layer encryption

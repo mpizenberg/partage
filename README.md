@@ -97,6 +97,17 @@ See [PLAN.md](./PLAN.md) for the complete implementation roadmap.
 
 ### Current Phase: Phase 8 - Polish & Production 🔄
 
+**Recent Updates** (January 13, 2026):
+- ✅ Spanish language support (full translation)
+- ✅ Language selector with flags (🇬🇧 EN, 🇫🇷 FR, 🇪🇸 ES)
+- ✅ Global footer with GitHub repository link
+- ✅ Toast notifications for relevant activities
+  - Smart filtering: only shows activities that affect you
+  - Color-coded by type (added/modified/deleted)
+  - Auto-dismiss after 5 seconds
+  - Translates to user's selected language
+- 🔄 PWA push notifications (in progress)
+
 **Phase 7 - Simplified Trusted Group Join: ✅ COMPLETED** (January 12, 2026)
 - ✅ Single group key (no rotation) embedded in URL fragment
 - ✅ Member alias system for claiming virtual member identities
@@ -159,8 +170,9 @@ See [PLAN.md](./PLAN.md) for the complete implementation roadmap.
   - Transfer: Direct member-to-member payments
   - Real-time validation and amount calculations
 - ✅ Virtual members: Name-only tracking for MVP (no keypairs)
-- ✅ Production build: 73.82 KB JS, 23.82 KB CSS (gzipped)
+- ✅ Production build: 82.32 KB JS, 6.26 KB CSS (gzipped)
 - ✅ 0 TypeScript errors, full type safety
+- ✅ Internationalization: English, French, Spanish
 
 **Phase 2 - Local CRDT & Data Models: ✅ COMPLETED** (January 4, 2026)
 - ✅ Loro CRDT wrapper with two-layer encryption
@@ -193,10 +205,10 @@ See [PLAN.md](./PLAN.md) for the complete implementation roadmap.
 - ✅ Shared TypeScript types (crypto, group, member, entry, balance)
 
 **Next Steps (Phase 8)**:
-1. Recursive member linking (link real members, not only virtual)
-2. Error handling and loading states
-3. Security audit
-4. Internationalization (i18n) with French language support
+1. PWA push notifications for background activity alerts
+2. Recursive member linking (link real members, not only virtual)
+3. Error handling and loading states
+4. Security audit
 
 ## Documentation
 
