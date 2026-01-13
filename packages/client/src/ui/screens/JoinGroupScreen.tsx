@@ -52,14 +52,17 @@ export const JoinGroupScreen: Component = () => {
   const [showRealMembers, setShowRealMembers] = createSignal(false);
   const [nameError, setNameError] = createSignal<string>('');
 
-  // Separate members into virtual (unclaimed) and real
+  // Separate members into virtual (unclaimed) and real, sorted alphabetically by name
   const virtualMembers = () =>
     existingMembers()
       .filter(m => m.isVirtual === true)
-      .filter(m => !claimedVirtualMemberIds().has(m.id));
+      .filter(m => !claimedVirtualMemberIds().has(m.id))
+      .sort((a, b) => a.name.toLowerCase().localeCompare(b.name.toLowerCase()));
 
   const realMembers = () =>
-    existingMembers().filter(m => m.isVirtual !== true);
+    existingMembers()
+      .filter(m => m.isVirtual !== true)
+      .sort((a, b) => a.name.toLowerCase().localeCompare(b.name.toLowerCase()));
 
   // Validate that name is not already taken
   const validateName = (name: string): boolean => {
