@@ -19,8 +19,34 @@
 
 import { Loro, LoroMap } from 'loro-crdt';
 import { encryptJSON, decryptJSON } from '../crypto/symmetric.js';
-import type { Entry, ExpenseEntry, TransferEntry, Member, MemberAlias } from '@partage/shared';
+import type {
+  Entry,
+  ExpenseEntry,
+  TransferEntry,
+  Member,
+  MemberAlias,
+  MemberEvent,
+  MemberState,
+  MemberOperationValidation,
+} from '@partage/shared';
 import { PartageDB } from '../storage/indexeddb.js';
+import {
+  computeMemberState,
+  computeAllMemberStates,
+  getActiveMembers as getActiveMemberStates,
+  getRetiredMembers as getRetiredMemberStates,
+  resolveCanonicalMemberId as resolveCanonicalMemberIdFromEvents,
+  buildCanonicalIdMap,
+  canRenameMember,
+  canRetireMember,
+  canUnretireMember,
+  canReplaceMember,
+  createMemberCreatedEvent,
+  createMemberRenamedEvent,
+  createMemberRetiredEvent,
+  createMemberUnretiredEvent,
+  createMemberReplacedEvent,
+} from '../../domain/members/member-state.js';
 
 /**
  * Metadata stored in Loro (unencrypted)
@@ -101,6 +127,7 @@ export class LoroEntryStore {
   private entries: LoroMap;
   private members: LoroMap;
   private memberAliases: LoroMap;
+  private memberEvents: LoroMap; // New: event-based member management
   private settlementPreferences: LoroMap;
   private lastSavedVersion: any | null = null; // Track last saved version for incremental updates
   private keyCache: Map<string, CryptoKey> = new Map(); // Cache imported keys to avoid repeated crypto imports
@@ -117,6 +144,7 @@ export class LoroEntryStore {
     this.entries = this.loro.getMap('entries');
     this.members = this.loro.getMap('members');
     this.memberAliases = this.loro.getMap('memberAliases');
+    this.memberEvents = this.loro.getMap('memberEvents');
     this.settlementPreferences = this.loro.getMap('settlementPreferences');
   }
 
@@ -528,8 +556,17 @@ export class LoroEntryStore {
    * Resolve a member ID to its canonical ID (following aliases)
    * If the ID is linked to an existing member, return the existing member ID
    * Otherwise, return the original ID
+   *
+   * @deprecated Use resolveCanonicalMemberIdFromEvents() with getMemberEvents() instead
    */
   resolveCanonicalMemberId(memberId: string): string {
+    // First try the new event-based system
+    const events = this.getMemberEvents();
+    if (events.length > 0) {
+      return resolveCanonicalMemberIdFromEvents(memberId, events);
+    }
+
+    // Fall back to legacy alias system
     const aliases = this.getMemberAliases();
     // Check if this ID is an alias for another
     for (const alias of aliases) {
@@ -538,6 +575,274 @@ export class LoroEntryStore {
       }
     }
     return memberId;
+  }
+
+  // ==================== Member Event Management (New Event-Based System) ====================
+
+  /**
+   * Add a member event to the store
+   * Events are immutable - once added, they cannot be modified
+   */
+  addMemberEvent(event: MemberEvent): void {
+    this.transact(() => {
+      const eventMap = this.memberEvents.setContainer(event.id, new LoroMap()) as LoroMap;
+      eventMap.set('id', event.id);
+      eventMap.set('type', event.type);
+      eventMap.set('memberId', event.memberId);
+      eventMap.set('timestamp', event.timestamp);
+      eventMap.set('actorId', event.actorId);
+
+      // Type-specific fields
+      switch (event.type) {
+        case 'member_created':
+          eventMap.set('name', event.name);
+          eventMap.set('isVirtual', event.isVirtual);
+          if (event.publicKey) eventMap.set('publicKey', event.publicKey);
+          break;
+        case 'member_renamed':
+          eventMap.set('previousName', event.previousName);
+          eventMap.set('newName', event.newName);
+          break;
+        case 'member_replaced':
+          eventMap.set('replacedById', event.replacedById);
+          break;
+        // member_retired and member_unretired have no extra fields
+      }
+    });
+  }
+
+  /**
+   * Get all member events from the store
+   */
+  getMemberEvents(): MemberEvent[] {
+    const events: MemberEvent[] = [];
+
+    for (const id of this.memberEvents.keys()) {
+      const eventMap = this.memberEvents.get(id);
+      if (!eventMap || !(eventMap instanceof LoroMap)) continue;
+
+      const type = eventMap.get('type') as string;
+      const baseEvent = {
+        id: eventMap.get('id') as string,
+        memberId: eventMap.get('memberId') as string,
+        timestamp: eventMap.get('timestamp') as number,
+        actorId: eventMap.get('actorId') as string,
+      };
+
+      switch (type) {
+        case 'member_created':
+          events.push({
+            ...baseEvent,
+            type: 'member_created',
+            name: eventMap.get('name') as string,
+            isVirtual: eventMap.get('isVirtual') as boolean,
+            publicKey: eventMap.get('publicKey') as string | undefined,
+          });
+          break;
+        case 'member_renamed':
+          events.push({
+            ...baseEvent,
+            type: 'member_renamed',
+            previousName: eventMap.get('previousName') as string,
+            newName: eventMap.get('newName') as string,
+          });
+          break;
+        case 'member_retired':
+          events.push({ ...baseEvent, type: 'member_retired' });
+          break;
+        case 'member_unretired':
+          events.push({ ...baseEvent, type: 'member_unretired' });
+          break;
+        case 'member_replaced':
+          events.push({
+            ...baseEvent,
+            type: 'member_replaced',
+            replacedById: eventMap.get('replacedById') as string,
+          });
+          break;
+      }
+    }
+
+    return events;
+  }
+
+  /**
+   * Get computed state for a specific member from events
+   */
+  getMemberState(memberId: string): MemberState | null {
+    const events = this.getMemberEvents();
+    return computeMemberState(memberId, events);
+  }
+
+  /**
+   * Get computed states for all members from events
+   */
+  getAllMemberStates(): Map<string, MemberState> {
+    const events = this.getMemberEvents();
+    return computeAllMemberStates(events);
+  }
+
+  /**
+   * Get all active members (computed from events)
+   */
+  getActiveMemberStates(): MemberState[] {
+    const events = this.getMemberEvents();
+    return getActiveMemberStates(events);
+  }
+
+  /**
+   * Get all retired members (computed from events)
+   */
+  getRetiredMemberStates(): MemberState[] {
+    const events = this.getMemberEvents();
+    return getRetiredMemberStates(events);
+  }
+
+  /**
+   * Build a map of canonical member ID resolutions
+   */
+  getCanonicalIdMap(): Map<string, string> {
+    const events = this.getMemberEvents();
+    return buildCanonicalIdMap(events);
+  }
+
+  // ==================== Member Event Operations (High-Level API) ====================
+
+  /**
+   * Create a new member via event
+   */
+  createMember(
+    memberId: string,
+    name: string,
+    actorId: string,
+    options: { publicKey?: string; isVirtual: boolean }
+  ): MemberEvent {
+    const event = createMemberCreatedEvent(memberId, name, actorId, options);
+    this.addMemberEvent(event);
+
+    // Also add to legacy members map for backwards compatibility
+    this.addMember({
+      id: memberId,
+      name,
+      publicKey: options.publicKey,
+      joinedAt: event.timestamp,
+      status: 'active',
+      isVirtual: options.isVirtual,
+      addedBy: actorId,
+    });
+
+    return event;
+  }
+
+  /**
+   * Rename a member via event
+   * Returns the event if successful, or validation result if invalid
+   */
+  renameMemberViaEvent(
+    memberId: string,
+    newName: string,
+    actorId: string
+  ): MemberEvent | MemberOperationValidation {
+    const events = this.getMemberEvents();
+    const validation = canRenameMember(memberId, events);
+    if (!validation.valid) {
+      return validation;
+    }
+
+    const state = computeMemberState(memberId, events);
+    const previousName = state!.name;
+
+    const event = createMemberRenamedEvent(memberId, previousName, newName, actorId);
+    this.addMemberEvent(event);
+
+    // Also update legacy members map
+    this.updateMember(memberId, { name: newName });
+
+    return event;
+  }
+
+  /**
+   * Retire a member via event
+   * Returns the event if successful, or validation result if invalid
+   */
+  retireMember(
+    memberId: string,
+    actorId: string
+  ): MemberEvent | MemberOperationValidation {
+    const events = this.getMemberEvents();
+    const validation = canRetireMember(memberId, events);
+    if (!validation.valid) {
+      return validation;
+    }
+
+    const event = createMemberRetiredEvent(memberId, actorId);
+    this.addMemberEvent(event);
+
+    // Also update legacy members map
+    this.updateMember(memberId, { status: 'departed', leftAt: event.timestamp });
+
+    return event;
+  }
+
+  /**
+   * Unretire a member via event
+   * Returns the event if successful, or validation result if invalid
+   */
+  unretireMember(
+    memberId: string,
+    actorId: string
+  ): MemberEvent | MemberOperationValidation {
+    const events = this.getMemberEvents();
+    const validation = canUnretireMember(memberId, events);
+    if (!validation.valid) {
+      return validation;
+    }
+
+    const event = createMemberUnretiredEvent(memberId, actorId);
+    this.addMemberEvent(event);
+
+    // Also update legacy members map
+    this.updateMember(memberId, { status: 'active', leftAt: undefined });
+
+    return event;
+  }
+
+  /**
+   * Replace a member (alias) via event
+   * Returns the event if successful, or validation result if invalid
+   */
+  replaceMember(
+    memberId: string,
+    replacedById: string,
+    actorId: string
+  ): MemberEvent | MemberOperationValidation {
+    const events = this.getMemberEvents();
+    const validation = canReplaceMember(memberId, replacedById, events);
+    if (!validation.valid) {
+      return validation;
+    }
+
+    const event = createMemberReplacedEvent(memberId, replacedById, actorId);
+    this.addMemberEvent(event);
+
+    // Also add to legacy memberAliases map for backwards compatibility
+    this.addMemberAlias({
+      newMemberId: replacedById,
+      existingMemberId: memberId,
+      linkedAt: event.timestamp,
+      linkedBy: actorId,
+    });
+
+    return event;
+  }
+
+  /**
+   * Check if an event result is a validation error
+   */
+  static isValidationError(
+    result: MemberEvent | MemberOperationValidation
+  ): result is MemberOperationValidation {
+    return 'valid' in result && !result.valid;
   }
 
   // ==================== Settlement Preferences ====================
@@ -603,6 +908,7 @@ export class LoroEntryStore {
     this.entries = this.loro.getMap('entries');
     this.members = this.loro.getMap('members');
     this.memberAliases = this.loro.getMap('memberAliases');
+    this.memberEvents = this.loro.getMap('memberEvents');
     this.settlementPreferences = this.loro.getMap('settlementPreferences');
     this.lastSavedVersion = this.loro.oplogVersion(); // Mark as saved
   }
@@ -650,6 +956,7 @@ export class LoroEntryStore {
     this.entries = this.loro.getMap('entries');
     this.members = this.loro.getMap('members');
     this.memberAliases = this.loro.getMap('memberAliases');
+    this.memberEvents = this.loro.getMap('memberEvents');
     this.settlementPreferences = this.loro.getMap('settlementPreferences');
   }
 

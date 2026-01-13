@@ -36,34 +36,56 @@ export const SettleTab: Component = () => {
     return allPreferences().find(p => p.userId === userId)
   }
 
-  const getMemberName = (memberId: string): string => {
+  // Memoized member name lookup map - supports recursive alias resolution
+  const memberNameMap = createMemo(() => {
+    const nameMap = new Map<string, string>()
     const store = loroStore()
-    if (!store) return t('common.unknown')
+    if (!store) {
+      for (const member of members()) {
+        nameMap.set(member.id, member.name)
+      }
+      return nameMap
+    }
 
-    // Check if this is a canonical ID (old virtual member) that has been claimed
+    // Try new event-based system first
+    const memberEvents = store.getMemberEvents()
+    if (memberEvents.length > 0) {
+      const canonicalIdMap = store.getCanonicalIdMap()
+      const allStates = store.getAllMemberStates()
+
+      for (const [memberId, state] of allStates) {
+        const canonicalId = canonicalIdMap.get(memberId) ?? memberId
+        const canonicalState = allStates.get(canonicalId)
+        nameMap.set(memberId, canonicalState?.name ?? state.name)
+      }
+      return nameMap
+    }
+
+    // Fall back to legacy alias system
     const aliases = store.getMemberAliases()
-    const alias = aliases.find(a => a.existingMemberId === memberId)
-    if (alias) {
-      // This is a claimed virtual member - show the NEW member's name
-      const newMember = members().find(m => m.id === alias.newMemberId)
-      if (newMember) return newMember.name
-
-      // Fallback to full Loro member list
-      const allMembers = store.getMembers()
-      const newMemberFull = allMembers.find(m => m.id === alias.newMemberId)
-      if (newMemberFull) return newMemberFull.name
+    const aliasMap = new Map<string, string>()
+    for (const alias of aliases) {
+      aliasMap.set(alias.existingMemberId, alias.newMemberId)
     }
 
-    // Try filtered members list first
-    let member = members().find(m => m.id === memberId)
+    const allMembers = store.getMembers()
+    const memberById = new Map(allMembers.map(m => [m.id, m]))
 
-    // If not found, check full Loro member list (includes replaced virtual members)
-    if (!member) {
-      const allMembers = store.getMembers()
-      member = allMembers.find(m => m.id === memberId)
+    for (const member of allMembers) {
+      let displayName = member.name
+      const claimerId = aliasMap.get(member.id)
+      if (claimerId) {
+        const claimer = memberById.get(claimerId)
+        if (claimer) displayName = claimer.name
+      }
+      nameMap.set(member.id, displayName)
     }
 
-    return member?.name || t('common.unknown')
+    return nameMap
+  })
+
+  const getMemberName = (memberId: string): string => {
+    return memberNameMap().get(memberId) || t('common.unknown')
   }
 
   // Get all members who can receive payments (all members including virtual, excluding the one being edited)

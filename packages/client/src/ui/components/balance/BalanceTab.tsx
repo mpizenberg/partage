@@ -26,6 +26,7 @@ export const BalanceTab: Component<BalanceTabProps> = (props) => {
 
   // Memoized member name lookup map - O(1) lookups instead of O(n) finds
   // This is built once per render cycle instead of on every getMemberName call
+  // Uses event-based system when available (supports recursive alias resolution)
   const memberNameMap = createMemo(() => {
     const nameMap = new Map<string, string>()
     const store = loroStore()
@@ -37,7 +38,23 @@ export const BalanceTab: Component<BalanceTabProps> = (props) => {
       return nameMap
     }
 
-    // Get aliases once
+    // Try new event-based system first
+    const memberEvents = store.getMemberEvents()
+    if (memberEvents.length > 0) {
+      // Use event-based system: resolve each member to their canonical name
+      const canonicalIdMap = store.getCanonicalIdMap()
+      const allStates = store.getAllMemberStates()
+
+      for (const [memberId, state] of allStates) {
+        // For each member, look up the canonical ID's name
+        const canonicalId = canonicalIdMap.get(memberId) ?? memberId
+        const canonicalState = allStates.get(canonicalId)
+        nameMap.set(memberId, canonicalState?.name ?? state.name)
+      }
+      return nameMap
+    }
+
+    // Fall back to legacy alias system
     const aliases = store.getMemberAliases()
     const aliasMap = new Map<string, string>() // existingMemberId -> newMemberId
     for (const alias of aliases) {
