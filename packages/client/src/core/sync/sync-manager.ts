@@ -437,56 +437,19 @@ export class SyncManager {
    */
   private async applyRemoteUpdate(update: LoroUpdateRecord, _actorId: string): Promise<void> {
     try {
-      // DEBUG: capture before/after snapshots to confirm the update actually changes state
-      const beforeSnapshot = this.loroStore.exportSnapshot();
-      const beforeSize = beforeSnapshot.byteLength;
-
-      // Extra DEBUG: attempt to detect "view is stale" vs "import is a no-op"
-      // by sampling snapshot bytes (head/tail) and a JSON representation if available.
-      const beforeHead = Array.from(beforeSnapshot.slice(0, Math.min(16, beforeSnapshot.length)));
-      const beforeTail = Array.from(
-        beforeSnapshot.slice(Math.max(0, beforeSnapshot.length - 16), beforeSnapshot.length)
-      );
-
       const updateBytes = PocketBaseClient.decodeUpdateData(update.updateData);
 
+      // Skip empty updates
       if (updateBytes.byteLength === 0) {
-        console.warn(
-          `[SyncManager] WARNING: received an EMPTY remote update for group=${update.groupId} from=${update.actorId} (ts=${update.timestamp}).`
-        );
+        return;
       }
 
-      // If we have seen this record id already, applying will likely be a no-op.
-      // This helps diagnose duplicate delivery (e.g. applying from initialSync + subscription).
-      const seen = this.appliedUpdateIds?.has(update.id) ?? false;
-      if (seen) {
-        console.warn(
-          `[SyncManager] applyRemoteUpdate: update id=${update.id} already applied earlier; import likely no-op`
-        );
+      // Skip already-applied updates to avoid redundant processing
+      if (this.appliedUpdateIds?.has(update.id)) {
+        return;
       }
 
       this.loroStore.applyUpdate(updateBytes);
-
-      const afterSnapshot = this.loroStore.exportSnapshot();
-      const afterSize = afterSnapshot.byteLength;
-
-      const afterHead = Array.from(afterSnapshot.slice(0, Math.min(16, afterSnapshot.length)));
-      const afterTail = Array.from(
-        afterSnapshot.slice(Math.max(0, afterSnapshot.length - 16), afterSnapshot.length)
-      );
-
-      const delta = afterSize - beforeSize;
-
-      // If delta is zero, compare small snapshot signatures to tell whether bytes changed anyway.
-      // (Size can remain equal even if content changes.)
-      const headChanged = JSON.stringify(beforeHead) !== JSON.stringify(afterHead);
-      const tailChanged = JSON.stringify(beforeTail) !== JSON.stringify(afterTail);
-
-      if (delta === 0) {
-        console.warn(
-          `[SyncManager] applyRemoteUpdate(group=${update.groupId}) snapshotSizeUnchanged; headChanged=${headChanged} tailChanged=${tailChanged}`
-        );
-      }
 
       // Mark applied (for duplicate detection)
       if (this.appliedUpdateIds) {

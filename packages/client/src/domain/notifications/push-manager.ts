@@ -27,26 +27,14 @@ export class PushNotificationManager {
    * Must be called after service worker is registered
    */
   async initialize(): Promise<void> {
-    console.log('PushNotificationManager.initialize() called')
-
     if (!('serviceWorker' in navigator)) {
-      console.warn('Service Worker not supported in this browser')
       return
     }
 
     try {
-      console.log('Waiting for service worker to be ready...')
-      // Wait for service worker to be ready
       this.serviceWorkerRegistration = await navigator.serviceWorker.ready
-      console.log('✅ Service worker ready, push notification manager initialized')
-      console.log('Service worker registration:', {
-        scope: this.serviceWorkerRegistration.scope,
-        active: !!this.serviceWorkerRegistration.active,
-        waiting: !!this.serviceWorkerRegistration.waiting,
-        installing: !!this.serviceWorkerRegistration.installing
-      })
     } catch (error) {
-      console.error('❌ Failed to initialize push notifications:', error)
+      console.error('Failed to initialize push notifications:', error)
     }
   }
 
@@ -106,34 +94,18 @@ export class PushNotificationManager {
     message: string,
     groupName?: string
   ): Promise<void> {
-    console.log('showNotification called:', {
-      activityId: activity.id,
-      activityType: activity.type,
-      hasServiceWorker: !!this.serviceWorkerRegistration,
-      permission: Notification.permission,
-      visibilityState: document.visibilityState
-    })
-
-    if (!this.serviceWorkerRegistration) {
-      console.warn('Service worker not registered - cannot show notification')
-      return
-    }
-
-    const permission = this.getPermissionState()
-    if (!permission.granted) {
-      console.warn('Notification permission not granted:', permission)
+    if (!this.serviceWorkerRegistration || !this.getPermissionState().granted) {
       return
     }
 
     try {
-      const notificationOptions = {
+      await this.serviceWorkerRegistration.showNotification('Partage', {
         body: message,
         icon: '/icon.svg',
         badge: '/icon.svg',
-        tag: `activity-${activity.id}`, // Prevent duplicate notifications
+        tag: `activity-${activity.id}`,
         requireInteraction: false,
         silent: false,
-        vibrate: [200, 100, 200],
         data: {
           activityId: activity.id,
           activityType: activity.type,
@@ -141,16 +113,9 @@ export class PushNotificationManager {
           groupName,
           timestamp: activity.timestamp,
         },
-      } as NotificationOptions
-
-      console.log('Calling serviceWorkerRegistration.showNotification with:', notificationOptions)
-
-      // Create notification through service worker
-      await this.serviceWorkerRegistration.showNotification('Partage', notificationOptions)
-
-      console.log('✅ Push notification shown successfully for activity:', activity.id)
+      })
     } catch (error) {
-      console.error('❌ Failed to show notification:', error)
+      console.error('Failed to show notification:', error)
     }
   }
 

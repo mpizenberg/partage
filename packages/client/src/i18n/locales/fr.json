@@ -435,6 +435,11 @@
     "enableTitle": "Restez informé avec les notifications",
     "enableDescription": "Soyez notifié lorsque des dépenses sont ajoutées ou que vos soldes changent",
     "enable": "Activer",
-    "notNow": "Pas maintenant"
+    "notNow": "Pas maintenant",
+    "enablePush": "Activer les notifications push",
+    "backgroundPush": "Notifications en arrière-plan (NTFY)",
+    "ntfyDescription": "Pour recevoir des notifications quand l'app est fermée, abonnez-vous à cette URL avec l'application NTFY :",
+    "openNtfy": "Ouvrir dans NTFY",
+    "ntfyHint": "Installez NTFY sur votre téléphone, puis abonnez-vous à cette URL pour recevoir des notifications même quand Partage est fermé."
   }
 }
