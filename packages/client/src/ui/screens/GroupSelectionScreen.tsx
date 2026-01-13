@@ -303,8 +303,12 @@ export const GroupSelectionScreen: Component = () => {
                               {t('groups.createdAt', { date: formatDate(group.createdAt, locale()) })}
                             </p>
                             <p class="text-sm text-muted">
-                              {getMemberCountText(group.members?.length || 0)}:{' '}
-                              {(group.members || []).map((m) => m.name).join(', ')}
+                              {(() => {
+                                const activeMembers = (group.members || [])
+                                  .filter((m) => m.status === 'active')
+                                  .sort((a, b) => a.name.localeCompare(b.name));
+                                return `${getMemberCountText(activeMembers.length)}: ${activeMembers.map((m) => m.name).join(', ')}`;
+                              })()}
                             </p>
                           </div>
                         </div>

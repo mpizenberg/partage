@@ -82,11 +82,15 @@ export const BalanceTab: Component<BalanceTabProps> = (props) => {
     const canonicalUserId = myUserId()
     if (!canonicalUserId) return []
 
-    // Put current user first, then others sorted by absolute balance
+    // Put current user first, then others sorted alphabetically (case insensitive)
     const userBalance = balances().get(canonicalUserId)
     const otherBalances = Array.from(balances().entries())
       .filter(([memberId]) => memberId !== canonicalUserId)
-      .sort((a, b) => Math.abs(b[1].netBalance) - Math.abs(a[1].netBalance))
+      .sort((a, b) => {
+        const nameA = getMemberName(a[0]).toLowerCase()
+        const nameB = getMemberName(b[0]).toLowerCase()
+        return nameA.localeCompare(nameB)
+      })
 
     if (userBalance) {
       return [[canonicalUserId, userBalance] as [string, typeof userBalance], ...otherBalances]
