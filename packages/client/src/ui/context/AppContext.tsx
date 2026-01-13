@@ -201,9 +201,7 @@ const AppContext = createContext<AppContextValue>();
 
 // Provider component
 export const AppProvider: Component<{ children: JSX.Element }> = (props) => {
-  console.log('[AppProvider] Component rendering...');
   const db = getDB();
-  console.log('[AppProvider] Database instance created');
 
   // Snapshot manager for incremental updates
   const [snapshotManager] = createSignal(new SnapshotManager(db, 50)); // Consolidate every 50 updates
@@ -254,14 +252,12 @@ export const AppProvider: Component<{ children: JSX.Element }> = (props) => {
   const members = createMemo(() => {
     const group = activeGroup();
     if (!group) {
-      console.log('[AppContext] members() called but no active group');
       return [];
     }
     const store = loroStore();
     if (!store) {
       // No store yet, return cached members from group
       const membersList = group.activeMembers || [];
-      console.log('[AppContext] members() returning (no store):', membersList);
       return membersList;
     }
 
@@ -292,7 +288,6 @@ export const AppProvider: Component<{ children: JSX.Element }> = (props) => {
     }));
 
     const membersList = [...activeMembersList, ...retiredMembersList];
-    console.log('[AppContext] members() returning:', { active: activeMembersList.length, retired: retiredMembersList.length });
     return membersList;
   });
 
@@ -331,13 +326,11 @@ export const AppProvider: Component<{ children: JSX.Element }> = (props) => {
 
   // Initialize database and load data
   onMount(async () => {
-    console.log('[AppContext] onMount - initializing app...');
     try {
       setIsLoading(true);
 
       // Open database
       await db.open();
-      console.log('[AppContext] Database opened');
 
       // Load user identity
       const storedIdentity = await db.getUserKeypair();
@@ -348,8 +341,7 @@ export const AppProvider: Component<{ children: JSX.Element }> = (props) => {
       setGroups(allGroups);
 
       // Check server connectivity
-      const isServerReachable = await pbClient.healthCheck();
-      console.log('[AppContext] Server reachable:', isServerReachable);
+      await pbClient.healthCheck();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to initialize app');
       console.error('Initialization error:', err);
@@ -420,12 +412,6 @@ export const AppProvider: Component<{ children: JSX.Element }> = (props) => {
     virtualMembers: Member[],
     myUserName: string = 'You'
   ) => {
-    console.log('[AppContext] createGroup called with:', {
-      name,
-      currency,
-      virtualMembers,
-      myUserName,
-    });
     try {
       setIsLoading(true);
       setError(null);
@@ -434,7 +420,6 @@ export const AppProvider: Component<{ children: JSX.Element }> = (props) => {
       if (!currentIdentity) {
         throw new Error('No identity found. Please initialize identity first.');
       }
-      console.log('[AppContext] Current identity:', currentIdentity.publicKeyHash);
 
       // Create group on server first to get server-generated ID
       let groupId: string;
@@ -442,7 +427,6 @@ export const AppProvider: Component<{ children: JSX.Element }> = (props) => {
 
       if (navigator.onLine) {
         try {
-          console.log('[AppContext] Creating group on server...');
           const serverGroup = await pbClient.createGroup({
             name,
             createdAt,
@@ -451,7 +435,6 @@ export const AppProvider: Component<{ children: JSX.Element }> = (props) => {
             memberCount: virtualMembers.length + 1,
           });
           groupId = serverGroup.id;
-          console.log('[AppContext] Group created on server with ID:', groupId);
         } catch (error) {
           console.error('[AppContext] Failed to create group on server:', error);
           throw new Error('Failed to create group on server. Please check your connection.');
@@ -459,7 +442,6 @@ export const AppProvider: Component<{ children: JSX.Element }> = (props) => {
       } else {
         // Offline: use UUID (will need special handling for sync later)
         groupId = crypto.randomUUID();
-        console.log('[AppContext] Offline: using local UUID:', groupId);
       }
 
       // Generate group key
@@ -521,8 +503,6 @@ export const AppProvider: Component<{ children: JSX.Element }> = (props) => {
       }
 
       // Save to database
-      console.log('[AppContext] Saving group locally with ID:', groupId);
-      console.log('[AppContext] Group activeMembers:', group.activeMembers);
       await db.saveGroup(group);
       await db.saveGroupKey(groupId, exportedKey);
 
@@ -538,7 +518,6 @@ export const AppProvider: Component<{ children: JSX.Element }> = (props) => {
       // 3. Other clients will receive the complete initial state
       if (navigator.onLine) {
         try {
-          console.log('[AppContext] Pushing initial group state to server...');
           const tempManager = new SyncManager({
             loroStore: newLoroStore,
             storage: db,
@@ -549,10 +528,6 @@ export const AppProvider: Component<{ children: JSX.Element }> = (props) => {
           // Export the initial state as a snapshot (Loro handles this correctly on import)
           const updateBytes = newLoroStore.exportSnapshot();
           await tempManager.pushUpdate(groupId, currentIdentity.publicKeyHash, updateBytes);
-          console.log(
-            '[AppContext] Initial state pushed to server, bytes:',
-            updateBytes.byteLength
-          );
 
           // Destroy temporary manager (selectGroup will create a proper one)
           await tempManager.destroy();
@@ -592,9 +567,6 @@ export const AppProvider: Component<{ children: JSX.Element }> = (props) => {
         throw new Error('Group not found');
       }
 
-      console.log('[AppContext] Loaded group from DB:', group);
-      console.log('[AppContext] Group activeMembers:', group.activeMembers);
-
       // Load Loro snapshot + incremental updates (and consolidate)
       const store = new LoroEntryStore(currentIdentity.publicKeyHash);
       await snapshotManager().load(groupId, store);
@@ -608,7 +580,6 @@ export const AppProvider: Component<{ children: JSX.Element }> = (props) => {
 
       setLoroStore(store);
       setActiveGroup(updatedGroup);
-      console.log('[AppContext] Active group set, activeMembers:', activeGroup()?.activeMembers);
 
       // Initialize sync manager
       const manager = new SyncManager({
@@ -617,7 +588,6 @@ export const AppProvider: Component<{ children: JSX.Element }> = (props) => {
         apiClient: pbClient,
         enableAutoSync: autoSyncEnabled(),
         onUpdate: async (updatedGroupId) => {
-          console.log('[AppContext] Received update for group:', updatedGroupId);
           // Refresh entries and members when updates are received
           if (updatedGroupId === groupId) {
             await refreshEntries(groupId, group.currentKeyVersion);
@@ -643,7 +613,6 @@ export const AppProvider: Component<{ children: JSX.Element }> = (props) => {
       // Perform initial sync if online
       if (navigator.onLine && autoSyncEnabled()) {
         try {
-          console.log('[AppContext] Starting initial sync...');
           await manager.initialSync(groupId, currentIdentity.publicKeyHash);
 
           // Subscribe to real-time updates
@@ -663,14 +632,10 @@ export const AppProvider: Component<{ children: JSX.Element }> = (props) => {
 
           // Update sync state
           setSyncState(manager.getState());
-
-          console.log('[AppContext] Initial sync completed');
         } catch (syncError) {
           console.warn('[AppContext] Sync failed, continuing in offline mode:', syncError);
           setSyncState(manager.getState());
         }
-      } else {
-        console.log('[AppContext] Offline mode - skipping sync');
       }
 
     } catch (err) {
@@ -881,8 +846,6 @@ export const AppProvider: Component<{ children: JSX.Element }> = (props) => {
 
           // Update sync state
           setSyncState(manager.getState());
-
-          console.log('[AppContext] Expense synced to server');
         } catch (syncError) {
           console.warn('[AppContext] Failed to sync expense, queued for later:', syncError);
         }
@@ -964,8 +927,6 @@ export const AppProvider: Component<{ children: JSX.Element }> = (props) => {
 
           // Update sync state
           setSyncState(manager.getState());
-
-          console.log('[AppContext] Transfer synced to server');
         } catch (syncError) {
           console.warn('[AppContext] Failed to sync transfer, queued for later:', syncError);
         }
@@ -1052,7 +1013,6 @@ export const AppProvider: Component<{ children: JSX.Element }> = (props) => {
             versionBefore
           );
           setSyncState(manager.getState());
-          console.log('[AppContext] Modified expense synced to server');
         } catch (syncError) {
           console.warn('[AppContext] Failed to sync modified expense:', syncError);
         }
@@ -1139,7 +1099,6 @@ export const AppProvider: Component<{ children: JSX.Element }> = (props) => {
             versionBefore
           );
           setSyncState(manager.getState());
-          console.log('[AppContext] Modified transfer synced to server');
         } catch (syncError) {
           console.warn('[AppContext] Failed to sync modified transfer:', syncError);
         }
@@ -1204,10 +1163,6 @@ export const AppProvider: Component<{ children: JSX.Element }> = (props) => {
         throw new Error('Failed to get deleted entry');
       }
 
-      console.log(
-        `[AppContext] Deleted entry ${entryId}, created new version ${newVersionId} with status=deleted`
-      );
-
       // Sync to server
       const manager = syncManager();
       if (manager && autoSyncEnabled()) {
@@ -1220,7 +1175,6 @@ export const AppProvider: Component<{ children: JSX.Element }> = (props) => {
             versionBefore
           );
           setSyncState(manager.getState());
-          console.log('[AppContext] Deleted entry synced to server');
         } catch (syncError) {
           console.warn('[AppContext] Failed to sync deleted entry:', syncError);
         }
@@ -1281,10 +1235,6 @@ export const AppProvider: Component<{ children: JSX.Element }> = (props) => {
         throw new Error('Failed to get undeleted entry');
       }
 
-      console.log(
-        `[AppContext] Undeleted entry ${entryId}, created new version ${newVersionId} with status=active`
-      );
-
       // Sync to server
       const manager = syncManager();
       if (manager && autoSyncEnabled()) {
@@ -1297,7 +1247,6 @@ export const AppProvider: Component<{ children: JSX.Element }> = (props) => {
             versionBefore
           );
           setSyncState(manager.getState());
-          console.log('[AppContext] Undeleted entry synced to server');
         } catch (syncError) {
           console.warn('[AppContext] Failed to sync undeleted entry:', syncError);
         }
@@ -1424,8 +1373,6 @@ export const AppProvider: Component<{ children: JSX.Element }> = (props) => {
         if (LoroEntryStore.isValidationError(replaceResult)) {
           console.warn('[AppContext] Could not replace member:', replaceResult.reason);
           // Continue anyway - the new member is already created
-        } else {
-          console.log('[AppContext] Created member replacement:', existingMemberId, '->', currentIdentity.publicKeyHash);
         }
       } else {
         // New member (not claiming existing identity)
@@ -1435,8 +1382,6 @@ export const AppProvider: Component<{ children: JSX.Element }> = (props) => {
           currentIdentity.publicKeyHash,
           { publicKey: currentIdentity.publicKey, isVirtual: false }
         );
-
-        console.log('[AppContext] Added new member:', currentIdentity.publicKeyHash, memberName);
       }
 
       // Save the Loro snapshot
@@ -1468,8 +1413,6 @@ export const AppProvider: Component<{ children: JSX.Element }> = (props) => {
 
       // Select the new group
       await selectGroup(groupId);
-
-      console.log('[AppContext] Successfully joined group:', groupId);
     } catch (err) {
       console.error('[AppContext] Failed to join group:', err);
       throw err;
@@ -1489,7 +1432,6 @@ export const AppProvider: Component<{ children: JSX.Element }> = (props) => {
 
     try {
       setIsLoading(true);
-      console.log('[AppContext] Manual sync started');
 
       // Perform incremental sync
       await manager.incrementalSync(group.id, currentIdentity.publicKeyHash);
@@ -1499,8 +1441,6 @@ export const AppProvider: Component<{ children: JSX.Element }> = (props) => {
 
       // Update sync state
       setSyncState(manager.getState());
-
-      console.log('[AppContext] Manual sync completed');
     } catch (err) {
       console.error('[AppContext] Manual sync failed:', err);
       setError(err instanceof Error ? err.message : 'Sync failed');
@@ -1512,7 +1452,6 @@ export const AppProvider: Component<{ children: JSX.Element }> = (props) => {
   // Toggle auto-sync on/off
   const toggleAutoSync = () => {
     setAutoSyncEnabled(!autoSyncEnabled());
-    console.log('[AppContext] Auto-sync:', autoSyncEnabled() ? 'enabled' : 'disabled');
   };
 
   const clearError = () => setError(null);
@@ -1592,7 +1531,6 @@ export const AppProvider: Component<{ children: JSX.Element }> = (props) => {
       // The calling component should manage its own loading state
       setError(null);
 
-      console.log('[importGroups] Starting import analysis...');
 
       // Deserialize JSON (restore Uint8Arrays and Maps)
       let parsed: any;
@@ -1606,7 +1544,6 @@ export const AppProvider: Component<{ children: JSX.Element }> = (props) => {
           }
           return value;
         });
-        console.log('[importGroups] JSON parsed successfully');
       } catch (parseError) {
         console.error('[importGroups] JSON parse failed:', parseError);
         throw new Error(
@@ -1622,7 +1559,6 @@ export const AppProvider: Component<{ children: JSX.Element }> = (props) => {
         throw new Error('Invalid export data format: missing version or groups');
       }
 
-      console.log('[importGroups] Found', importData.groups.length, 'groups to analyze');
 
       // Analyze each group
       const analysis: ImportAnalysis['groups'] = [];
@@ -1660,48 +1596,24 @@ export const AppProvider: Component<{ children: JSX.Element }> = (props) => {
             const testStoreLocal = new LoroEntryStore(currentIdentity.publicKeyHash);
             testStoreLocal.importSnapshot(existingSnapshot);
             const localSnapshotBefore = testStoreLocal.exportSnapshot();
-            console.log(
-              `[importGroups] ${groupExport.group.name} - Local snapshot size before:`,
-              localSnapshotBefore.byteLength
-            );
 
             testStoreLocal.importSnapshot(groupExport.loroSnapshot);
             const localSnapshotAfter = testStoreLocal.exportSnapshot();
-            console.log(
-              `[importGroups] ${groupExport.group.name} - Local snapshot size after importing remote:`,
-              localSnapshotAfter.byteLength
-            );
 
             const importHasNewData =
               localSnapshotBefore.byteLength !== localSnapshotAfter.byteLength;
-            console.log(
-              `[importGroups] ${groupExport.group.name} - Import has new data:`,
-              importHasNewData
-            );
 
             // Test 2: Does local have new data not in import?
             // Load import snapshot, compare snapshot sizes after importing local
             const testStoreImport = new LoroEntryStore(currentIdentity.publicKeyHash);
             testStoreImport.importSnapshot(groupExport.loroSnapshot);
             const importSnapshotBefore = testStoreImport.exportSnapshot();
-            console.log(
-              `[importGroups] ${groupExport.group.name} - Import snapshot size before:`,
-              importSnapshotBefore.byteLength
-            );
 
             testStoreImport.importSnapshot(existingSnapshot);
             const importSnapshotAfter = testStoreImport.exportSnapshot();
-            console.log(
-              `[importGroups] ${groupExport.group.name} - Import snapshot size after loading local:`,
-              importSnapshotAfter.byteLength
-            );
 
             const localHasNewData =
               importSnapshotBefore.byteLength !== importSnapshotAfter.byteLength;
-            console.log(
-              `[importGroups] ${groupExport.group.name} - Local has new data:`,
-              localHasNewData
-            );
 
             let relationship: 'local_subset' | 'import_subset' | 'diverged';
 
@@ -1719,10 +1631,6 @@ export const AppProvider: Component<{ children: JSX.Element }> = (props) => {
               relationship = 'diverged';
             }
 
-            console.log(
-              `[importGroups] Group ${groupExport.group.name}: importHasNewData=${importHasNewData}, localHasNewData=${localHasNewData}, relationship=${relationship}`
-            );
-
             analysis.push({
               group: groupExport.group,
               exists: true,
@@ -1734,14 +1642,12 @@ export const AppProvider: Component<{ children: JSX.Element }> = (props) => {
         }
       }
 
-      console.log('[importGroups] Analysis complete, returning', analysis.length, 'groups');
 
       const result = {
         groups: analysis,
         exportData: importData,
       };
 
-      console.log('[importGroups] Returning result:', result);
       return result;
     } catch (err) {
       console.error('[importGroups] Error during analysis:', err);
@@ -1776,8 +1682,6 @@ export const AppProvider: Component<{ children: JSX.Element }> = (props) => {
           tempStore.importSnapshot(groupExport.loroSnapshot);
           const importVersion = tempStore.getVersion();
           await db.saveLoroSnapshot(groupExport.group.id, groupExport.loroSnapshot, importVersion);
-
-          console.log(`[AppContext] Imported new group: ${groupExport.group.name}`);
         } else if (mergeExisting) {
           // Merge with existing group
           const existingSnapshot = await db.getLoroSnapshot(groupExport.group.id);
@@ -1809,8 +1713,6 @@ export const AppProvider: Component<{ children: JSX.Element }> = (props) => {
           if (!existingKey) {
             await db.saveGroupKey(groupExport.group.id, groupExport.key);
           }
-
-          console.log(`[AppContext] Merged group: ${groupExport.group.name}`);
         }
       }
 
@@ -1818,7 +1720,6 @@ export const AppProvider: Component<{ children: JSX.Element }> = (props) => {
       const allGroups = await db.getAllGroups();
       setGroups(allGroups);
 
-      console.log(`[AppContext] Successfully imported ${importData.groups.length} group(s)`);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to import groups');
       throw err;
@@ -1842,8 +1743,6 @@ export const AppProvider: Component<{ children: JSX.Element }> = (props) => {
       // Refresh groups list
       const allGroups = await db.getAllGroups();
       setGroups(allGroups);
-
-      console.log(`[AppContext] Deleted group: ${groupId}`);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to delete group');
       throw err;
@@ -1876,8 +1775,6 @@ export const AppProvider: Component<{ children: JSX.Element }> = (props) => {
       setPreferencesVersion((v) => v + 1);
       setLoroStore(store);
 
-      console.log('[AppContext] Updated settlement preferences for user:', userId);
-
       // Sync to server (async, happens in background)
       if (manager && autoSyncEnabled()) {
         try {
@@ -1894,8 +1791,6 @@ export const AppProvider: Component<{ children: JSX.Element }> = (props) => {
 
           // Update sync state
           setSyncState(manager.getState());
-
-          console.log('[AppContext] Settlement preference synced to server');
         } catch (syncError) {
           console.warn('[AppContext] Failed to sync preference, queued for later:', syncError);
         }
@@ -1965,8 +1860,6 @@ export const AppProvider: Component<{ children: JSX.Element }> = (props) => {
       const updatedGroup = { ...group, activeMembers: updatedMembers };
       setActiveGroup(updatedGroup);
       await db.saveGroup(updatedGroup);
-
-      console.log('[AppContext] Virtual member added:', virtualMemberId, name);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to add member');
       throw err;
@@ -2053,8 +1946,6 @@ export const AppProvider: Component<{ children: JSX.Element }> = (props) => {
       const updatedGroup = { ...group, activeMembers: updatedMembers };
       setActiveGroup(updatedGroup);
       await db.saveGroup(updatedGroup);
-
-      console.log('[AppContext] Member renamed:', memberId, 'to', newName);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to rename member');
       throw err;
@@ -2107,8 +1998,6 @@ export const AppProvider: Component<{ children: JSX.Element }> = (props) => {
       const updatedGroup = { ...group, activeMembers: updatedMembers };
       setActiveGroup(updatedGroup);
       await db.saveGroup(updatedGroup);
-
-      console.log('[AppContext] Member retired:', memberId);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to remove member');
       throw err;

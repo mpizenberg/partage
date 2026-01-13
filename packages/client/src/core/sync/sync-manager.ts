@@ -139,18 +139,8 @@ export class SyncManager {
     this.lastError = null;
 
     try {
-      console.log(`[SyncManager] Initial sync for group ${groupId}, local actorId=${actorId}`);
-
       // Fetch all updates from the server
       const updates = await this.apiClient.fetchAllUpdates(groupId);
-      console.log(`[SyncManager] Fetched ${updates.length} updates from server`);
-
-      // Log each update's actorId to see who created them
-      for (const update of updates) {
-        console.log(
-          `[SyncManager] Update: id=${update.id}, actorId=${update.actorId}, timestamp=${update.timestamp}, bytes=${update.updateData.length}`
-        );
-      }
 
       // Apply updates in chronological order
       for (const update of updates) {
@@ -168,7 +158,6 @@ export class SyncManager {
       // Save snapshot to storage
       await this.saveSnapshot(groupId);
 
-      console.log('[SyncManager] Initial sync completed');
       this.setStatus('idle');
     } catch (error) {
       this.handleError('Initial sync failed', error);
@@ -181,7 +170,6 @@ export class SyncManager {
    */
   async incrementalSync(groupId: string, actorId: string): Promise<void> {
     if (!this.isOnline) {
-      console.log('[SyncManager] Skipping incremental sync (offline)');
       return;
     }
 
@@ -190,11 +178,9 @@ export class SyncManager {
 
     try {
       const sinceTimestamp = this.lastSyncTimestamp.get(groupId) || 0;
-      console.log(`[SyncManager] Incremental sync since ${sinceTimestamp}`);
 
       // Fetch updates since last sync
       const updates = await this.apiClient.fetchUpdates(groupId, { sinceTimestamp });
-      console.log(`[SyncManager] Fetched ${updates.length} new updates`);
 
       // Apply updates
       for (const update of updates) {
@@ -235,10 +221,6 @@ export class SyncManager {
       updateData,
     };
 
-    // DEBUG: Verify we are pushing non-empty updates
-    console.log(
-      `[SyncManager] pushUpdate(group=${groupId}) actor=${actorId} bytes=${updateBytes.byteLength} ts=${timestamp}`
-    );
     if (updateBytes.byteLength === 0) {
       console.warn(
         `[SyncManager] WARNING: exporting an EMPTY update for group=${groupId}. Other devices will never see changes if this persists.`
@@ -247,7 +229,6 @@ export class SyncManager {
 
     if (!this.isOnline) {
       // Queue for later
-      console.log('[SyncManager] Offline - queueing update');
       this.offlineQueue.push(operation);
       await this.saveOfflineQueue();
       return;
@@ -264,7 +245,6 @@ export class SyncManager {
           versionObj = version;
         }
       }
-      console.log(`[SyncManager] pushUpdate data: groupId=${groupId}, actorId=${actorId}, updateData.length=${updateData.length}, version=${JSON.stringify(versionObj)}`);
 
       await this.apiClient.pushUpdate({
         groupId,
@@ -273,10 +253,6 @@ export class SyncManager {
         updateData,
         version: versionObj,
       });
-
-      console.log(
-        `[SyncManager] Update pushed successfully group=${groupId} actor=${actorId} bytes=${updateBytes.byteLength} ts=${timestamp}`
-      );
 
       // Update last sync timestamp
       this.lastSyncTimestamp.set(groupId, timestamp);
@@ -306,7 +282,6 @@ export class SyncManager {
    */
   async subscribeToGroup(groupId: string, actorId: string): Promise<void> {
     if (!this.isOnline) {
-      console.log('[SyncManager] Cannot subscribe while offline');
       return;
     }
 
@@ -323,11 +298,9 @@ export class SyncManager {
       const unsubscribe = await this.apiClient.subscribeToUpdates(groupId, (update) => {
         // Ignore our own updates
         if (update.actorId === actorId) {
-          console.log('[SyncManager] Ignoring own update');
           return;
         }
 
-        console.log(`[SyncManager] Received real-time update from ${update.actorId}`);
         this.applyRemoteUpdate(update, actorId).catch((error) => {
           console.error('[SyncManager] Failed to apply real-time update:', error);
         });
@@ -335,7 +308,6 @@ export class SyncManager {
 
       this.activeSubscriptions.set(groupId, unsubscribe);
       this.subscribedGroups.set(groupId, actorId); // Track for re-subscription
-      console.log(`[SyncManager] Subscribed to group ${groupId}`);
 
       // Start health check if not already running
       this.startHealthCheck();
@@ -369,12 +341,9 @@ export class SyncManager {
       );
 
       if (syncPromises.length > 0) {
-        console.log(`[SyncManager] Health check: syncing ${syncPromises.length} groups in parallel`);
         await Promise.all(syncPromises);
       }
     }, 30000); // 30 seconds
-
-    console.log('[SyncManager] Started subscription health check');
   }
 
   /**
@@ -384,7 +353,6 @@ export class SyncManager {
     if (this.healthCheckInterval) {
       clearInterval(this.healthCheckInterval);
       this.healthCheckInterval = undefined;
-      console.log('[SyncManager] Stopped subscription health check');
     }
   }
 
@@ -397,7 +365,6 @@ export class SyncManager {
       await unsubscribe();
       this.activeSubscriptions.delete(groupId);
       this.subscribedGroups.delete(groupId);
-      console.log(`[SyncManager] Unsubscribed from group ${groupId}`);
     }
 
     // Stop health check if no more subscriptions
@@ -426,12 +393,10 @@ export class SyncManager {
     }
 
     if (!this.isOnline) {
-      console.log('[SyncManager] Cannot sync queue while offline');
       return;
     }
 
     this.isSyncingQueue = true;
-    console.log(`[SyncManager] Syncing ${this.offlineQueue.length} queued operations`);
 
     const failed: QueuedOperation[] = [];
 
@@ -454,7 +419,6 @@ export class SyncManager {
     await this.saveOfflineQueue();
 
     this.isSyncingQueue = false;
-    console.log(`[SyncManager] Queue sync completed. ${failed.length} operations failed.`);
   }
 
   /**
@@ -485,21 +449,12 @@ export class SyncManager {
       );
 
       const updateBytes = PocketBaseClient.decodeUpdateData(update.updateData);
-      console.log(
-        `[SyncManager] applyRemoteUpdate(group=${update.groupId}) id=${update.id} from=${update.actorId} updateBytes=${updateBytes.byteLength} ts=${update.timestamp}`
-      );
 
       if (updateBytes.byteLength === 0) {
         console.warn(
           `[SyncManager] WARNING: received an EMPTY remote update for group=${update.groupId} from=${update.actorId} (ts=${update.timestamp}).`
         );
       }
-
-      // Log a small signature of the update bytes to spot duplicates/collisions.
-      const updateSig = Array.from(updateBytes.slice(0, Math.min(12, updateBytes.length)));
-      console.log(
-        `[SyncManager] applyRemoteUpdate(group=${update.groupId}) updateSig(head12)=${JSON.stringify(updateSig)}`
-      );
 
       // If we have seen this record id already, applying will likely be a no-op.
       // This helps diagnose duplicate delivery (e.g. applying from initialSync + subscription).
@@ -521,9 +476,6 @@ export class SyncManager {
       );
 
       const delta = afterSize - beforeSize;
-      console.log(
-        `[SyncManager] applyRemoteUpdate(group=${update.groupId}) snapshotBytes before=${beforeSize} after=${afterSize} delta=${delta}`
-      );
 
       // If delta is zero, compare small snapshot signatures to tell whether bytes changed anyway.
       // (Size can remain equal even if content changes.)
@@ -547,8 +499,6 @@ export class SyncManager {
       // Save updated snapshot
       await this.saveSnapshot(update.groupId);
 
-      console.log(`[SyncManager] Applied update from ${update.actorId}`);
-
       // Notify listeners that data has changed
       if (this.onUpdate) {
         await this.onUpdate(update.groupId);
@@ -566,7 +516,6 @@ export class SyncManager {
     try {
       const snapshot = this.loroStore.exportSnapshot();
       await this.storage.saveLoroSnapshot(groupId, snapshot);
-      console.log('[SyncManager] Snapshot saved to storage');
     } catch (error) {
       console.error('[SyncManager] Failed to save snapshot:', error);
     }
@@ -603,7 +552,6 @@ export class SyncManager {
    */
   private setupNetworkListeners(): void {
     this.onlineListener = async () => {
-      console.log('[SyncManager] Network online');
       this.isOnline = true;
       this.setStatus('idle');
 
@@ -619,7 +567,6 @@ export class SyncManager {
       // Re-subscribe to all groups that were subscribed before going offline
       // This uses the subscribedGroups map which persists across offline periods
       for (const [groupId, actorId] of this.subscribedGroups) {
-        console.log(`[SyncManager] Re-subscribing to group ${groupId} after coming online`);
         try {
           // First do an incremental sync to catch up on missed updates
           await this.incrementalSync(groupId, actorId);
@@ -632,7 +579,6 @@ export class SyncManager {
     };
 
     this.offlineListener = () => {
-      console.log('[SyncManager] Network offline');
       this.isOnline = false;
       this.setStatus('offline');
       this.stopHealthCheck();
@@ -670,7 +616,6 @@ export class SyncManager {
     try {
       const operations = await this.storage.getQueuedOperations();
       this.offlineQueue = operations as QueuedOperation[];
-      console.log(`[SyncManager] Loaded ${this.offlineQueue.length} queued operations`);
     } catch (error) {
       console.error('[SyncManager] Failed to load offline queue:', error);
     }
@@ -691,8 +636,6 @@ export class SyncManager {
       }));
 
       await this.storage.replaceQueuedOperations(operations);
-
-      console.log(`[SyncManager] Saved ${this.offlineQueue.length} operations to queue`);
     } catch (error) {
       console.error('[SyncManager] Failed to save offline queue:', error);
     }

@@ -336,20 +336,13 @@ export class LoroEntryStore {
     const entryMapTyped = entryMap as LoroMap;
     const metadata = this.getMetadataFromMap(entryMapTyped);
 
-    console.log(
-      `[LoroEntryStore] getEntry(${entryId}): metadata.groupId=${metadata.groupId}, keyVersion=${metadata.keyVersion}, type=${metadata.type}`
-    );
 
     // 1) Try the provided key first (helps tests and non-rotating contexts).
     // If it fails, fall back to per-entry keyVersion lookup.
     try {
       const payload = await this.decryptPayload(metadata.encryptedPayload, groupKey);
-      console.log(`[LoroEntryStore] getEntry(${entryId}): decrypted successfully with provided key`);
       return this.mergeEntry(metadata, payload);
     } catch (primaryError) {
-      console.log(
-        `[LoroEntryStore] getEntry(${entryId}): primary decryption failed, trying keyVersion lookup. Error: ${primaryError}`
-      );
     }
 
     // 2) Resolve the correct group key version for this entry (with caching).
@@ -386,10 +379,6 @@ export class LoroEntryStore {
     const entriesObj = this.entries.toJSON();
     const entryIds = Object.keys(entriesObj);
 
-    console.log(
-      `[LoroEntryStore] getAllEntries: found ${entryIds.length} entry IDs in Loro map for group=${groupId}`
-    );
-
     // Parallel decryption for better performance
     const entryPromises = entryIds.map((entryId) => this.getEntry(entryId, groupKey));
     const entries = await Promise.all(entryPromises);
@@ -405,10 +394,6 @@ export class LoroEntryStore {
       }
       return true;
     });
-
-    console.log(
-      `[LoroEntryStore] getAllEntries: returning ${allEntries.length} entries for group=${groupId}`
-    );
 
     return allEntries;
   }

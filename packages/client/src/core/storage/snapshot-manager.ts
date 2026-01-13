@@ -30,7 +30,6 @@ export class SnapshotManager {
 
     // If no changes, skip save (optimization for no-op transactions)
     if (updateData.byteLength === 0) {
-      console.log('[SnapshotManager] No changes to save');
       return;
     }
 
@@ -38,16 +37,9 @@ export class SnapshotManager {
     await this.db.saveLoroIncrementalUpdate(groupId, updateData, version);
     loroStore.markAsSaved();
 
-    console.log(
-      `[SnapshotManager] Saved incremental: ${updateData.byteLength} bytes`
-    );
-
     // Check if consolidation is needed (query count from index - fast)
     const updateCount = await this.db.getLoroIncrementalUpdateCount(groupId);
     if (updateCount >= this.consolidationThreshold) {
-      console.log(
-        `[SnapshotManager] Threshold reached (${updateCount} updates)`
-      );
       await this.consolidate(groupId, loroStore);
     }
   }
@@ -60,7 +52,6 @@ export class SnapshotManager {
     // Load base snapshot
     const snapshot = await this.db.getLoroSnapshot(groupId);
     if (!snapshot) {
-      console.log('[SnapshotManager] No snapshot found');
       // Mark as saved so incremental updates start from here
       loroStore.markAsSaved();
       return;
@@ -72,16 +63,11 @@ export class SnapshotManager {
     // Load and apply incremental updates
     const updates = await this.db.getLoroIncrementalUpdates(groupId);
     if (updates.length > 0) {
-      console.log(
-        `[SnapshotManager] Applying ${updates.length} incremental updates`
-      );
-
       for (const update of updates) {
         loroStore.applyUpdate(update.updateData);
       }
 
       // Always consolidate on load (design decision)
-      console.log('[SnapshotManager] Consolidating on app load');
       await this.consolidate(groupId, loroStore);
     } else {
       // No incremental updates, just mark as saved
@@ -94,8 +80,6 @@ export class SnapshotManager {
    * This creates a new checkpoint and resets the incremental update chain
    */
   async consolidate(groupId: string, loroStore: LoroEntryStore): Promise<void> {
-    console.log('[SnapshotManager] Starting consolidation...');
-
     // Export full snapshot
     const snapshot = loroStore.exportSnapshot();
     const version = loroStore.getVersion();
@@ -108,10 +92,6 @@ export class SnapshotManager {
 
     // Reset saved version tracker
     loroStore.resetSavedVersion();
-
-    console.log(
-      `[SnapshotManager] Consolidated: ${snapshot.byteLength} bytes`
-    );
   }
 
   /**
@@ -121,7 +101,6 @@ export class SnapshotManager {
   async consolidateOnIdle(groupId: string, loroStore: LoroEntryStore): Promise<void> {
     const updateCount = await this.db.getLoroIncrementalUpdateCount(groupId);
     if (updateCount > 0) {
-      console.log(`[SnapshotManager] Idle consolidation: ${updateCount} updates`);
       await this.consolidate(groupId, loroStore);
     }
   }

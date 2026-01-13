@@ -11,7 +11,6 @@ import PocketBase, { type RecordSubscription } from 'pocketbase';
 
 // const POCKETBASE_URL = import.meta.env.VITE_POCKETBASE_URL || 'http://127.0.0.1:8090';
 const POCKETBASE_URL = import.meta.env.VITE_POCKETBASE_URL || '';
-console.log('POCKETBASE_URL', POCKETBASE_URL);
 
 /**
  * Group record schema (matches PocketBase collection)
@@ -246,7 +245,6 @@ export class PocketBaseClient {
 
     // Only create the PocketBase subscription once
     if (!this.loroSubscriptionActive) {
-      console.log('[PocketBase] Creating loro_updates subscription');
       await this.pb
         .collection('loro_updates')
         .subscribe<LoroUpdateRecord>('*', (e: RecordSubscription<LoroUpdateRecord>) => {
@@ -254,29 +252,20 @@ export class PocketBaseClient {
           if (e.action === 'create') {
             const callback = this.loroUpdateCallbacks.get(e.record.groupId);
             if (callback) {
-              console.log(`[PocketBase] Routing update for group ${e.record.groupId} to callback`);
               callback(e.record);
-            } else {
-              console.log(`[PocketBase] No callback registered for group ${e.record.groupId}`);
             }
           }
         });
       this.loroSubscriptionActive = true;
-    } else {
-      console.log(
-        `[PocketBase] Reusing existing loro_updates subscription, adding callback for group ${groupId}`
-      );
     }
 
     // Create unsubscribe function that only removes the callback, not the subscription
     const unsubscribe = async () => {
-      console.log(`[PocketBase] Removing callback for group ${groupId}`);
       this.loroUpdateCallbacks.delete(groupId);
       this.subscriptions.delete(subscriptionKey);
 
       // Only truly unsubscribe if no more callbacks
       if (this.loroUpdateCallbacks.size === 0 && this.loroSubscriptionActive) {
-        console.log('[PocketBase] No more callbacks, unsubscribing from loro_updates');
         try {
           await this.pb.collection('loro_updates').unsubscribe('*');
           this.loroSubscriptionActive = false;
@@ -309,7 +298,6 @@ export class PocketBaseClient {
     }
 
     this.subscriptions.clear();
-    console.log('[PocketBase] Unsubscribed from all collections');
   }
 
   /**
