@@ -207,4 +207,4 @@ See [PLAN.md](./PLAN.md) for the complete implementation roadmap.
 
 ## License
 
-Private - Not open source
+Apache 2.0 - See [LICENSE](./LICENSE) file for details
