@@ -18,7 +18,8 @@
     "you": "Vous",
     "virtual": "Virtuel",
     "and": "et",
-    "others": "autres"
+    "others": "autres",
+    "offline": "Vous êtes hors ligne. Les modifications seront synchronisées à la reconnexion."
   },
 
   "setup": {

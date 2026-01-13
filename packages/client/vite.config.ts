@@ -15,36 +15,88 @@ export default defineConfig({
     wasm(),
     VitePWA({
       registerType: 'autoUpdate',
+      includeAssets: ['favicon.svg', 'icon.svg', 'icon-maskable.svg'],
       manifest: {
         name: 'Partage - Bill Splitting',
         short_name: 'Partage',
-        description: 'Fully encrypted, local-first bill-splitting application',
-        theme_color: '#000000',
+        description: 'Fully encrypted, local-first bill-splitting application for trusted groups',
+        theme_color: '#2563eb',
+        background_color: '#ffffff',
+        display: 'standalone',
+        orientation: 'portrait',
+        scope: '/',
+        start_url: '/',
+        lang: 'en',
+        categories: ['finance', 'utilities'],
         icons: [
           {
-            src: '/icon-192.png',
-            sizes: '192x192',
-            type: 'image/png',
+            src: '/icon.svg',
+            sizes: 'any',
+            type: 'image/svg+xml',
+            purpose: 'any',
           },
           {
-            src: '/icon-512.png',
-            sizes: '512x512',
-            type: 'image/png',
+            src: '/icon-maskable.svg',
+            sizes: 'any',
+            type: 'image/svg+xml',
+            purpose: 'maskable',
+          },
+        ],
+        shortcuts: [
+          {
+            name: 'Add Expense',
+            short_name: 'Expense',
+            description: 'Add a new expense to your group',
+            url: '/?action=add-expense',
+          },
+          {
+            name: 'View Balance',
+            short_name: 'Balance',
+            description: 'View your current balance',
+            url: '/?tab=balance',
           },
         ],
       },
       workbox: {
-        globPatterns: ['**/*.{js,css,html,ico,png,svg,wasm}'],
+        globPatterns: ['**/*.{js,css,html,ico,png,svg,wasm,json}'],
         maximumFileSizeToCacheInBytes: 5 * 1024 * 1024, // 5 MB to accommodate Loro WASM
+        // Skip waiting and claim clients immediately for updates
+        skipWaiting: true,
+        clientsClaim: true,
+        // Navigation fallback for SPA
+        navigateFallback: '/index.html',
+        navigateFallbackDenylist: [/^\/pb/, /^\/api/],
         runtimeCaching: [
           {
-            urlPattern: /^https:\/\/api\./,
+            // Cache PocketBase API responses
+            urlPattern: /^https?:\/\/.*\/pb\/api\//,
             handler: 'NetworkFirst',
             options: {
               cacheName: 'api-cache',
               expiration: {
-                maxEntries: 50,
-                maxAgeSeconds: 300,
+                maxEntries: 100,
+                maxAgeSeconds: 60 * 5, // 5 minutes
+              },
+              networkTimeoutSeconds: 10,
+            },
+          },
+          {
+            // Cache Google Fonts stylesheets
+            urlPattern: /^https:\/\/fonts\.googleapis\.com/,
+            handler: 'StaleWhileRevalidate',
+            options: {
+              cacheName: 'google-fonts-stylesheets',
+            },
+          },
+          {
+            // Cache Google Fonts webfonts
+            urlPattern: /^https:\/\/fonts\.gstatic\.com/,
+            handler: 'CacheFirst',
+            options: {
+              cacheName: 'google-fonts-webfonts',
+              expiration: {
+                maxEntries: 30,
+                maxAgeSeconds: 60 * 60 * 24 * 365, // 1 year
               },
             },
           },

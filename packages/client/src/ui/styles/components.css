@@ -2227,3 +2227,58 @@
   font-family: monospace;
   word-break: break-all;
 }
+
+/* Offline Banner */
+.offline-banner {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  z-index: var(--z-toast);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-sm);
+  padding: var(--space-sm) var(--space-md);
+  background-color: var(--color-warning);
+  color: white;
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  box-shadow: var(--shadow-lg);
+  animation: slideUp 0.3s ease-out;
+}
+
+@keyframes slideUp {
+  from {
+    transform: translateY(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+.offline-banner-icon {
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+.offline-banner-icon svg {
+  width: 16px;
+  height: 16px;
+}
+
+.offline-banner-text {
+  text-align: center;
+}
+
+/* Adjust content when offline banner is shown (for bottom nav) */
+body:has(.offline-banner) .bottom-nav {
+  bottom: 40px;
+}
+
+body:has(.offline-banner) .fab {
+  bottom: calc(var(--space-xl) + 72px);
+}

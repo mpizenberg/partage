@@ -7,6 +7,7 @@ import { GroupSelectionScreen } from './ui/screens/GroupSelectionScreen'
 import { GroupViewScreen } from './ui/screens/GroupViewScreen'
 import { JoinGroupScreen } from './ui/screens/JoinGroupScreen'
 import { LoadingSpinner } from './ui/components/common/LoadingSpinner'
+import { OfflineBanner } from './ui/components/common/OfflineBanner'
 
 const MainApp: Component = () => {
   const { identity, activeGroup, isLoading } = useAppContext()
@@ -48,6 +49,7 @@ const App: Component = () => {
           <Route path="/join/:groupId/:groupKey" component={JoinGroupScreen} />
           <Route path="/*" component={MainApp} />
         </HashRouter>
+        <OfflineBanner />
       </AppProvider>
     </I18nProvider>
   )

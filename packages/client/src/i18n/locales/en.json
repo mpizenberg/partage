@@ -18,7 +18,8 @@
     "you": "You",
     "virtual": "Virtual",
     "and": "and",
-    "others": "others"
+    "others": "others",
+    "offline": "You're offline. Changes will sync when you reconnect."
   },
 
   "setup": {

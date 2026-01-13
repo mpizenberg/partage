@@ -397,7 +397,7 @@ Set up a monorepo structure for a fully encrypted, local-first bill-splitting PW
 **Goal**: Production readiness
 
 **Tasks**:
-1. PWA service worker for full offline support
+1. ✅ PWA service worker for full offline support
 2. Able to link new members to existing real members (not only virtual members), and able to link recursively (useful for member changing device multiple times)
 3. Error handling and loading states
 4. ✅ Mobile UX refinement
