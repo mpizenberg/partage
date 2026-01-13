@@ -223,7 +223,7 @@ export class PartageDB {
       createdBy: group.createdBy,
       currentKeyVersion: group.currentKeyVersion,
       settings: JSON.stringify(group.settings),
-      members: group.members ? JSON.stringify(group.members) : undefined,
+      members: group.activeMembers ? JSON.stringify(group.activeMembers) : undefined,
     };
 
     return this.put(STORES.GROUPS, record);
@@ -246,7 +246,7 @@ export class PartageDB {
       createdBy: record.createdBy,
       currentKeyVersion: record.currentKeyVersion,
       settings: JSON.parse(record.settings),
-      members: record.members ? JSON.parse(record.members) : undefined,
+      activeMembers: record.members ? JSON.parse(record.members) : undefined,
     };
   }
 
@@ -265,7 +265,7 @@ export class PartageDB {
       createdBy: record.createdBy,
       currentKeyVersion: record.currentKeyVersion,
       settings: JSON.parse(record.settings),
-      members: record.members ? JSON.parse(record.members) : undefined,
+      activeMembers: record.members ? JSON.parse(record.members) : undefined,
     }));
   }
 

@@ -259,7 +259,7 @@ export const AppProvider: Component<{ children: JSX.Element }> = (props) => {
     }
     const store = loroStore();
     if (!store) {
-      const membersList = group.members || [];
+      const membersList = group.activeMembers || [];
       console.log('[AppContext] members() returning (no store):', membersList);
       return membersList;
     }
@@ -287,7 +287,7 @@ export const AppProvider: Component<{ children: JSX.Element }> = (props) => {
     const replacedMemberIds = new Set(aliases.map(a => a.existingMemberId));
 
     // Filter out replaced virtual members (those claimed by new members)
-    const membersList = (group.members || []).filter(m => {
+    const membersList = (group.activeMembers || []).filter(m => {
       // Keep all real members (non-virtual)
       if (!m.isVirtual) return true;
       // Keep virtual members that haven't been replaced
@@ -486,7 +486,7 @@ export const AppProvider: Component<{ children: JSX.Element }> = (props) => {
         createdBy: currentIdentity.publicKeyHash,
         currentKeyVersion: 1,
         settings: defaultSettings,
-        members: [
+        activeMembers: [
           // Add current user as first member
           {
             id: currentIdentity.publicKeyHash,
@@ -521,7 +521,7 @@ export const AppProvider: Component<{ children: JSX.Element }> = (props) => {
 
       // Save to database
       console.log('[AppContext] Saving group locally with ID:', groupId);
-      console.log('[AppContext] Group members:', group.members);
+      console.log('[AppContext] Group activeMembers:', group.activeMembers);
       await db.saveGroup(group);
       await db.saveGroupKey(groupId, exportedKey);
 
@@ -592,22 +592,22 @@ export const AppProvider: Component<{ children: JSX.Element }> = (props) => {
       }
 
       console.log('[AppContext] Loaded group from DB:', group);
-      console.log('[AppContext] Group members:', group.members);
+      console.log('[AppContext] Group activeMembers:', group.activeMembers);
 
       // Load Loro snapshot + incremental updates (and consolidate)
       const store = new LoroEntryStore(currentIdentity.publicKeyHash);
       await snapshotManager().load(groupId, store);
 
       // Sync members from Loro to group object (using event-based system or legacy fallback)
-      const activeMembers = getFilteredMembers(store);
-      const updatedGroup = { ...group, members: activeMembers };
-      if (activeMembers.length > 0) {
+      const activeMembersList = getActiveMembers(store);
+      const updatedGroup = { ...group, activeMembers: activeMembersList };
+      if (activeMembersList.length > 0) {
         await db.saveGroup(updatedGroup);
       }
 
       setLoroStore(store);
       setActiveGroup(updatedGroup);
-      console.log('[AppContext] Active group set, members:', activeGroup()?.members);
+      console.log('[AppContext] Active group set, activeMembers:', activeGroup()?.activeMembers);
 
       // Initialize sync manager
       const manager = new SyncManager({
@@ -622,8 +622,8 @@ export const AppProvider: Component<{ children: JSX.Element }> = (props) => {
             await refreshEntries(groupId, group.currentKeyVersion);
 
             // Update members from Loro (using event-based system or legacy fallback)
-            const filteredMembers = getFilteredMembers(store);
-            const refreshedGroup = { ...group, members: filteredMembers };
+            const filteredMembers = getActiveMembers(store);
+            const refreshedGroup = { ...group, activeMembers: filteredMembers };
             await db.saveGroup(refreshedGroup);
             setActiveGroup(refreshedGroup);
 
@@ -653,8 +653,8 @@ export const AppProvider: Component<{ children: JSX.Element }> = (props) => {
 
           // Sync members from Loro after sync (in case new members were added)
           // Using event-based system or legacy fallback
-          const filteredSyncedMembers = getFilteredMembers(store);
-          const syncedGroup = { ...updatedGroup, members: filteredSyncedMembers };
+          const filteredSyncedMembers = getActiveMembers(store);
+          const syncedGroup = { ...updatedGroup, activeMembers: filteredSyncedMembers };
           if (filteredSyncedMembers.length > 0) {
             await db.saveGroup(syncedGroup);
             setActiveGroup(syncedGroup);
@@ -1389,7 +1389,7 @@ export const AppProvider: Component<{ children: JSX.Element }> = (props) => {
         createdBy: groupRecord?.createdBy || currentIdentity.publicKeyHash,
         currentKeyVersion: 1, // Simplified: always version 1
         settings: DEFAULT_GROUP_SETTINGS,
-        members: existingMembers,
+        activeMembers: existingMembers,
       };
 
       // Save group and key locally
@@ -1459,8 +1459,8 @@ export const AppProvider: Component<{ children: JSX.Element }> = (props) => {
       }
 
       // Update the group with filtered members using event-based system or legacy fallback
-      const finalMembers = getFilteredMembers(newLoroStore);
-      const updatedGroup = { ...group, members: finalMembers };
+      const finalMembers = getActiveMembers(newLoroStore);
+      const updatedGroup = { ...group, activeMembers: finalMembers };
       await db.saveGroup(updatedGroup);
 
       // Update groups list
@@ -1937,6 +1937,16 @@ export const AppProvider: Component<{ children: JSX.Element }> = (props) => {
     try {
       setIsLoading(true);
 
+      // Check if a member with this name already exists
+      const activeStates = store.getActiveMemberStates();
+      const normalizedName = name.trim().toLowerCase();
+      const nameExists = activeStates.some(
+        state => state.name.trim().toLowerCase() === normalizedName
+      );
+      if (nameExists) {
+        throw new Error('A member with this name already exists');
+      }
+
       // Generate unique ID for virtual member
       const virtualMemberId = crypto.randomUUID();
 
@@ -1960,8 +1970,8 @@ export const AppProvider: Component<{ children: JSX.Element }> = (props) => {
       await snapshotManager().saveIncremental(group.id, store);
 
       // Refresh members using event-based system or legacy fallback
-      const updatedMembers = getFilteredMembers(store);
-      const updatedGroup = { ...group, members: updatedMembers };
+      const updatedMembers = getActiveMembers(store);
+      const updatedGroup = { ...group, activeMembers: updatedMembers };
       setActiveGroup(updatedGroup);
       await db.saveGroup(updatedGroup);
 
@@ -1975,10 +1985,10 @@ export const AppProvider: Component<{ children: JSX.Element }> = (props) => {
   };
 
   /**
-   * Helper function to get filtered members from store
+   * Helper function to get active members from store
    * Uses event-based system when available, falls back to legacy
    */
-  const getFilteredMembers = (store: LoroEntryStore): Member[] => {
+  const getActiveMembers = (store: LoroEntryStore): Member[] => {
     const memberEvents = store.getMemberEvents();
     if (memberEvents.length > 0) {
       // Use event-based system
@@ -2045,8 +2055,8 @@ export const AppProvider: Component<{ children: JSX.Element }> = (props) => {
       await snapshotManager().saveIncremental(group.id, store);
 
       // Refresh members using event-based system or legacy fallback
-      const updatedMembers = getFilteredMembers(store);
-      const updatedGroup = { ...group, members: updatedMembers };
+      const updatedMembers = getActiveMembers(store);
+      const updatedGroup = { ...group, activeMembers: updatedMembers };
       setActiveGroup(updatedGroup);
       await db.saveGroup(updatedGroup);
 
@@ -2099,8 +2109,8 @@ export const AppProvider: Component<{ children: JSX.Element }> = (props) => {
       await snapshotManager().saveIncremental(group.id, store);
 
       // Refresh members using event-based system or legacy fallback
-      const updatedMembers = getFilteredMembers(store);
-      const updatedGroup = { ...group, members: updatedMembers };
+      const updatedMembers = getActiveMembers(store);
+      const updatedGroup = { ...group, activeMembers: updatedMembers };
       setActiveGroup(updatedGroup);
       await db.saveGroup(updatedGroup);
 

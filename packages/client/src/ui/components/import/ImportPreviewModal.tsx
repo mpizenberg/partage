@@ -84,7 +84,7 @@ export const ImportPreviewModal: Component<ImportPreviewModalProps> = (props) =>
 
                   <div class="group-details text-sm text-muted">
                     <p>Currency: {item.group.defaultCurrency}</p>
-                    <p>Members: {item.group.members?.length || 0}</p>
+                    <p>Members: {item.group.activeMembers?.length || 0}</p>
                     <p>Created: {formatDate(item.group.createdAt)}</p>
 
                     <Show when={item.exists}>

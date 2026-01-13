@@ -304,10 +304,10 @@ export const GroupSelectionScreen: Component = () => {
                             </p>
                             <p class="text-sm text-muted">
                               {(() => {
-                                const activeMembers = (group.members || [])
+                                const membersToShow = (group.activeMembers || [])
                                   .filter((m) => m.status === 'active')
                                   .sort((a, b) => a.name.localeCompare(b.name));
-                                return `${getMemberCountText(activeMembers.length)}: ${activeMembers.map((m) => m.name).join(', ')}`;
+                                return `${getMemberCountText(membersToShow.length)}: ${membersToShow.map((m) => m.name).join(', ')}`;
                               })()}
                             </p>
                           </div>

@@ -21,7 +21,7 @@ export interface Group {
   createdBy: string; // Public key hash
   currentKeyVersion: number;
   settings: GroupSettings;
-  members?: Member[];
+  activeMembers?: Member[];
 }
 
 export interface GroupSettings {
