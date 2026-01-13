@@ -95,6 +95,30 @@ const ActivityNotifications: Component = () => {
     localStorage.setItem(LAST_SEEN_KEY, timestamp.toString())
   }
 
+  // Track if we should use push notifications (app is backgrounded)
+  let isAppBackgrounded = document.visibilityState === 'hidden'
+
+  // Listen for visibility changes
+  const handleVisibilityChange = () => {
+    const wasBackgrounded = isAppBackgrounded
+    isAppBackgrounded = document.visibilityState === 'hidden'
+
+    console.log('Visibility changed:', {
+      state: document.visibilityState,
+      wasBackgrounded,
+      isAppBackgrounded,
+      pushEnabled: pushManager.isEnabled()
+    })
+  }
+
+  // Set up visibility change listener on mount
+  createEffect(() => {
+    document.addEventListener('visibilitychange', handleVisibilityChange)
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange)
+    }
+  })
+
   // Monitor activities and show notifications
   createEffect(() => {
     const allActivities = activities()
@@ -121,20 +145,26 @@ const ActivityNotifications: Component = () => {
       newActivities.forEach((activity) => {
         const message = formatActivityMessage(activity, t)
 
-        // Check if app is currently visible
-        const isAppVisible = document.visibilityState === 'visible'
+        console.log('New activity detected:', {
+          type: activity.type,
+          isAppBackgrounded,
+          pushEnabled: pushManager.isEnabled(),
+          visibilityState: document.visibilityState
+        })
 
-        if (isAppVisible) {
+        if (isAppBackgrounded) {
+          // App is in background - show push notification if enabled
+          if (pushManager.isEnabled()) {
+            console.log('Showing push notification for activity:', activity.id)
+            pushManager.showNotification(activity, message, group?.name)
+          }
+        } else {
           // App is active - show toast notification
+          console.log('Showing toast notification for activity:', activity.id)
           addToast({
             type: activity.type,
             message,
           })
-        } else {
-          // App is in background - show push notification if enabled
-          if (pushManager.isEnabled()) {
-            pushManager.showNotification(activity, message, group?.name)
-          }
         }
       })
 

@@ -16,19 +16,60 @@ export const NotificationPermissionBanner: Component = () => {
 
   const pushManager = getPushManager()
 
-  onMount(() => {
-    // Check if we should show the banner
-    if (!pushManager.isSupported()) {
+  onMount(async () => {
+    console.log('NotificationPermissionBanner mounted')
+
+    // Check basic browser support first
+    const hasNotificationAPI = 'Notification' in window
+    const hasServiceWorker = 'serviceWorker' in navigator
+
+    // Check if running as PWA (standalone mode)
+    const isStandalone = window.matchMedia('(display-mode: standalone)').matches ||
+                         (window.navigator as any).standalone ||
+                         document.referrer.includes('android-app://')
+
+    // Detect iOS
+    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !(window as any).MSStream
+
+    console.log('Browser capabilities:', {
+      hasNotificationAPI,
+      hasServiceWorker,
+      isStandalone,
+      isIOS,
+      userAgent: navigator.userAgent,
+      displayMode: window.matchMedia('(display-mode: standalone)').matches ? 'standalone' : 'browser',
+      currentPermission: hasNotificationAPI ? Notification.permission : 'not-supported'
+    })
+
+    if (!hasNotificationAPI || !hasServiceWorker) {
+      console.log('Notifications or Service Worker not supported in this browser')
       return
     }
 
+    // iOS requires PWA to be installed (standalone mode) for notifications
+    if (isIOS && !isStandalone) {
+      console.log('iOS detected - PWA must be installed (added to home screen) for notifications')
+      return
+    }
+
+    // Initialize the push manager (wait for service worker)
+    await pushManager.initialize()
+
+    // Check if we should show the banner
     const permission = pushManager.getPermissionState()
+    console.log('Permission state:', permission)
+
     if (permission.prompt) {
       // Check if user dismissed it in this session
       const dismissed = sessionStorage.getItem('notification-permission-dismissed')
+      console.log('Banner dismissed in session?', dismissed)
+
       if (!dismissed) {
+        console.log('Showing notification permission banner')
         setShow(true)
       }
+    } else {
+      console.log('Not showing banner - permission is:', Notification.permission)
     }
   })
 
