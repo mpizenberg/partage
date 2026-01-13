@@ -64,13 +64,42 @@ A fully encrypted, local-first bill-splitting application for trusted groups tha
 - When member claims virtual identity: all historical data transfers to new member
 - Departed members keep final balance snapshot (read-only)
 
-#### Member Aliases
-- Virtual members can be created before someone joins (e.g., "Bob" added for tracking)
-- When Bob joins with his device, he can claim the "Bob" identity
-- All historical transactions attributed to virtual "Bob" now belong to real Bob
-- Balance calculations automatically resolve aliases to canonical member IDs
-- UI displays new member name for all historical transactions
-- Activity feed shows when members are linked
+#### Member Event System
+
+All member operations use an immutable event-sourced system. Member states are derived from processing all events in order.
+
+**Event Types**:
+- `member_created`: Creates a new member (virtual or real)
+- `member_renamed`: Changes member display name
+- `member_retired`: Marks member as retired (soft delete)
+- `member_unretired`: Restores retired member to active
+- `member_replaced`: Links member to another (for identity claims)
+
+**Member States (derived from events)**:
+- **Active**: Not retired AND not replaced (visible in most UIs)
+- **Retired**: Retired but not replaced (hidden by default, can be shown)
+- **Replaced**: Has been claimed/linked to another member (hidden everywhere)
+
+**Canonical ID Resolution**:
+- When member A claims member B's identity, B is "replaced" by A
+- All operations use canonical ID resolution: `B → A`
+- Resolution is recursive: if A later replaced by C, then `B → A → C`
+- Balance calculations, activity feeds, and entry displays all resolve to canonical IDs
+- The canonical member's current name is displayed for all historical entries
+
+**Member Display Rules by Screen**:
+- **Group Selection**: Active members only (count and list)
+- **Members Tab**: Active by default, checkbox to show retired
+- **Balance Tab**: Canonical members only (resolved from entries)
+- **Settle Tab**: Canonical for balances, active only for preferences
+- **Activity Tab**: Canonical members (resolved from events)
+- **Entries Tab**: Canonical members (payers/beneficiaries resolved)
+- **New Entry Modal**: Active first (with "you" at top), retired collapsed
+
+**Name Uniqueness**:
+- All active member names must be unique (case-insensitive)
+- Adding a virtual member checks against existing active names
+- Retired or replaced members don't block name reuse
 
 ### 3.2 Financial Entries
 
