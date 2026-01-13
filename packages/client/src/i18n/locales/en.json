@@ -431,6 +431,10 @@
     "youPaid": "You paid {amount}",
     "youBenefited": "You benefited {amount}",
     "transferFrom": "{actor} sent you {amount}",
-    "transferTo": "You sent {amount} to {actor}"
+    "transferTo": "You sent {amount} to {actor}",
+    "enableTitle": "Stay updated with notifications",
+    "enableDescription": "Get notified when expenses are added or your balances change",
+    "enable": "Enable",
+    "notNow": "Not now"
   }
 }

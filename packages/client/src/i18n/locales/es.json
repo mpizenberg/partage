@@ -432,6 +432,10 @@
     "youPaid": "Pagaste {amount}",
     "youBenefited": "Beneficiaste {amount}",
     "transferFrom": "{actor} te envió {amount}",
-    "transferTo": "Enviaste {amount} a {actor}"
+    "transferTo": "Enviaste {amount} a {actor}",
+    "enableTitle": "Mantente actualizado con notificaciones",
+    "enableDescription": "Recibe notificaciones cuando se agregan gastos o cambian tus balances",
+    "enable": "Activar",
+    "notNow": "Ahora no"
   }
 }

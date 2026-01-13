@@ -11,7 +11,9 @@ import { OfflineBanner } from './ui/components/common/OfflineBanner'
 import { Footer } from './ui/components/common/Footer'
 import { ToastProvider, useToast } from './ui/context/ToastContext'
 import { ToastContainer } from './ui/components/common/ToastContainer'
+import { NotificationPermissionBanner } from './ui/components/common/NotificationPermissionBanner'
 import type { Activity } from '@partage/shared/types/activity'
+import { getPushManager } from './domain/notifications/push-manager'
 
 const MainApp: Component = () => {
   const { identity, activeGroup, isLoading } = useAppContext()
@@ -55,6 +57,7 @@ const App: Component = () => {
             <Route path="/*" component={MainApp} />
           </HashRouter>
           <ActivityNotifications />
+          <NotificationPermissionBanner />
           <OfflineBanner />
           <Footer />
         </AppProvider>
@@ -67,9 +70,16 @@ const App: Component = () => {
  * Component that monitors activities and shows toast notifications
  */
 const ActivityNotifications: Component = () => {
-  const { activities, identity, loroStore } = useAppContext()
+  const { activities, identity, loroStore, activeGroup } = useAppContext()
   const { addToast } = useToast()
   const { t } = useI18n()
+
+  const pushManager = getPushManager()
+
+  // Initialize push manager on mount
+  createEffect(() => {
+    pushManager.initialize()
+  })
 
   // Track last seen activity timestamp
   const LAST_SEEN_KEY = 'partage-last-activity-seen'
@@ -90,6 +100,7 @@ const ActivityNotifications: Component = () => {
     const allActivities = activities()
     const currentIdentity = identity()
     const store = loroStore()
+    const group = activeGroup()
 
     // Need all dependencies to work
     if (!allActivities || !currentIdentity || !store) {
@@ -106,13 +117,25 @@ const ActivityNotifications: Component = () => {
         .filter((activity) => activity.timestamp > lastSeen)
         .filter((activity) => isActivityRelevantToUser(activity, currentUserId, store))
 
-      // Show toast for each new relevant activity
+      // Show notification for each new relevant activity
       newActivities.forEach((activity) => {
         const message = formatActivityMessage(activity, t)
-        addToast({
-          type: activity.type,
-          message,
-        })
+
+        // Check if app is currently visible
+        const isAppVisible = document.visibilityState === 'visible'
+
+        if (isAppVisible) {
+          // App is active - show toast notification
+          addToast({
+            type: activity.type,
+            message,
+          })
+        } else {
+          // App is in background - show push notification if enabled
+          if (pushManager.isEnabled()) {
+            pushManager.showNotification(activity, message, group?.name)
+          }
+        }
       })
 
       // Update last seen timestamp if there are new activities

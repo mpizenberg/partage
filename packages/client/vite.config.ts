@@ -57,6 +57,9 @@ export default defineConfig({
           },
         ],
       },
+      injectManifest: {
+        injectionPoint: undefined,
+      },
       workbox: {
         globPatterns: ['**/*.{js,css,html,ico,png,svg,wasm,json}'],
         maximumFileSizeToCacheInBytes: 5 * 1024 * 1024, // 5 MB to accommodate Loro WASM
@@ -66,6 +69,8 @@ export default defineConfig({
         // Navigation fallback for SPA
         navigateFallback: '/index.html',
         navigateFallbackDenylist: [/^\/pb/, /^\/api/],
+        // Import custom service worker code
+        importScripts: ['sw-custom.js'],
         runtimeCaching: [
           {
             // Cache PocketBase API responses

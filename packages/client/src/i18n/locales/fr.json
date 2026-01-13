@@ -431,6 +431,10 @@
     "youPaid": "Vous avez payé {amount}",
     "youBenefited": "Vous avez bénéficié de {amount}",
     "transferFrom": "{actor} vous a envoyé {amount}",
-    "transferTo": "Vous avez envoyé {amount} à {actor}"
+    "transferTo": "Vous avez envoyé {amount} à {actor}",
+    "enableTitle": "Restez informé avec les notifications",
+    "enableDescription": "Soyez notifié lorsque des dépenses sont ajoutées ou que vos soldes changent",
+    "enable": "Activer",
+    "notNow": "Pas maintenant"
   }
 }
