@@ -1,13 +1,20 @@
-import { Component, Show, createSignal } from 'solid-js';
+import { Component, Show, createSignal, createResource } from 'solid-js';
 import { useI18n } from '../../../i18n';
 import { useAppContext } from '../../context/AppContext';
 import { ActivityList } from './ActivityList';
+import { NtfySubscribe } from '../common/NtfySubscribe';
 import type { ActivityType } from '@partage/shared';
 
 export const ActivitiesTab: Component = () => {
   const { t } = useI18n();
-  const { activities, activityFilter, setActivityFilter } = useAppContext();
+  const { activities, activityFilter, setActivityFilter, activeGroup, getActiveGroupKey } = useAppContext();
   const [showFilters, setShowFilters] = createSignal(false);
+
+  // Load group key for NTFY subscription
+  const [groupKey] = createResource(activeGroup, async (group) => {
+    if (!group) return null
+    return getActiveGroupKey()
+  });
 
   const toggleActivityType = (type: ActivityType) => {
     const currentFilter = activityFilter();
@@ -44,6 +51,17 @@ export const ActivitiesTab: Component = () => {
 
   return (
     <div class="activities-tab">
+      {/* Background Notifications */}
+      <Show when={activeGroup() && groupKey()}>
+        <div class="activities-section" style="margin-bottom: var(--space-md);">
+          <NtfySubscribe
+            groupId={activeGroup()!.id}
+            groupName={activeGroup()!.name}
+            groupKey={groupKey()!}
+          />
+        </div>
+      </Show>
+
       {/* Filter Toggle */}
       <div class="activities-header">
         <button

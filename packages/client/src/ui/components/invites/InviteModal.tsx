@@ -3,7 +3,7 @@
  * Allows group members to generate and share invite links
  */
 
-import { Component, createSignal, Show, createEffect } from 'solid-js';
+import { Component, createSignal, Show } from 'solid-js';
 import { Modal } from '../common/Modal';
 import { Button } from '../common/Button';
 import { useI18n } from '../../../i18n';
@@ -19,13 +19,12 @@ export interface InviteModalProps {
 export const InviteModal: Component<InviteModalProps> = (props) => {
   const { t } = useI18n();
   const [copied, setCopied] = createSignal(false);
-  let canvasRef: HTMLCanvasElement | undefined;
 
-  // Generate QR code when invite link changes
-  createEffect(() => {
+  // Generate QR code when canvas is mounted and link is available
+  const generateQRCode = (canvas: HTMLCanvasElement) => {
     const link = props.inviteLink;
-    if (link && canvasRef) {
-      QRCode.toCanvas(canvasRef, link, {
+    if (link && canvas) {
+      QRCode.toCanvas(canvas, link, {
         width: 256,
         margin: 2,
         color: {
@@ -38,7 +37,7 @@ export const InviteModal: Component<InviteModalProps> = (props) => {
         }
       });
     }
-  });
+  };
 
   const handleCopyLink = async () => {
     if (!props.inviteLink) return;
@@ -90,7 +89,7 @@ export const InviteModal: Component<InviteModalProps> = (props) => {
           <div class="invite-link-container">
             <div class="invite-qr-code">
               <canvas
-                ref={canvasRef}
+                ref={generateQRCode}
                 style="display: block; margin: 0 auto; max-width: 100%;"
               />
             </div>

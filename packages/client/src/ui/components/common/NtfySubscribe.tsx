@@ -40,9 +40,22 @@ export const NtfySubscribe: Component<NtfySubscribeProps> = (props) => {
     }
   }
 
+  // Detect if we're on a mobile device
+  const isMobile = () => {
+    return /Android|iPhone|iPad|iPod/i.test(navigator.userAgent)
+  }
+
   const handleOpenNtfy = () => {
     const url = subscribeUrl()
-    if (url) {
+    if (!url) return
+
+    if (isMobile()) {
+      // On mobile: Try deep link to open NTFY app
+      // If app isn't installed, this will fail silently and user can use copy button
+      const deepLink = url.replace(/^https?:\/\//, 'ntfy://')
+      window.location.href = deepLink
+    } else {
+      // On desktop: Open web URL in new tab
       window.open(url, '_blank')
     }
   }

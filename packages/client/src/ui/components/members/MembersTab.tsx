@@ -1,13 +1,12 @@
-import { Component, Show, createSignal, createMemo, createResource } from 'solid-js'
+import { Component, Show, createSignal, createMemo } from 'solid-js'
 import { useAppContext } from '../../context/AppContext'
 import { useI18n } from '../../../i18n'
 import { MemberList } from './MemberList'
 import { InviteModal } from '../invites/InviteModal'
 import { Button } from '../common/Button'
-import { NtfySubscribe } from '../common/NtfySubscribe'
 
 export const MembersTab: Component = () => {
-  const { members, activeGroup, createInvitation, addVirtualMember, renameMember, removeMember, identity, balances, loroStore, getActiveGroupKey } = useAppContext()
+  const { members, activeGroup, createInvitation, addVirtualMember, renameMember, removeMember, identity, balances, loroStore } = useAppContext()
   const { t } = useI18n()
   const [showInviteModal, setShowInviteModal] = createSignal(false)
   const [inviteLink, setInviteLink] = createSignal<string | null>(null)
@@ -15,12 +14,6 @@ export const MembersTab: Component = () => {
   const [newMemberName, setNewMemberName] = createSignal('')
 
   const activeMembersCount = createMemo(() => members().filter(m => m.status === 'active').length)
-
-  // Load group key for NTFY subscription
-  const [groupKey] = createResource(activeGroup, async (group) => {
-    if (!group) return null
-    return getActiveGroupKey()
-  })
 
   const handleInvite = async () => {
     setInviteLink(null)
@@ -64,17 +57,6 @@ export const MembersTab: Component = () => {
           </Button>
         </div>
       </div>
-
-      {/* Push Notifications */}
-      <Show when={activeGroup() && groupKey()}>
-        <div class="members-section">
-          <NtfySubscribe
-            groupId={activeGroup()!.id}
-            groupName={activeGroup()!.name}
-            groupKey={groupKey()!}
-          />
-        </div>
-      </Show>
 
       {/* Member List */}
       <div class="members-section">
