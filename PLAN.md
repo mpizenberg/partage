@@ -404,7 +404,7 @@ Set up a monorepo structure for a fully encrypted, local-first bill-splitting PW
 5. ✅ User onboarding flow
 6. Security audit
 7. ✅ Performance optimization
-8. Deployment setup
+8. ✅ Deployment setup
 9. ✅ Internationalization (i18n) with French language support
 
 ## Critical Technical Decisions
