@@ -11,7 +11,14 @@ import type { Locale } from './context'
  * Map our locale codes to Intl locale tags
  */
 function getIntlLocale(locale: Locale): string {
-  return locale === 'fr' ? 'fr-FR' : 'en-US'
+  switch (locale) {
+    case 'fr':
+      return 'fr-FR'
+    case 'es':
+      return 'es-ES'
+    default:
+      return 'en-US'
+  }
 }
 
 /**
@@ -147,6 +154,15 @@ export function formatRelativeTimeSimple(
     if (hours < 24) return `Il y a ${hours} heure${hours > 1 ? 's' : ''}`
     if (days === 1) return 'Hier'
     if (days < 7) return `Il y a ${days} jours`
+    return formatDate(timestamp, locale, 'short')
+  }
+
+  if (locale === 'es') {
+    if (seconds < 60) return 'Justo ahora'
+    if (minutes < 60) return `Hace ${minutes} minuto${minutes > 1 ? 's' : ''}`
+    if (hours < 24) return `Hace ${hours} hora${hours > 1 ? 's' : ''}`
+    if (days === 1) return 'Ayer'
+    if (days < 7) return `Hace ${days} días`
     return formatDate(timestamp, locale, 'short')
   }
 

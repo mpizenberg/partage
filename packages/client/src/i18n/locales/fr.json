@@ -415,5 +415,22 @@
     "title": "Langue",
     "english": "English",
     "french": "Français"
+  },
+
+  "footer": {
+    "viewOnGitHub": "Voir sur GitHub"
+  },
+
+  "notifications": {
+    "entryAdded": "{actor} a ajouté {description}",
+    "entryModified": "{actor} a modifié {description}",
+    "entryDeleted": "{actor} a supprimé {description}",
+    "entryUndeleted": "{actor} a restauré {description}",
+    "memberJoined": "{name} a rejoint le groupe",
+    "memberLinked": "{name} a réclamé son identité",
+    "youPaid": "Vous avez payé {amount}",
+    "youBenefited": "Vous avez bénéficié de {amount}",
+    "transferFrom": "{actor} vous a envoyé {amount}",
+    "transferTo": "Vous avez envoyé {amount} à {actor}"
   }
 }

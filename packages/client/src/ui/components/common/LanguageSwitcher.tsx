@@ -3,8 +3,9 @@ import { useI18n, type Locale } from '../../../i18n'
 import { Select } from './Select'
 
 const LANGUAGE_OPTIONS = [
-  { value: 'en', label: 'English' },
-  { value: 'fr', label: 'Français' },
+  { value: 'en', label: '🇬🇧 EN' },
+  { value: 'fr', label: '🇫🇷 FR' },
+  { value: 'es', label: '🇪🇸 ES' },
 ]
 
 export interface LanguageSwitcherProps {

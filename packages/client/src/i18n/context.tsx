@@ -19,9 +19,9 @@ import {
 } from 'solid-js'
 
 // Supported locales
-export type Locale = 'en' | 'fr'
+export type Locale = 'en' | 'fr' | 'es'
 
-const SUPPORTED_LOCALES: Locale[] = ['en', 'fr']
+const SUPPORTED_LOCALES: Locale[] = ['en', 'fr', 'es']
 const DEFAULT_LOCALE: Locale = 'en'
 const STORAGE_KEY = 'partage-locale'
 
