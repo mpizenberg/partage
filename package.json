@@ -6,7 +6,7 @@
   "type": "module",
   "scripts": {
     "dev": "pnpm --filter client dev",
-    "build": "pnpm --filter client build && pnpm --filter server build",
+    "build": "pnpm --filter server run setup && pnpm --filter client build",
     "test": "pnpm -r test",
     "test:watch": "pnpm -r test:watch",
     "typecheck": "pnpm -r typecheck",
