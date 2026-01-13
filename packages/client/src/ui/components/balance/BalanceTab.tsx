@@ -75,7 +75,6 @@ export const BalanceTab: Component<BalanceTabProps> = (props) => {
 
   // O(1) member name lookup using memoized map
   const getMemberName = (memberId: string): string => {
-    if (isCurrentUserMember(memberId)) return t('common.you')
     return memberNameMap().get(memberId) || t('common.unknown')
   }
 

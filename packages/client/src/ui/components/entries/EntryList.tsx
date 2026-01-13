@@ -18,12 +18,22 @@ export const EntryList: Component<EntryListProps> = (props) => {
   const groupEntriesByDate = (entries: Entry[]): GroupedEntries[] => {
     const groups: Map<string, Entry[]> = new Map()
 
-    // Sort entries by date (newest first), then by creation time (newest first) within same day
+    // Helper to get day start timestamp (midnight)
+    const getDayStart = (timestamp: number): number => {
+      const date = new Date(timestamp)
+      date.setHours(0, 0, 0, 0)
+      return date.getTime()
+    }
+
+    // Sort entries by date day (newest first), then by creation time (newest first) within same day
     const sorted = [...entries].sort((a, b) => {
-      if (a.date !== b.date) {
-        return b.date - a.date
+      const aDayStart = getDayStart(a.date)
+      const bDayStart = getDayStart(b.date)
+
+      if (aDayStart !== bDayStart) {
+        return bDayStart - aDayStart
       }
-      // Same date, sort by creation time
+      // Same day, sort by creation time (newest first)
       return b.createdAt - a.createdAt
     })
 

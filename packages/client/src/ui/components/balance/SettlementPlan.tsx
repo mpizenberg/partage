@@ -68,12 +68,6 @@ export const SettlementPlan: Component<SettlementPlanProps> = (props) => {
 
   // O(1) member name lookup using memoized map
   const getMemberName = (memberId: string): string => {
-    const userId = identity()?.publicKeyHash
-    if (!userId) return t('common.unknown')
-
-    // Check if this is the current user
-    if (memberId === userId || memberId === canonicalUserId()) return t('common.you')
-
     return memberNameMap().get(memberId) || t('common.unknown')
   }
 

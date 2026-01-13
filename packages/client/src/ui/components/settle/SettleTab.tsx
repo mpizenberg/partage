@@ -10,7 +10,6 @@ export const SettleTab: Component = () => {
     settlementPlan,
     activeGroup,
     members,
-    identity,
     entries,
     loroStore,
     updateSettlementPreferences,
@@ -38,36 +37,28 @@ export const SettleTab: Component = () => {
   }
 
   const getMemberName = (memberId: string): string => {
-    const userId = identity()?.publicKeyHash
-    if (!userId) return t('common.unknown')
-
-    // Check if this is the current user (considering aliases)
-    if (memberId === userId) return t('common.you')
     const store = loroStore()
-    if (store) {
-      const canonicalUserId = store.resolveCanonicalMemberId(userId)
-      if (memberId === canonicalUserId) return t('common.you')
+    if (!store) return t('common.unknown')
 
-      // Check if this is a canonical ID (old virtual member) that has been claimed
-      const aliases = store.getMemberAliases()
-      const alias = aliases.find(a => a.existingMemberId === memberId)
-      if (alias) {
-        // This is a claimed virtual member - show the NEW member's name
-        const newMember = members().find(m => m.id === alias.newMemberId)
-        if (newMember) return newMember.name
+    // Check if this is a canonical ID (old virtual member) that has been claimed
+    const aliases = store.getMemberAliases()
+    const alias = aliases.find(a => a.existingMemberId === memberId)
+    if (alias) {
+      // This is a claimed virtual member - show the NEW member's name
+      const newMember = members().find(m => m.id === alias.newMemberId)
+      if (newMember) return newMember.name
 
-        // Fallback to full Loro member list
-        const allMembers = store.getMembers()
-        const newMemberFull = allMembers.find(m => m.id === alias.newMemberId)
-        if (newMemberFull) return newMemberFull.name
-      }
+      // Fallback to full Loro member list
+      const allMembers = store.getMembers()
+      const newMemberFull = allMembers.find(m => m.id === alias.newMemberId)
+      if (newMemberFull) return newMemberFull.name
     }
 
     // Try filtered members list first
     let member = members().find(m => m.id === memberId)
 
     // If not found, check full Loro member list (includes replaced virtual members)
-    if (!member && store) {
+    if (!member) {
       const allMembers = store.getMembers()
       member = allMembers.find(m => m.id === memberId)
     }

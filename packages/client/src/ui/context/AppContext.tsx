@@ -755,7 +755,7 @@ export const AppProvider: Component<{ children: JSX.Element }> = (props) => {
   // Add expense
   const addExpense = async (data: ExpenseFormData) => {
     try {
-      setIsLoading(true);
+      // Note: Not setting global isLoading to avoid unmounting GroupViewScreen
       setError(null);
 
       const currentIdentity = identity();
@@ -835,15 +835,13 @@ export const AppProvider: Component<{ children: JSX.Element }> = (props) => {
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to add expense');
       throw err;
-    } finally {
-      setIsLoading(false);
     }
   };
 
   // Add transfer
   const addTransfer = async (data: TransferFormData) => {
     try {
-      setIsLoading(true);
+      // Note: Not setting global isLoading to avoid unmounting GroupViewScreen
       setError(null);
 
       const currentIdentity = identity();
@@ -920,15 +918,13 @@ export const AppProvider: Component<{ children: JSX.Element }> = (props) => {
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to add transfer');
       throw err;
-    } finally {
-      setIsLoading(false);
     }
   };
 
   // Modify expense (creates new version)
   const modifyExpense = async (originalId: string, data: ExpenseFormData) => {
     try {
-      setIsLoading(true);
+      // Note: Not setting global isLoading to avoid unmounting GroupViewScreen
       setError(null);
 
       const currentIdentity = identity();
@@ -1012,15 +1008,13 @@ export const AppProvider: Component<{ children: JSX.Element }> = (props) => {
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to modify expense');
       throw err;
-    } finally {
-      setIsLoading(false);
     }
   };
 
   // Modify transfer (creates new version)
   const modifyTransfer = async (originalId: string, data: TransferFormData) => {
     try {
-      setIsLoading(true);
+      // Note: Not setting global isLoading to avoid unmounting GroupViewScreen
       setError(null);
 
       const currentIdentity = identity();
@@ -1101,15 +1095,13 @@ export const AppProvider: Component<{ children: JSX.Element }> = (props) => {
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to modify transfer');
       throw err;
-    } finally {
-      setIsLoading(false);
     }
   };
 
   // Delete entry (soft delete - creates new version with status=deleted)
   const deleteEntry = async (entryId: string, reason?: string) => {
     try {
-      setIsLoading(true);
+      // Note: Not setting global isLoading to avoid unmounting GroupViewScreen
       setError(null);
 
       const currentIdentity = identity();
@@ -1169,15 +1161,13 @@ export const AppProvider: Component<{ children: JSX.Element }> = (props) => {
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to delete entry');
       throw err;
-    } finally {
-      setIsLoading(false);
     }
   };
 
   // Undelete entry (restore deleted entry - creates new version with status=active)
   const undeleteEntry = async (entryId: string) => {
     try {
-      setIsLoading(true);
+      // Note: Not setting global isLoading to avoid unmounting GroupViewScreen
       setError(null);
 
       const currentIdentity = identity();
@@ -1236,8 +1226,6 @@ export const AppProvider: Component<{ children: JSX.Element }> = (props) => {
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to undelete entry');
       throw err;
-    } finally {
-      setIsLoading(false);
     }
   };
 

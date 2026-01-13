@@ -24,7 +24,7 @@ export interface EntryCardProps {
 
 export const EntryCard: Component<EntryCardProps> = (props) => {
   const { t, locale } = useI18n()
-  const { members, identity, setEditingEntry, deleteEntry, undeleteEntry, loroStore } = useAppContext()
+  const { members, identity, setEditingEntry, deleteEntry, undeleteEntry, loroStore, activeGroup } = useAppContext()
   const [showDeleteModal, setShowDeleteModal] = createSignal(false)
   const [isDeleting, setIsDeleting] = createSignal(false)
   const [isUndeleting, setIsUndeleting] = createSignal(false)
@@ -71,6 +71,23 @@ export const EntryCard: Component<EntryCardProps> = (props) => {
     return formatCurrency(amount, currency, locale())
   }
 
+  const formatAmountWithDefault = (): string => {
+    const defaultCurrency = activeGroup()?.defaultCurrency
+    const entryCurrency = props.entry.currency
+    const entryAmount = props.entry.amount
+    const defaultAmount = props.entry.defaultCurrencyAmount
+
+    // Format the original amount
+    let result = formatAmount(entryAmount, entryCurrency!)
+
+    // If currency is different from default and we have a defaultCurrencyAmount, show it in parenthesis
+    if (defaultCurrency && entryCurrency !== defaultCurrency && defaultAmount !== undefined && defaultAmount !== entryAmount) {
+      result += ` (${formatAmount(defaultAmount, defaultCurrency)})`
+    }
+
+    return result
+  }
+
   const getRelativeTime = (timestamp: number): string | null => {
     const now = Date.now()
     const diff = now - timestamp
@@ -92,36 +109,28 @@ export const EntryCard: Component<EntryCardProps> = (props) => {
   }
 
   const getMemberName = (memberId: string): string => {
-    const userId = identity()?.publicKeyHash
-    if (!userId) return t('common.unknown')
-
-    // Check if this is the current user (considering aliases)
-    if (memberId === userId) return t('common.you')
     const store = loroStore()
-    if (store) {
-      const canonicalUserId = store.resolveCanonicalMemberId(userId)
-      if (memberId === canonicalUserId) return t('common.you')
+    if (!store) return t('common.unknown')
 
-      // Check if this is a canonical ID (old virtual member) that has been claimed
-      const aliases = store.getMemberAliases()
-      const alias = aliases.find(a => a.existingMemberId === memberId)
-      if (alias) {
-        // This is a claimed virtual member - show the NEW member's name
-        const newMember = members().find(m => m.id === alias.newMemberId)
-        if (newMember) return newMember.name
+    // Check if this is a canonical ID (old virtual member) that has been claimed
+    const aliases = store.getMemberAliases()
+    const alias = aliases.find(a => a.existingMemberId === memberId)
+    if (alias) {
+      // This is a claimed virtual member - show the NEW member's name
+      const newMember = members().find(m => m.id === alias.newMemberId)
+      if (newMember) return newMember.name
 
-        // Fallback to full Loro member list
-        const allMembers = store.getMembers()
-        const newMemberFull = allMembers.find(m => m.id === alias.newMemberId)
-        if (newMemberFull) return newMemberFull.name
-      }
+      // Fallback to full Loro member list
+      const allMembers = store.getMembers()
+      const newMemberFull = allMembers.find(m => m.id === alias.newMemberId)
+      if (newMemberFull) return newMemberFull.name
     }
 
     // Try filtered members list first
     let member = members().find(m => m.id === memberId)
 
     // If not found, check full Loro member list (includes replaced virtual members)
-    if (!member && store) {
+    if (!member) {
       const allMembers = store.getMembers()
       member = allMembers.find(m => m.id === memberId)
     }
@@ -225,7 +234,7 @@ export const EntryCard: Component<EntryCardProps> = (props) => {
             <div class="entry-main">
               <h3 class="entry-description">{expenseEntry()!.description}</h3>
               <div class="entry-amount">
-                {formatAmount(props.entry.amount, props.entry.currency!)}
+                {formatAmountWithDefault()}
                 <Show when={expenseEntry()?.category}>
                   <span class="entry-category"> • {expenseEntry()?.category}</span>
                 </Show>
@@ -288,7 +297,7 @@ export const EntryCard: Component<EntryCardProps> = (props) => {
             <div class="entry-icon">💸</div>
             <div class="entry-transfer-info">
               <div class="entry-transfer-flow">
-                <span class="transfer-amount">{formatAmount(props.entry.amount, props.entry.currency!)}</span>
+                <span class="transfer-amount">{formatAmountWithDefault()}</span>
                 <span class="transfer-members">
                   <span class="transfer-from">{getMemberName(transferEntry()!.from)}</span>
                   <span class="transfer-arrow">→</span>
