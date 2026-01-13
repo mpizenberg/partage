@@ -373,23 +373,3 @@ export function generateSettlementPlan(
   };
 }
 
-/**
- * Get the total amount settled in a settlement plan
- */
-export function getTotalSettlementAmount(plan: SettlementPlan): number {
-  return plan.transactions.reduce((sum, edge) => sum + edge.amount, 0);
-}
-
-/**
- * Check if all balances are settled (within rounding tolerance)
- */
-export function isBalanceSettled(balance: Balance): boolean {
-  return Math.abs(balance.netBalance) < 0.01;
-}
-
-/**
- * Check if all balances in a group are settled
- */
-export function areAllBalancesSettled(balances: Map<string, Balance>): boolean {
-  return Array.from(balances.values()).every(isBalanceSettled);
-}

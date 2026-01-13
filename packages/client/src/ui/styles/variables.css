@@ -4,7 +4,6 @@
   /* Colors */
   --color-primary: #2563eb;
   --color-primary-dark: #1d4ed8;
-  --color-primary-light: #3b82f6;
 
   --color-success: #16a34a;     /* Green: money owed to user */
   --color-danger: #dc2626;      /* Red: user owes money */
@@ -15,7 +14,6 @@
   --color-text-lighter: #9ca3af;
 
   --color-border: #e5e7eb;
-  --color-border-dark: #d1d5db;
 
   --color-bg: #ffffff;
   --color-bg-secondary: #f9fafb;
@@ -47,7 +45,6 @@
   --radius-sm: 4px;
   --radius-md: 8px;
   --radius-lg: 12px;
-  --radius-xl: 16px;
   --radius-full: 9999px;
 
   /* Shadows */

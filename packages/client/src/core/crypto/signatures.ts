@@ -200,3 +200,4 @@ export async function verifyJSON<T>(
   const json = JSON.stringify(obj);
   return await verifyString(json, signatureString, publicKey);
 }
+

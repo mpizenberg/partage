@@ -3,9 +3,6 @@ import {
   calculateBalances,
   buildDebtGraph,
   generateSettlementPlan,
-  getTotalSettlementAmount,
-  isBalanceSettled,
-  areAllBalancesSettled,
 } from './balance-calculator';
 import type { ExpenseEntry, TransferEntry, Entry } from '@partage/shared';
 
@@ -311,6 +308,100 @@ describe('Balance Calculator', () => {
       expect(balance1?.totalOwed).toBeCloseTo(55, 2);
       expect(balance1?.netBalance).toBeCloseTo(55, 2);
     });
+
+    it('should handle rounding correctly for 3-way split of $100', () => {
+      const entries: Entry[] = [
+        {
+          id: 'e1',
+          groupId,
+          type: 'expense',
+          version: 1,
+          createdAt: now,
+          createdBy: 'member-1',
+          status: 'active',
+          description: '$100 split 3 ways',
+          amount: 100,
+          currency: 'USD',
+          date: now,
+          payers: [{ memberId: 'member-1', amount: 100 }],
+          beneficiaries: [
+            { memberId: 'alice', splitType: 'shares', shares: 1 },
+            { memberId: 'bob', splitType: 'shares', shares: 1 },
+            { memberId: 'charlie', splitType: 'shares', shares: 1 },
+          ],
+        } as ExpenseEntry,
+      ];
+
+      const balances = calculateBalances(entries);
+
+      // Total owed should equal total paid (no rounding error)
+      const totalOwed = Array.from(balances.values()).reduce((sum, b) => sum + b.totalOwed, 0);
+      const totalPaid = Array.from(balances.values()).reduce((sum, b) => sum + b.totalPaid, 0);
+
+      expect(totalOwed).toBe(100);
+      expect(totalPaid).toBe(100);
+
+      // Verify individual splits sum to exactly $100
+      const alice = balances.get('alice');
+      const bob = balances.get('bob');
+      const charlie = balances.get('charlie');
+
+      const splitSum = (alice?.totalOwed ?? 0) + (bob?.totalOwed ?? 0) + (charlie?.totalOwed ?? 0);
+      expect(splitSum).toBe(100);
+
+      // Splits should be deterministic: sorted by member ID, remainder goes to first members
+      // alice gets $33.34, bob gets $33.33, charlie gets $33.33
+      expect(alice?.totalOwed).toBe(33.34);
+      expect(bob?.totalOwed).toBe(33.33);
+      expect(charlie?.totalOwed).toBe(33.33);
+    });
+
+    it('should handle rounding correctly for 3-way split of $200', () => {
+      const entries: Entry[] = [
+        {
+          id: 'e1',
+          groupId,
+          type: 'expense',
+          version: 1,
+          createdAt: now,
+          createdBy: 'member-1',
+          status: 'active',
+          description: '$200 split 3 ways',
+          amount: 200,
+          currency: 'USD',
+          date: now,
+          payers: [{ memberId: 'member-1', amount: 200 }],
+          beneficiaries: [
+            { memberId: 'alice', splitType: 'shares', shares: 1 },
+            { memberId: 'bob', splitType: 'shares', shares: 1 },
+            { memberId: 'charlie', splitType: 'shares', shares: 1 },
+          ],
+        } as ExpenseEntry,
+      ];
+
+      const balances = calculateBalances(entries);
+
+      // Total owed should equal total paid (no rounding error)
+      const totalOwed = Array.from(balances.values()).reduce((sum, b) => sum + b.totalOwed, 0);
+      const totalPaid = Array.from(balances.values()).reduce((sum, b) => sum + b.totalPaid, 0);
+
+      expect(totalOwed).toBe(200);
+      expect(totalPaid).toBe(200);
+
+      // Verify individual splits sum to exactly $200
+      const alice = balances.get('alice');
+      const bob = balances.get('bob');
+      const charlie = balances.get('charlie');
+
+      const splitSum = (alice?.totalOwed ?? 0) + (bob?.totalOwed ?? 0) + (charlie?.totalOwed ?? 0);
+      expect(splitSum).toBe(200);
+
+      // Splits should be deterministic: sorted by member ID, remainder goes to first members
+      // $200 / 3 = 66.666... → alice gets $66.67, bob gets $66.67, charlie gets $66.66
+      expect(alice?.totalOwed).toBe(66.67);
+      expect(bob?.totalOwed).toBe(66.67);
+      expect(charlie?.totalOwed).toBe(66.66);
+    });
   });
 
   describe('buildDebtGraph', () => {
@@ -417,152 +508,5 @@ describe('Balance Calculator', () => {
       });
     });
 
-  });
-
-  it('should handle rounding correctly for 3-way split of $100', () => {
-      const entries: Entry[] = [
-        {
-          id: 'e1',
-          groupId,
-          type: 'expense',
-          version: 1,
-          createdAt: now,
-          createdBy: 'member-1',
-          status: 'active',
-          description: '$100 split 3 ways',
-          amount: 100,
-          currency: 'USD',
-          date: now,
-          payers: [{ memberId: 'member-1', amount: 100 }],
-          beneficiaries: [
-            { memberId: 'alice', splitType: 'shares', shares: 1 },
-            { memberId: 'bob', splitType: 'shares', shares: 1 },
-            { memberId: 'charlie', splitType: 'shares', shares: 1 },
-          ],
-        } as ExpenseEntry,
-      ];
-
-      const balances = calculateBalances(entries);
-
-      // Total owed should equal total paid (no rounding error)
-      const totalOwed = Array.from(balances.values()).reduce((sum, b) => sum + b.totalOwed, 0);
-      const totalPaid = Array.from(balances.values()).reduce((sum, b) => sum + b.totalPaid, 0);
-
-      expect(totalOwed).toBe(100);
-      expect(totalPaid).toBe(100);
-
-      // Verify individual splits sum to exactly $100
-      const alice = balances.get('alice');
-      const bob = balances.get('bob');
-      const charlie = balances.get('charlie');
-
-      const splitSum = (alice?.totalOwed ?? 0) + (bob?.totalOwed ?? 0) + (charlie?.totalOwed ?? 0);
-      expect(splitSum).toBe(100);
-
-      // Splits should be deterministic: sorted by member ID, remainder goes to first members
-      // alice gets $33.34, bob gets $33.33, charlie gets $33.33
-      expect(alice?.totalOwed).toBe(33.34);
-      expect(bob?.totalOwed).toBe(33.33);
-      expect(charlie?.totalOwed).toBe(33.33);
-    });
-
-    it('should handle rounding correctly for 3-way split of $200', () => {
-      const entries: Entry[] = [
-        {
-          id: 'e1',
-          groupId,
-          type: 'expense',
-          version: 1,
-          createdAt: now,
-          createdBy: 'member-1',
-          status: 'active',
-          description: '$200 split 3 ways',
-          amount: 200,
-          currency: 'USD',
-          date: now,
-          payers: [{ memberId: 'member-1', amount: 200 }],
-          beneficiaries: [
-            { memberId: 'alice', splitType: 'shares', shares: 1 },
-            { memberId: 'bob', splitType: 'shares', shares: 1 },
-            { memberId: 'charlie', splitType: 'shares', shares: 1 },
-          ],
-        } as ExpenseEntry,
-      ];
-
-      const balances = calculateBalances(entries);
-
-      // Total owed should equal total paid (no rounding error)
-      const totalOwed = Array.from(balances.values()).reduce((sum, b) => sum + b.totalOwed, 0);
-      const totalPaid = Array.from(balances.values()).reduce((sum, b) => sum + b.totalPaid, 0);
-
-      expect(totalOwed).toBe(200);
-      expect(totalPaid).toBe(200);
-
-      // Verify individual splits sum to exactly $200
-      const alice = balances.get('alice');
-      const bob = balances.get('bob');
-      const charlie = balances.get('charlie');
-
-      const splitSum = (alice?.totalOwed ?? 0) + (bob?.totalOwed ?? 0) + (charlie?.totalOwed ?? 0);
-      expect(splitSum).toBe(200);
-
-      // Splits should be deterministic: sorted by member ID, remainder goes to first members
-      // $200 / 3 = 66.666... → alice gets $66.67, bob gets $66.67, charlie gets $66.66
-      expect(alice?.totalOwed).toBe(66.67);
-      expect(bob?.totalOwed).toBe(66.67);
-      expect(charlie?.totalOwed).toBe(66.66);
-    });
-
-  describe('getTotalSettlementAmount', () => {
-    it('should calculate total settlement amount', () => {
-      const plan = {
-        transactions: [
-          { from: 'A', to: 'B', amount: 50 },
-          { from: 'C', to: 'B', amount: 30 },
-          { from: 'A', to: 'D', amount: 20 },
-        ],
-        totalTransactions: 3,
-      };
-
-      const total = getTotalSettlementAmount(plan);
-      expect(total).toBe(100);
-    });
-  });
-
-  describe('isBalanceSettled', () => {
-    it('should detect settled balance', () => {
-      const balance = { memberId: 'member-1', totalPaid: 50, totalOwed: 50, netBalance: 0 };
-      expect(isBalanceSettled(balance)).toBe(true);
-    });
-
-    it('should detect unsettled balance', () => {
-      const balance = { memberId: 'member-1', totalPaid: 50, totalOwed: 40, netBalance: 10 };
-      expect(isBalanceSettled(balance)).toBe(false);
-    });
-
-    it('should handle rounding tolerance', () => {
-      const balance = { memberId: 'member-1', totalPaid: 50, totalOwed: 50.005, netBalance: -0.005 };
-      expect(isBalanceSettled(balance)).toBe(true);
-    });
-  });
-
-  describe('areAllBalancesSettled', () => {
-    it('should detect all balances settled', () => {
-      const balances = new Map([
-        ['member-1', { memberId: 'member-1', totalPaid: 50, totalOwed: 50, netBalance: 0 }],
-        ['member-2', { memberId: 'member-2', totalPaid: 50, totalOwed: 50, netBalance: 0 }],
-      ]);
-
-      expect(areAllBalancesSettled(balances)).toBe(true);
-    });
-
-    it('should detect unsettled balances', () => {
-      const balances = new Map([
-        ['member-1', { memberId: 'member-1', totalPaid: 50, totalOwed: 50, netBalance: 0 }],
-        ['member-2', { memberId: 'member-2', totalPaid: 40, totalOwed: 50, netBalance: -10 }],
-      ]);
-
-      expect(areAllBalancesSettled(balances)).toBe(false);
-    });
   });
 });
