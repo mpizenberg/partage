@@ -186,24 +186,29 @@ export const EntryCard: Component<EntryCardProps> = (props) => {
     const userId = identity()?.publicKeyHash
     if (!userId) return false
 
-    // Get canonical user ID (if user claimed a virtual member)
     const store = loroStore()
-    const canonicalUserId = store ? store.resolveCanonicalMemberId(userId) : userId
+    if (!store) return false
+
+    // Get canonical user ID (if user claimed a virtual member)
+    const canonicalUserId = store.resolveCanonicalMemberId(userId)
+
+    // Helper to check if an entry member ID resolves to the current user
+    const matchesUser = (memberId: string): boolean => {
+      const canonicalMemberId = store.resolveCanonicalMemberId(memberId)
+      return canonicalMemberId === canonicalUserId
+    }
 
     if (isExpense()) {
       const expense = expenseEntry()!
       return (
-        expense.payers.some(p => p.memberId === userId || p.memberId === canonicalUserId) ||
-        expense.beneficiaries.some(b => b.memberId === userId || b.memberId === canonicalUserId)
+        expense.payers.some(p => matchesUser(p.memberId)) ||
+        expense.beneficiaries.some(b => matchesUser(b.memberId))
       )
     }
 
     if (isTransfer()) {
       const transfer = transferEntry()!
-      return (
-        transfer.from === userId || transfer.from === canonicalUserId ||
-        transfer.to === userId || transfer.to === canonicalUserId
-      )
+      return matchesUser(transfer.from) || matchesUser(transfer.to)
     }
 
     return false

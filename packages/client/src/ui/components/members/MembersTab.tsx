@@ -15,12 +15,11 @@ export const MembersTab: Component = () => {
 
   const activeMembersCount = createMemo(() => members().filter(m => m.status === 'active').length)
 
-  const handleInvite = () => {
+  const handleInvite = async () => {
     setInviteLink(null)
     setShowInviteModal(true)
-  }
 
-  const handleGenerateLink = async () => {
+    // Auto-generate the link immediately
     const group = activeGroup()
     if (!group) return
 
@@ -78,7 +77,6 @@ export const MembersTab: Component = () => {
         onClose={() => setShowInviteModal(false)}
         groupName={activeGroup()?.name || ''}
         inviteLink={inviteLink()}
-        onGenerateLink={handleGenerateLink}
       />
 
       {/* Add Virtual Member Modal */}

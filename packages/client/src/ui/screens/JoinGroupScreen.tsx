@@ -286,7 +286,7 @@ export const JoinGroupScreen: Component = () => {
                     <For each={virtualMembers()}>
                       {(member) => (
                         <Button
-                          variant="secondary"
+                          variant="primary"
                           onClick={() => handleJoinGroup(member.id)}
                           disabled={loading()}
                           class="btn-full-width"

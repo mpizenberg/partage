@@ -14,6 +14,7 @@ export const SettleTab: Component = () => {
     loroStore,
     updateSettlementPreferences,
     preferencesVersion,
+    identity,
   } = useAppContext()
 
   const [editingMemberId, setEditingMemberId] = createSignal<string | null>(null)
@@ -59,9 +60,26 @@ export const SettleTab: Component = () => {
     return nameMap
   })
 
-  // Get only active members for preferences UI
+  // Get current user's canonical ID
+  const currentUserId = () => {
+    const userId = identity()?.publicKeyHash
+    if (!userId) return ''
+    const store = loroStore()
+    return store ? store.resolveCanonicalMemberId(userId) : userId
+  }
+
+  // Get only active members for preferences UI, sorted alphabetically with "you" first
   const activeMembers = createMemo(() => {
-    return members().filter(m => m.status === 'active')
+    const userId = currentUserId()
+    return members()
+      .filter(m => m.status === 'active')
+      .sort((a, b) => {
+        // Current user always first
+        if (a.id === userId) return -1
+        if (b.id === userId) return 1
+        // Then sort alphabetically (case-insensitive)
+        return a.name.toLowerCase().localeCompare(b.name.toLowerCase())
+      })
   })
 
   const getMemberName = (memberId: string): string => {

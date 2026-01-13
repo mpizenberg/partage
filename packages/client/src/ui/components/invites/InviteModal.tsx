@@ -14,13 +14,11 @@ export interface InviteModalProps {
   onClose: () => void;
   groupName: string;
   inviteLink: string | null;
-  onGenerateLink: () => Promise<void>;
 }
 
 export const InviteModal: Component<InviteModalProps> = (props) => {
   const { t } = useI18n();
   const [copied, setCopied] = createSignal(false);
-  const [generating, setGenerating] = createSignal(false);
   let canvasRef: HTMLCanvasElement | undefined;
 
   // Generate QR code when invite link changes
@@ -41,15 +39,6 @@ export const InviteModal: Component<InviteModalProps> = (props) => {
       });
     }
   });
-
-  const handleGenerateLink = async () => {
-    setGenerating(true);
-    try {
-      await props.onGenerateLink();
-    } finally {
-      setGenerating(false);
-    }
-  };
 
   const handleCopyLink = async () => {
     if (!props.inviteLink) return;
@@ -90,15 +79,11 @@ export const InviteModal: Component<InviteModalProps> = (props) => {
         <Show
           when={props.inviteLink}
           fallback={
-            <div class="invite-generate">
-              <Button
-                variant="primary"
-                onClick={handleGenerateLink}
-                disabled={generating()}
-                class="btn-full-width"
-              >
-                {generating() ? t('invite.generating') : t('invite.generateLink')}
-              </Button>
+            <div class="invite-generate" style="text-align: center; padding: var(--space-lg);">
+              <div class="loading-spinner" style="margin: 0 auto;" />
+              <p style="margin-top: var(--space-md); color: var(--color-text-light);">
+                {t('invite.generating')}
+              </p>
             </div>
           }
         >
