@@ -59,6 +59,23 @@ pnpm format
 pnpm build
 ```
 
+This creates production-ready static files in `packages/client/dist/`.
+
+### Deployment
+
+For production deployment instructions, see [DEPLOYMENT.md](./DEPLOYMENT.md).
+
+**Quick summary:**
+- Deploy PocketBase server separately (port 8090)
+- Build the client with `VITE_POCKETBASE_URL` environment variable
+- Deploy static files from `packages/client/dist/`
+
+**Dokploy/Railpack:** Set environment variables:
+```bash
+VITE_POCKETBASE_URL=https://your-pocketbase-url
+RAILPACK_SPA_OUTPUT_DIR=packages/client/dist
+```
+
 ## Architecture
 
 ### Security & Privacy
@@ -170,6 +187,7 @@ See [PLAN.md](./PLAN.md) for the complete implementation roadmap.
 
 - [DESIGN.md](./DESIGN.md) - Complete product specification
 - [PLAN.md](./PLAN.md) - Detailed implementation plan
+- [DEPLOYMENT.md](./DEPLOYMENT.md) - Production deployment guide
 - [packages/server/README.md](./packages/server/README.md) - Server setup guide
 
 ## License
