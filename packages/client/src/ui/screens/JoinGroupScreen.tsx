@@ -108,10 +108,9 @@ export const JoinGroupScreen: Component = () => {
         return;
       }
 
-      // Ensure user has identity
+      // Ensure user has identity (AppContext has already initialized at this point)
       let currentIdentity = identity();
       if (!currentIdentity) {
-        console.log('[JoinGroupScreen] No identity found, initializing...');
         await initializeIdentity();
         currentIdentity = identity();
 

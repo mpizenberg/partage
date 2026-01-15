@@ -48,13 +48,33 @@ const MainApp: Component = () => {
   )
 }
 
+/**
+ * Wrapper for JoinGroupScreen that waits for AppContext initialization
+ */
+const JoinGroupGuard: Component = () => {
+  const { isLoading } = useAppContext()
+
+  return (
+    <Show
+      when={!isLoading()}
+      fallback={
+        <div class="container flex-center" style="min-height: 100vh;">
+          <LoadingSpinner size="large" />
+        </div>
+      }
+    >
+      <JoinGroupScreen />
+    </Show>
+  )
+}
+
 const App: Component = () => {
   return (
     <I18nProvider>
       <ToastProvider>
         <AppProvider>
           <HashRouter>
-            <Route path="/join/:groupId/:groupKey" component={JoinGroupScreen} />
+            <Route path="/join/:groupId/:groupKey" component={JoinGroupGuard} />
             <Route path="/*" component={MainApp} />
           </HashRouter>
           <ActivityNotifications />
