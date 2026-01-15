@@ -102,6 +102,14 @@
     "activity": "Activité"
   },
 
+  "banner": {
+    "unknownUser": "Utilisateur inconnu, veuillez",
+    "rejoin": "rejoindre",
+    "showInfo": "développer pour plus d'infos",
+    "hideInfo": "masquer les infos",
+    "unknownUserDetails": "Cet appareil ne correspond à aucun membre du groupe. Cela peut se produire si le stockage de votre navigateur a été effacé, ou si vous avez importé une sauvegarde de groupe sur un autre appareil avec une identité différente. Veuillez utiliser un lien d'invitation pour rejoindre à nouveau le groupe."
+  },
+
   "balance": {
     "title": "Aperçu des soldes",
     "noTransactions": "Aucune transaction",

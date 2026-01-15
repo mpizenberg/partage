@@ -13,7 +13,7 @@
 import { Component, createSignal, onMount, Show, For, createEffect } from 'solid-js';
 import { useNavigate, useParams } from '@solidjs/router';
 import { useI18n } from '../../i18n';
-import { useAppContext } from '../context/AppContext';
+import { useAppContext, checkCanJoinGroup } from '../context/AppContext';
 import { Button } from '../components/common/Button';
 import { Input } from '../components/common/Input';
 import { LoadingSpinner } from '../components/common/LoadingSpinner';
@@ -100,14 +100,6 @@ export const JoinGroupScreen: Component = () => {
       setGroupKeyBase64(groupKey);
       console.log('[JoinGroupScreen] Converted Base64URL key to Base64');
 
-      // Check if we already have this group
-      const existingGroup = groups().find(g => g.id === groupId);
-      if (existingGroup) {
-        setError(t('joinGroup.alreadyMember'));
-        setStatus('error');
-        return;
-      }
-
       // Ensure user has identity (AppContext has already initialized at this point)
       let currentIdentity = identity();
       if (!currentIdentity) {
@@ -139,6 +131,20 @@ export const JoinGroupScreen: Component = () => {
         for (const update of updates) {
           const updateBytes = PocketBaseClient.decodeUpdateData(update.updateData);
           tempStore.applyUpdate(updateBytes);
+        }
+
+        // Check if we already have this group AND current identity is a member
+        const canJoin = checkCanJoinGroup(
+          groupId,
+          groups(),
+          tempStore,
+          currentIdentity.publicKeyHash
+        );
+
+        if (!canJoin) {
+          setError(t('joinGroup.alreadyMember'));
+          setStatus('error');
+          return;
         }
 
         // Get all member states using the event-based system

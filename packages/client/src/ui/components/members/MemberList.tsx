@@ -128,21 +128,26 @@ export const MemberList: Component<MemberListProps> = (props) => {
   return (
     <div>
       {/* Controls */}
-      <div class="member-list-controls" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: var(--space-md);">
-        <div class="sort-toggle">
-          <button
-            class={`sort-toggle-btn ${sortMode() === 'name' ? 'active' : ''}`}
-            onClick={() => setSortMode('name')}
-          >
-            {t('members.byName')}
-          </button>
-          <button
-            class={`sort-toggle-btn ${sortMode() === 'date' ? 'active' : ''}`}
-            onClick={() => setSortMode('date')}
-          >
-            {t('members.byDateJoined')}
-          </button>
+      <div class="member-list-controls" style="margin-bottom: var(--space-md);">
+        {/* Sorting buttons */}
+        <div style="display: flex; align-items: center; gap: var(--space-xs); margin-bottom: var(--space-sm);">
+          <span class="sort-icon" style="font-size: var(--font-size-lg);">⇅</span>
+          <div class="sort-toggle">
+            <button
+              class={`sort-toggle-btn ${sortMode() === 'name' ? 'active' : ''}`}
+              onClick={() => setSortMode('name')}
+            >
+              {t('members.byName')}
+            </button>
+            <button
+              class={`sort-toggle-btn ${sortMode() === 'date' ? 'active' : ''}`}
+              onClick={() => setSortMode('date')}
+            >
+              {t('members.byDateJoined')}
+            </button>
+          </div>
         </div>
+        {/* Show past members checkbox - on separate line */}
         <label style="display: flex; align-items: center; gap: var(--space-xs); cursor: pointer;">
           <input
             type="checkbox"

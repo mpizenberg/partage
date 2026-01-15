@@ -692,6 +692,26 @@ export class LoroEntryStore {
     return buildCanonicalIdMap(events);
   }
 
+  /**
+   * Efficiently check if a member ID is known (exists in any member event)
+   * This is much faster than computing full member states - O(n) with early exit
+   *
+   * @param memberId - The member ID to check
+   * @returns true if any member event references this ID, false otherwise
+   */
+  isMemberKnown(memberId: string): boolean {
+    // Iterate through member events and return true as soon as we find a match
+    for (const eventMap of this.memberEvents.values()) {
+      if (!eventMap || !(eventMap instanceof LoroMap)) continue;
+
+      const eventMemberId = eventMap.get('memberId');
+      if (eventMemberId === memberId) {
+        return true; // Found it! Short-circuit
+      }
+    }
+    return false; // Not found after checking all events
+  }
+
   // ==================== Member Event Operations (High-Level API) ====================
 
   /**

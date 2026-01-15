@@ -10,6 +10,7 @@ interface GroupedEntries {
 
 export interface EntryListProps {
   entries: Entry[]
+  disabled?: boolean
 }
 
 export const EntryList: Component<EntryListProps> = (props) => {
@@ -83,7 +84,7 @@ export const EntryList: Component<EntryListProps> = (props) => {
             <h3 class="entry-group-title">{group.label}</h3>
             <div class="entry-group-items">
               <For each={group.entries}>
-                {(entry) => <EntryCard entry={entry} />}
+                {(entry) => <EntryCard entry={entry} disabled={props.disabled} />}
               </For>
             </div>
           </div>

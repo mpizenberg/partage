@@ -8,6 +8,7 @@ export interface SettlementPlanProps {
   plan: SettlementPlanType
   currency: string
   members: Member[]
+  disabled?: boolean
 }
 
 export const SettlementPlan: Component<SettlementPlanProps> = (props) => {
@@ -132,14 +133,16 @@ export const SettlementPlan: Component<SettlementPlanProps> = (props) => {
                     </div>
                   </div>
 
-                  <Button
-                    variant="primary"
-                    size="small"
-                    onClick={() => handleSettle(transaction.from, transaction.to, transaction.amount)}
-                    disabled={loading}
-                  >
-                    {loading ? t('settle.recording') : t('settle.markAsPaid')}
-                  </Button>
+                  <Show when={!props.disabled}>
+                    <Button
+                      variant="primary"
+                      size="small"
+                      onClick={() => handleSettle(transaction.from, transaction.to, transaction.amount)}
+                      disabled={loading}
+                    >
+                      {loading ? t('settle.recording') : t('settle.markAsPaid')}
+                    </Button>
+                  </Show>
                 </div>
               )
             }}

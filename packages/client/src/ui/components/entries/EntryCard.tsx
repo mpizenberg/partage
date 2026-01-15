@@ -20,6 +20,7 @@ const CATEGORY_EMOJI: Record<ExpenseCategory, string> = {
 
 export interface EntryCardProps {
   entry: Entry
+  disabled?: boolean
 }
 
 export const EntryCard: Component<EntryCardProps> = (props) => {
@@ -32,15 +33,17 @@ export const EntryCard: Component<EntryCardProps> = (props) => {
   const isDeleted = () => props.entry.status === 'deleted'
 
   const handleClick = () => {
-    // Don't allow editing deleted entries
-    if (!isDeleted()) {
+    // Don't allow editing if disabled or deleted
+    if (!props.disabled && !isDeleted()) {
       setEditingEntry(props.entry)
     }
   }
 
   const handleDeleteClick = (e: MouseEvent) => {
     e.stopPropagation()
-    setShowDeleteModal(true)
+    if (!props.disabled) {
+      setShowDeleteModal(true)
+    }
   }
 
   const handleConfirmDelete = async () => {
@@ -57,6 +60,7 @@ export const EntryCard: Component<EntryCardProps> = (props) => {
 
   const handleUndeleteClick = async (e: MouseEvent) => {
     e.stopPropagation()
+    if (props.disabled) return
     try {
       setIsUndeleting(true)
       await undeleteEntry(props.entry.id)
@@ -234,28 +238,30 @@ export const EntryCard: Component<EntryCardProps> = (props) => {
                 </Show>
               </div>
             </div>
-            <Show
-              when={!isDeleted()}
-              fallback={
-                <button
-                  class="entry-undelete-btn"
-                  onClick={handleUndeleteClick}
-                  aria-label="Restore entry"
-                  title="Restore entry"
-                  disabled={isUndeleting()}
-                >
-                  {isUndeleting() ? '⏳' : '↶'}
-                </button>
-              }
-            >
-              <button
-                class="entry-delete-btn"
-                onClick={handleDeleteClick}
-                aria-label="Delete entry"
-                title="Delete entry"
+            <Show when={!props.disabled}>
+              <Show
+                when={!isDeleted()}
+                fallback={
+                  <button
+                    class="entry-undelete-btn"
+                    onClick={handleUndeleteClick}
+                    aria-label="Restore entry"
+                    title="Restore entry"
+                    disabled={isUndeleting()}
+                  >
+                    {isUndeleting() ? '⏳' : '↶'}
+                  </button>
+                }
               >
-                🗑️
-              </button>
+                <button
+                  class="entry-delete-btn"
+                  onClick={handleDeleteClick}
+                  aria-label="Delete entry"
+                  title="Delete entry"
+                >
+                  🗑️
+                </button>
+              </Show>
             </Show>
           </div>
 
@@ -302,28 +308,30 @@ export const EntryCard: Component<EntryCardProps> = (props) => {
                 <span class="entry-time">{getRelativeTime(props.entry.createdAt)}</span>
               </Show>
             </div>
-            <Show
-              when={!isDeleted()}
-              fallback={
-                <button
-                  class="entry-undelete-btn"
-                  onClick={handleUndeleteClick}
-                  aria-label="Restore entry"
-                  title="Restore entry"
-                  disabled={isUndeleting()}
-                >
-                  {isUndeleting() ? '⏳' : '↶'}
-                </button>
-              }
-            >
-              <button
-                class="entry-delete-btn"
-                onClick={handleDeleteClick}
-                aria-label="Delete entry"
-                title="Delete entry"
+            <Show when={!props.disabled}>
+              <Show
+                when={!isDeleted()}
+                fallback={
+                  <button
+                    class="entry-undelete-btn"
+                    onClick={handleUndeleteClick}
+                    aria-label="Restore entry"
+                    title="Restore entry"
+                    disabled={isUndeleting()}
+                  >
+                    {isUndeleting() ? '⏳' : '↶'}
+                  </button>
+                }
               >
-                🗑️
-              </button>
+                <button
+                  class="entry-delete-btn"
+                  onClick={handleDeleteClick}
+                  aria-label="Delete entry"
+                  title="Delete entry"
+                >
+                  🗑️
+                </button>
+              </Show>
             </Show>
           </div>
         </Show>

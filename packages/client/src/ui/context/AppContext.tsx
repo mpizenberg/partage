@@ -198,6 +198,40 @@ export interface ImportAnalysis {
   exportData: ExportData;
 }
 
+/**
+ * Helper function to check if a user is already a member of a group
+ * Returns true if the user can join/rejoin, false if already a member
+ *
+ * @param groupId - The group ID to check
+ * @param groups - Current local groups list
+ * @param loroStore - Loro store with updates applied
+ * @param userPublicKeyHash - Current user's public key hash
+ * @returns true if user can join, false if already a member
+ * @throws Error if user is already a member (for AppContext usage)
+ */
+export function checkCanJoinGroup(
+  groupId: string,
+  groups: Group[],
+  loroStore: LoroEntryStore,
+  userPublicKeyHash: string
+): boolean {
+  // Check if we already have this group
+  const existingGroup = groups.find((g) => g.id === groupId);
+  if (!existingGroup) {
+    // Group doesn't exist locally - can join
+    return true;
+  }
+
+  // Group exists locally - check if current identity is actually a member
+  const isCurrentUserMember = loroStore.isMemberKnown(userPublicKeyHash);
+  if (isCurrentUserMember) {
+    // User is already a member - cannot join
+    return false;
+  }
+
+  return true;
+}
+
 // Create context
 const AppContext = createContext<AppContextValue>();
 
@@ -265,7 +299,7 @@ export const AppProvider: Component<{ children: JSX.Element }> = (props) => {
 
     // Get active members
     const activeStates = store.getActiveMemberStates();
-    const activeMembersList: Member[] = activeStates.map(state => ({
+    const activeMembersList: Member[] = activeStates.map((state) => ({
       id: state.id,
       name: state.name,
       publicKey: state.publicKey,
@@ -278,7 +312,7 @@ export const AppProvider: Component<{ children: JSX.Element }> = (props) => {
 
     // Get retired members (departed but not replaced)
     const retiredStates = store.getRetiredMemberStates();
-    const retiredMembersList: Member[] = retiredStates.map(state => ({
+    const retiredMembersList: Member[] = retiredStates.map((state) => ({
       id: state.id,
       name: state.name,
       publicKey: state.publicKey,
@@ -358,9 +392,11 @@ export const AppProvider: Component<{ children: JSX.Element }> = (props) => {
       if (document.hidden && activeGroup()) {
         const store = loroStore();
         if (store) {
-          await snapshotManager().consolidateOnIdle(activeGroup()!.id, store).catch((err) => {
-            console.error('[AppContext] Idle consolidation failed:', err);
-          });
+          await snapshotManager()
+            .consolidateOnIdle(activeGroup()!.id, store)
+            .catch((err) => {
+              console.error('[AppContext] Idle consolidation failed:', err);
+            });
         }
       }
     };
@@ -496,12 +532,9 @@ export const AppProvider: Component<{ children: JSX.Element }> = (props) => {
 
       // Add virtual members to Loro via events
       for (const member of virtualMembers) {
-        newLoroStore.createMember(
-          member.id,
-          member.name,
-          currentIdentity.publicKeyHash,
-          { isVirtual: true }
-        );
+        newLoroStore.createMember(member.id, member.name, currentIdentity.publicKeyHash, {
+          isVirtual: true,
+        });
       }
 
       // Save to database
@@ -639,7 +672,6 @@ export const AppProvider: Component<{ children: JSX.Element }> = (props) => {
           setSyncState(manager.getState());
         }
       }
-
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load group');
       throw err;
@@ -773,16 +805,37 @@ export const AppProvider: Component<{ children: JSX.Element }> = (props) => {
 
       switch (operationType) {
         case 'add':
-          newActivity = generateActivityForNewEntry(newEntry, currentMembers, groupId, canonicalIdMap);
+          newActivity = generateActivityForNewEntry(
+            newEntry,
+            currentMembers,
+            groupId,
+            canonicalIdMap
+          );
           break;
         case 'modify':
-          newActivity = generateActivityForModifiedEntry(newEntry, previousEntry, currentMembers, groupId, canonicalIdMap);
+          newActivity = generateActivityForModifiedEntry(
+            newEntry,
+            previousEntry,
+            currentMembers,
+            groupId,
+            canonicalIdMap
+          );
           break;
         case 'delete':
-          newActivity = generateActivityForDeletedEntry(newEntry, currentMembers, groupId, canonicalIdMap);
+          newActivity = generateActivityForDeletedEntry(
+            newEntry,
+            currentMembers,
+            groupId,
+            canonicalIdMap
+          );
           break;
         case 'undelete':
-          newActivity = generateActivityForUndeletedEntry(newEntry, currentMembers, groupId, canonicalIdMap);
+          newActivity = generateActivityForUndeletedEntry(
+            newEntry,
+            currentMembers,
+            groupId,
+            canonicalIdMap
+          );
           break;
       }
 
@@ -880,7 +933,7 @@ export const AppProvider: Component<{ children: JSX.Element }> = (props) => {
         groupName: group.name,
         groupKey,
         actorId: currentIdentity.publicKeyHash,
-      }).catch(err => console.warn('[AppContext] Failed to publish NTFY notification:', err));
+      }).catch((err) => console.warn('[AppContext] Failed to publish NTFY notification:', err));
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to add expense');
       throw err;
@@ -969,7 +1022,7 @@ export const AppProvider: Component<{ children: JSX.Element }> = (props) => {
         groupName: group.name,
         groupKey,
         actorId: currentIdentity.publicKeyHash,
-      }).catch(err => console.warn('[AppContext] Failed to publish NTFY notification:', err));
+      }).catch((err) => console.warn('[AppContext] Failed to publish NTFY notification:', err));
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to add transfer');
       throw err;
@@ -1063,7 +1116,7 @@ export const AppProvider: Component<{ children: JSX.Element }> = (props) => {
         groupName: group.name,
         groupKey,
         actorId: currentIdentity.publicKeyHash,
-      }).catch(err => console.warn('[AppContext] Failed to publish NTFY notification:', err));
+      }).catch((err) => console.warn('[AppContext] Failed to publish NTFY notification:', err));
 
       // Clear editing state
       setEditingEntry(null);
@@ -1157,7 +1210,7 @@ export const AppProvider: Component<{ children: JSX.Element }> = (props) => {
         groupName: group.name,
         groupKey,
         actorId: currentIdentity.publicKeyHash,
-      }).catch(err => console.warn('[AppContext] Failed to publish NTFY notification:', err));
+      }).catch((err) => console.warn('[AppContext] Failed to publish NTFY notification:', err));
 
       // Clear editing state
       setEditingEntry(null);
@@ -1241,7 +1294,7 @@ export const AppProvider: Component<{ children: JSX.Element }> = (props) => {
         groupName: group.name,
         groupKey,
         actorId: currentIdentity.publicKeyHash,
-      }).catch(err => console.warn('[AppContext] Failed to publish NTFY notification:', err));
+      }).catch((err) => console.warn('[AppContext] Failed to publish NTFY notification:', err));
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to delete entry');
       throw err;
@@ -1321,7 +1374,7 @@ export const AppProvider: Component<{ children: JSX.Element }> = (props) => {
         groupName: group.name,
         groupKey,
         actorId: currentIdentity.publicKeyHash,
-      }).catch(err => console.warn('[AppContext] Failed to publish NTFY notification:', err));
+      }).catch((err) => console.warn('[AppContext] Failed to publish NTFY notification:', err));
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to undelete entry');
       throw err;
@@ -1365,21 +1418,27 @@ export const AppProvider: Component<{ children: JSX.Element }> = (props) => {
         throw new Error('No identity found');
       }
 
-      // Check if we already have this group
-      const existingGroup = groups().find(g => g.id === groupId);
-      if (existingGroup) {
-        throw new Error('You are already a member of this group');
-      }
-
       // Fetch all updates from server to build the Loro state
       const updates = await pbClient.fetchAllUpdates(groupId);
 
       // Create a new Loro store and apply all updates
       const newLoroStore = new LoroEntryStore(currentIdentity.publicKeyHash);
-      
+
       for (const update of updates) {
         const updateBytes = PocketBaseClient.decodeUpdateData(update.updateData);
         newLoroStore.applyUpdate(updateBytes);
+      }
+
+      // Check if we already have this group AND current identity is a member
+      const canJoin = checkCanJoinGroup(
+        groupId,
+        groups(),
+        newLoroStore,
+        currentIdentity.publicKeyHash
+      );
+
+      if (!canJoin) {
+        throw new Error('You are already a member of this group');
       }
 
       // Get existing members using event-based system
@@ -1415,7 +1474,7 @@ export const AppProvider: Component<{ children: JSX.Element }> = (props) => {
 
       if (existingMemberId) {
         // Claiming an existing member identity
-        const existingMember = existingMembers.find(m => m.id === existingMemberId);
+        const existingMember = existingMembers.find((m) => m.id === existingMemberId);
         if (!existingMember) {
           throw new Error('Selected member not found');
         }
@@ -1474,7 +1533,7 @@ export const AppProvider: Component<{ children: JSX.Element }> = (props) => {
           groupName,
           groupKey,
           actorId: currentIdentity.publicKeyHash,
-        }).catch(err => console.warn('[AppContext] Failed to publish NTFY notification:', err));
+        }).catch((err) => console.warn('[AppContext] Failed to publish NTFY notification:', err));
       }
 
       // Update the group with filtered members using event-based system or legacy fallback
@@ -1606,7 +1665,6 @@ export const AppProvider: Component<{ children: JSX.Element }> = (props) => {
       // The calling component should manage its own loading state
       setError(null);
 
-
       // Deserialize JSON (restore Uint8Arrays and Maps)
       let parsed: any;
       try {
@@ -1633,7 +1691,6 @@ export const AppProvider: Component<{ children: JSX.Element }> = (props) => {
         console.error('[importGroups] Invalid export data:', importData);
         throw new Error('Invalid export data format: missing version or groups');
       }
-
 
       // Analyze each group
       const analysis: ImportAnalysis['groups'] = [];
@@ -1717,7 +1774,6 @@ export const AppProvider: Component<{ children: JSX.Element }> = (props) => {
         }
       }
 
-
       const result = {
         groups: analysis,
         exportData: importData,
@@ -1780,7 +1836,11 @@ export const AppProvider: Component<{ children: JSX.Element }> = (props) => {
             const tempStore2 = new LoroEntryStore(currentIdentity.publicKeyHash);
             tempStore2.importSnapshot(groupExport.loroSnapshot);
             const importVersion2 = tempStore2.getVersion();
-            await db.saveLoroSnapshot(groupExport.group.id, groupExport.loroSnapshot, importVersion2);
+            await db.saveLoroSnapshot(
+              groupExport.group.id,
+              groupExport.loroSnapshot,
+              importVersion2
+            );
           }
 
           // Import key if missing
@@ -1794,7 +1854,6 @@ export const AppProvider: Component<{ children: JSX.Element }> = (props) => {
       // Refresh groups list
       const allGroups = await db.getAllGroups();
       setGroups(allGroups);
-
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to import groups');
       throw err;
@@ -1902,7 +1961,7 @@ export const AppProvider: Component<{ children: JSX.Element }> = (props) => {
       const activeStates = store.getActiveMemberStates();
       const normalizedName = name.trim().toLowerCase();
       const nameExists = activeStates.some(
-        state => state.name.trim().toLowerCase() === normalizedName
+        (state) => state.name.trim().toLowerCase() === normalizedName
       );
       if (nameExists) {
         throw new Error('A member with this name already exists');
@@ -1950,7 +2009,7 @@ export const AppProvider: Component<{ children: JSX.Element }> = (props) => {
   const getAllMembersForCache = (store: LoroEntryStore): Member[] => {
     // Get active members
     const activeStates = store.getActiveMemberStates();
-    const activeMembersList: Member[] = activeStates.map(state => ({
+    const activeMembersList: Member[] = activeStates.map((state) => ({
       id: state.id,
       name: state.name,
       publicKey: state.publicKey,
@@ -1963,7 +2022,7 @@ export const AppProvider: Component<{ children: JSX.Element }> = (props) => {
 
     // Get retired members
     const retiredStates = store.getRetiredMemberStates();
-    const retiredMembersList: Member[] = retiredStates.map(state => ({
+    const retiredMembersList: Member[] = retiredStates.map((state) => ({
       id: state.id,
       name: state.name,
       publicKey: state.publicKey,

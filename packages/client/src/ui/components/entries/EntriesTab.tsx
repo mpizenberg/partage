@@ -12,6 +12,7 @@ import {
 
 export interface EntriesTabProps {
   onAddEntry?: () => void;
+  disabled?: boolean;
 }
 
 export const EntriesTab: Component<EntriesTabProps> = (props) => {
@@ -62,8 +63,8 @@ export const EntriesTab: Component<EntriesTabProps> = (props) => {
 
   return (
     <div class="entries-tab">
-      {/* Add Entry Button */}
-      <Show when={props.onAddEntry}>
+      {/* Add Entry Button - hide when disabled */}
+      <Show when={props.onAddEntry && !props.disabled}>
         <div style="text-align: center; margin-bottom: var(--space-md);">
           <Button variant="primary" onClick={props.onAddEntry}>
             + {t('entries.addEntry')}
@@ -120,7 +121,7 @@ export const EntriesTab: Component<EntriesTabProps> = (props) => {
           </div>
         }
       >
-        <EntryList entries={filteredEntries()} />
+        <EntryList entries={filteredEntries()} disabled={props.disabled} />
       </Show>
     </div>
   );

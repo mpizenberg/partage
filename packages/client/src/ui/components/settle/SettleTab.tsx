@@ -4,7 +4,11 @@ import { useAppContext } from '../../context/AppContext'
 import { SettlementPlan } from '../balance/SettlementPlan'
 import { Button } from '../common/Button'
 
-export const SettleTab: Component = () => {
+export interface SettleTabProps {
+  disabled?: boolean
+}
+
+export const SettleTab: Component<SettleTabProps> = (props) => {
   const { t } = useI18n()
   const {
     settlementPlan,
@@ -178,6 +182,7 @@ export const SettleTab: Component = () => {
             plan={settlementPlan()}
             currency={currency()}
             members={members()}
+            disabled={props.disabled}
           />
         </div>
 
@@ -210,7 +215,7 @@ export const SettleTab: Component = () => {
                         </Show>
                       </div>
 
-                      <Show when={!isEditing()}>
+                      <Show when={!isEditing() && !props.disabled}>
                         <div class="member-preference-actions">
                           <Button
                             variant="secondary"

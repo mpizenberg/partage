@@ -1,4 +1,5 @@
-import { Component, createSignal, Match, Switch } from 'solid-js'
+import { Component, createSignal, Match, Switch, Show } from 'solid-js'
+import { useNavigate } from '@solidjs/router'
 import { useI18n, formatCurrency } from '../../i18n'
 import { useAppContext } from '../context/AppContext'
 import { BalanceTab } from '../components/balance/BalanceTab'
@@ -8,11 +9,13 @@ import { ActivitiesTab } from '../components/activities/ActivitiesTab'
 import { SettleTab } from '../components/settle/SettleTab'
 import { AddEntryModal, type TransferInitialData } from '../components/forms/AddEntryModal'
 import { LanguageSwitcher } from '../components/common/LanguageSwitcher'
+import { generateInviteLink } from '../../domain/invitations/invite-manager'
 
 type TabType = 'balance' | 'entries' | 'settle' | 'members' | 'activities'
 
 export const GroupViewScreen: Component = () => {
   const { t, locale } = useI18n()
+  const navigate = useNavigate()
   const {
     activeGroup,
     deselectGroup,
@@ -25,10 +28,12 @@ export const GroupViewScreen: Component = () => {
     editingEntry,
     setEditingEntry,
     loroStore,
+    db,
   } = useAppContext()
   const [activeTab, setActiveTab] = createSignal<TabType>('balance')
   const [showAddEntry, setShowAddEntry] = createSignal(false)
   const [transferInitialData, setTransferInitialData] = createSignal<TransferInitialData | null>(null)
+  const [showBannerDetails, setShowBannerDetails] = createSignal(false)
 
   // Modal is open when adding new entry OR editing existing entry OR quick settlement
   const isModalOpen = () => showAddEntry() || editingEntry() !== null || transferInitialData() !== null
@@ -98,6 +103,50 @@ export const GroupViewScreen: Component = () => {
     return amount > 0 ? 'text-success' : 'text-danger'
   }
 
+  // Check if current user is a valid member of the group
+  // Optimized to use O(n) with early exit - much faster than computing all member states
+  const isUnknownUser = () => {
+    const userIdentity = identity()
+    if (!userIdentity) return false
+
+    const store = loroStore()
+    if (!store) {
+      console.error('[GroupViewScreen] Loro store not initialized')
+      return false
+    }
+
+    // Use isMemberKnown() for efficient check with early exit
+    return !store.isMemberKnown(userIdentity.publicKeyHash)
+  }
+
+  const handleRejoin = async () => {
+    const group = activeGroup()
+    if (!group) return
+
+    try {
+      // Get the group key from storage
+      const groupKeyBase64 = await db.getGroupKey(group.id)
+      if (!groupKeyBase64) {
+        console.error('Group key not found')
+        return
+      }
+
+      // Generate the invite link (same as when creating invitations)
+      const inviteLink = generateInviteLink(group.id, groupKeyBase64, group.name)
+
+      // Extract the path from the invite link (remove origin)
+      // inviteLink format: http://localhost:3000/#/join/groupId/key?name=...
+      // We want: /join/groupId/key?name=...
+      const url = new URL(inviteLink)
+      const path = url.hash.substring(1) // Remove the '#' prefix
+
+      // Navigate to the join page
+      navigate(path)
+    } catch (error) {
+      console.error('Failed to generate rejoin link:', error)
+    }
+  }
+
   return (
     <div class="group-view-screen">
       {/* Header */}
@@ -163,21 +212,49 @@ export const GroupViewScreen: Component = () => {
         </div>
       </div>
 
+      {/* Unknown User Banner */}
+      <Show when={isUnknownUser()}>
+        <div class="unknown-user-banner">
+          <div class="container">
+            <div class="banner-content">
+              <span class="banner-icon">⚠️</span>
+              <div class="banner-text">
+                <span class="banner-message">
+                  {t('banner.unknownUser')} <button class="banner-link" onClick={handleRejoin}>[{t('banner.rejoin')}]</button>
+                  {' '}
+                  <button
+                    class="banner-expand"
+                    onClick={() => setShowBannerDetails(!showBannerDetails())}
+                  >
+                    ({showBannerDetails() ? t('banner.hideInfo') : t('banner.showInfo')})
+                  </button>
+                </span>
+                <Show when={showBannerDetails()}>
+                  <div class="banner-details">
+                    {t('banner.unknownUserDetails')}
+                  </div>
+                </Show>
+              </div>
+            </div>
+          </div>
+        </div>
+      </Show>
+
       {/* Tab Content */}
       <div class="tab-content">
         <div class="container">
           <Switch>
             <Match when={activeTab() === 'balance'}>
-              <BalanceTab onPayMember={handlePayMember} />
+              <BalanceTab onPayMember={handlePayMember} disabled={isUnknownUser()} />
             </Match>
             <Match when={activeTab() === 'entries'}>
-              <EntriesTab onAddEntry={() => setShowAddEntry(true)} />
+              <EntriesTab onAddEntry={() => setShowAddEntry(true)} disabled={isUnknownUser()} />
             </Match>
             <Match when={activeTab() === 'settle'}>
-              <SettleTab />
+              <SettleTab disabled={isUnknownUser()} />
             </Match>
             <Match when={activeTab() === 'members'}>
-              <MembersTab />
+              <MembersTab disabled={isUnknownUser()} />
             </Match>
             <Match when={activeTab() === 'activities'}>
               <ActivitiesTab />
@@ -186,14 +263,16 @@ export const GroupViewScreen: Component = () => {
         </div>
       </div>
 
-      {/* Floating Add Button */}
-      <button
-        class="fab"
-        onClick={() => setShowAddEntry(true)}
-        aria-label={t('entries.addEntry')}
-      >
-        +
-      </button>
+      {/* Floating Add Button - hide for unknown users */}
+      <Show when={!isUnknownUser()}>
+        <button
+          class="fab"
+          onClick={() => setShowAddEntry(true)}
+          aria-label={t('entries.addEntry')}
+        >
+          +
+        </button>
+      </Show>
 
       {/* Add/Edit Entry Modal */}
       <AddEntryModal

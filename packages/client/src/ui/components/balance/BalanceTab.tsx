@@ -6,6 +6,7 @@ import { SettlementPlan } from './SettlementPlan'
 
 export interface BalanceTabProps {
   onPayMember?: (memberId: string, memberName: string, amount: number) => void
+  disabled?: boolean
 }
 
 export const BalanceTab: Component<BalanceTabProps> = (props) => {
@@ -111,7 +112,7 @@ export const BalanceTab: Component<BalanceTabProps> = (props) => {
                   memberId={memberId}
                   currency={currency()}
                   isCurrentUser={isCurrentUserMember(memberId)}
-                  onPayMember={props.onPayMember}
+                  onPayMember={props.disabled ? undefined : props.onPayMember}
                 />
               )}
             </For>
@@ -124,6 +125,7 @@ export const BalanceTab: Component<BalanceTabProps> = (props) => {
             plan={settlementPlan()}
             currency={currency()}
             members={members()}
+            disabled={props.disabled}
           />
         </div>
       </Show>

@@ -5,7 +5,11 @@ import { MemberList } from './MemberList'
 import { InviteModal } from '../invites/InviteModal'
 import { Button } from '../common/Button'
 
-export const MembersTab: Component = () => {
+export interface MembersTabProps {
+  disabled?: boolean
+}
+
+export const MembersTab: Component<MembersTabProps> = (props) => {
   const { members, activeGroup, createInvitation, addVirtualMember, renameMember, removeMember, identity, balances, loroStore } = useAppContext()
   const { t } = useI18n()
   const [showInviteModal, setShowInviteModal] = createSignal(false)
@@ -46,17 +50,19 @@ export const MembersTab: Component = () => {
 
   return (
     <div class="members-tab">
-      {/* Invite and Add Member Buttons */}
-      <div class="members-section" style="text-align: center;">
-        <div style="display: flex; gap: var(--space-sm); justify-content: center; flex-wrap: wrap;">
-          <Button variant="primary" onClick={handleInvite}>
-            📤 {t('members.inviteMembers')}
-          </Button>
-          <Button variant="secondary" onClick={() => setShowAddMemberModal(true)}>
-            ➕ {t('members.addVirtualMember')}
-          </Button>
+      {/* Invite and Add Member Buttons - hide when disabled */}
+      <Show when={!props.disabled}>
+        <div class="members-section" style="text-align: center;">
+          <div style="display: flex; gap: var(--space-sm); justify-content: center; flex-wrap: wrap;">
+            <Button variant="primary" onClick={handleInvite}>
+              📤 {t('members.inviteMembers')}
+            </Button>
+            <Button variant="secondary" onClick={() => setShowAddMemberModal(true)}>
+              ➕ {t('members.addVirtualMember')}
+            </Button>
+          </div>
         </div>
-      </div>
+      </Show>
 
       {/* Member List */}
       <div class="members-section">
@@ -66,8 +72,8 @@ export const MembersTab: Component = () => {
           currentUserPublicKeyHash={identity()?.publicKeyHash}
           balances={balances()}
           loroStore={loroStore()}
-          onRenameMember={renameMember}
-          onRemoveMember={removeMember}
+          onRenameMember={props.disabled ? undefined : renameMember}
+          onRemoveMember={props.disabled ? undefined : removeMember}
         />
       </div>
 

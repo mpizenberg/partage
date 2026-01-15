@@ -102,6 +102,14 @@
     "activity": "Actividad"
   },
 
+  "banner": {
+    "unknownUser": "Usuario desconocido, por favor",
+    "rejoin": "volver a unirse",
+    "showInfo": "expandir para más información",
+    "hideInfo": "ocultar información",
+    "unknownUserDetails": "Este dispositivo no coincide con ningún miembro del grupo. Esto puede suceder si se borró el almacenamiento de tu navegador, o si importaste un respaldo del grupo en otro dispositivo con una identidad diferente. Por favor, utiliza un enlace de invitación para volver a unirte al grupo."
+  },
+
   "balance": {
     "title": "Resumen de Balance",
     "noTransactions": "Aún no hay transacciones",

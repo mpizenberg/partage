@@ -102,6 +102,14 @@
     "activity": "Activity"
   },
 
+  "banner": {
+    "unknownUser": "Unknown user, please",
+    "rejoin": "re-join",
+    "showInfo": "expand for more info",
+    "hideInfo": "collapse info",
+    "unknownUserDetails": "This device does not match any member of the group. This can happen if your browser's storage was cleared, or if you imported a group save on another device with a different identity. Please use an invite link to re-join the group."
+  },
+
   "balance": {
     "title": "Balance Overview",
     "noTransactions": "No transactions yet",

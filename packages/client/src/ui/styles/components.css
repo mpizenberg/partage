@@ -618,6 +618,75 @@
   }
 }
 
+/* Unknown User Banner */
+.unknown-user-banner {
+  background-color: #fef3c7; /* Yellow-50 */
+  border-bottom: 1px solid #f59e0b; /* Yellow-500 */
+  padding: var(--space-sm) 0;
+}
+
+.banner-content {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-sm);
+}
+
+.banner-icon {
+  font-size: var(--font-size-lg);
+  flex-shrink: 0;
+}
+
+.banner-text {
+  flex: 1;
+  font-size: var(--font-size-sm);
+  color: var(--color-text);
+}
+
+.banner-message {
+  display: block;
+  line-height: 1.5;
+}
+
+.banner-link {
+  background: none;
+  border: none;
+  color: var(--color-primary);
+  text-decoration: underline;
+  cursor: pointer;
+  padding: 0;
+  font-size: inherit;
+  font-weight: var(--font-weight-semibold);
+}
+
+.banner-link:hover {
+  color: var(--color-primary-dark);
+}
+
+.banner-expand {
+  background: none;
+  border: none;
+  color: var(--color-text-light);
+  text-decoration: none;
+  cursor: pointer;
+  padding: 0;
+  font-size: inherit;
+  font-style: italic;
+}
+
+.banner-expand:hover {
+  color: var(--color-text);
+}
+
+.banner-details {
+  margin-top: var(--space-sm);
+  padding: var(--space-sm);
+  background-color: rgba(255, 255, 255, 0.5);
+  border-radius: var(--radius-sm);
+  font-size: var(--font-size-xs);
+  line-height: 1.5;
+  color: var(--color-text-light);
+}
+
 /* Tab Content */
 .tab-content {
   padding: var(--space-lg) 0;
@@ -2294,11 +2363,20 @@ body:has(.offline-banner) .fab {
   color: var(--color-primary);
   text-decoration: none;
   transition: color var(--transition-base);
+  display: flex;
+  align-items: center;
+  gap: 4px;
 }
 
 .footer-link:hover {
   color: var(--color-primary-dark);
   text-decoration: underline;
+}
+
+.footer-github-icon {
+  width: 14px;
+  height: 14px;
+  flex-shrink: 0;
 }
 
 /* Toast Notifications */
