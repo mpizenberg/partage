@@ -30,7 +30,7 @@ export const ActivityCard: Component<ActivityCardProps> = (props) => {
     return formatCurrency(amount, currency, locale());
   };
 
-  // Memoized member name lookup map - uses canonical ID resolution
+  // Memoized member name lookup map - uses member's own name (not canonical)
   const memberNameMap = createMemo(() => {
     const nameMap = new Map<string, string>();
     const store = loroStore();
@@ -41,14 +41,11 @@ export const ActivityCard: Component<ActivityCardProps> = (props) => {
       return nameMap;
     }
 
-    // Use event-based system: resolve each member to their canonical name
-    const canonicalIdMap = store.getCanonicalIdMap();
+    // Use event-based system: get each member's own name (not canonical resolution)
     const allStates = store.getAllMemberStates();
 
     for (const [memberId, state] of allStates) {
-      const canonicalId = canonicalIdMap.get(memberId) ?? memberId;
-      const canonicalState = allStates.get(canonicalId);
-      nameMap.set(memberId, canonicalState?.name ?? state.name);
+      nameMap.set(memberId, state.name);
     }
     return nameMap;
   });
@@ -66,14 +63,17 @@ export const ActivityCard: Component<ActivityCardProps> = (props) => {
     });
   };
 
-  const formatParticipants = (memberIds: string[] | undefined): string => {
+  const formatParticipants = (memberIds: string[] | undefined, nameMap?: Record<string, string>): string => {
     if (!memberIds || memberIds.length === 0) return '';
     const validIds = memberIds.filter((id): id is string => id != null);
     if (validIds.length === 0) return '';
-    if (validIds.length === 1) return getMemberName(validIds[0]!);
+
+    const getName = (id: string) => nameMap?.[id] ?? getMemberName(id);
+
+    if (validIds.length === 1) return getName(validIds[0]!);
     if (validIds.length === 2)
-      return `${getMemberName(validIds[0]!)} ${t('common.and')} ${getMemberName(validIds[1]!)}`;
-    return `${getMemberName(validIds[0]!)} ${t('common.and')} ${validIds.length - 1} ${t('common.others')}`;
+      return `${getName(validIds[0]!)} ${t('common.and')} ${getName(validIds[1]!)}`;
+    return `${getName(validIds[0]!)} ${t('common.and')} ${validIds.length - 1} ${t('common.others')}`;
   };
 
   const formatChangeValue = (value: any, field: string, currency?: string, defaultCurrency?: string): string => {
@@ -298,6 +298,31 @@ export const ActivityCard: Component<ActivityCardProps> = (props) => {
     return false;
   };
 
+  // Helper to get member names from activity for modal
+  const getPayerNames = () => {
+    if (!isEntryActivity()) return undefined;
+    const activity = props.activity as any;
+    return activity.payerNames;
+  };
+
+  const getBeneficiaryNames = () => {
+    if (!isEntryActivity()) return undefined;
+    const activity = props.activity as any;
+    return activity.beneficiaryNames;
+  };
+
+  const getFromName = () => {
+    if (!isEntryActivity()) return undefined;
+    const activity = props.activity as any;
+    return activity.fromName;
+  };
+
+  const getToName = () => {
+    if (!isEntryActivity()) return undefined;
+    const activity = props.activity as any;
+    return activity.toName;
+  };
+
   return (
     <>
     <div
@@ -324,7 +349,7 @@ export const ActivityCard: Component<ActivityCardProps> = (props) => {
                 return (
                   <>
                     <div class="activity-description">
-                      <strong>{getMemberName(activity.actorId)}</strong> {t('activity.added')}{' '}
+                      <strong>{activity.actorName}</strong> {t('activity.added')}{' '}
                       <span class="activity-highlight">"{activity.description}"</span>
                     </div>
                     <div class="activity-details">
@@ -338,8 +363,8 @@ export const ActivityCard: Component<ActivityCardProps> = (props) => {
                           class="activity-participants"
                           style="font-size: var(--font-size-sm); color: var(--color-text-light); margin-top: var(--space-xs);"
                         >
-                          {t('activity.paidBy')} {formatParticipants(activity.payers)} • {t('activity.for')}{' '}
-                          {formatParticipants(activity.beneficiaries)}
+                          {t('activity.paidBy')} {formatParticipants(activity.payers, activity.payerNames)} • {t('activity.for')}{' '}
+                          {formatParticipants(activity.beneficiaries, activity.beneficiaryNames)}
                         </div>
                       </Show>
                       <Show when={activity.from}>
@@ -347,7 +372,7 @@ export const ActivityCard: Component<ActivityCardProps> = (props) => {
                           class="activity-participants"
                           style="font-size: var(--font-size-sm); color: var(--color-text-light); margin-top: var(--space-xs);"
                         >
-                          {getMemberName(activity.from!)} → {getMemberName(activity.to!)}
+                          {activity.fromName || getMemberName(activity.from!)} → {activity.toName || getMemberName(activity.to!)}
                         </div>
                       </Show>
                     </div>
@@ -363,7 +388,7 @@ export const ActivityCard: Component<ActivityCardProps> = (props) => {
                 return (
                   <>
                     <div class="activity-description">
-                      <strong>{getMemberName(activity.actorId)}</strong> {t('activity.modified')}{' '}
+                      <strong>{activity.actorName}</strong> {t('activity.modified')}{' '}
                       <span class="activity-highlight">"{activity.description}"</span>
                     </div>
                     <div class="activity-details">
@@ -377,8 +402,8 @@ export const ActivityCard: Component<ActivityCardProps> = (props) => {
                           class="activity-participants"
                           style="font-size: var(--font-size-sm); color: var(--color-text-light); margin-top: var(--space-xs);"
                         >
-                          {t('activity.paidBy')} {formatParticipants(activity.payers)} • {t('activity.for')}{' '}
-                          {formatParticipants(activity.beneficiaries)}
+                          {t('activity.paidBy')} {formatParticipants(activity.payers, activity.payerNames)} • {t('activity.for')}{' '}
+                          {formatParticipants(activity.beneficiaries, activity.beneficiaryNames)}
                         </div>
                       </Show>
                       <Show when={activity.from}>
@@ -386,7 +411,7 @@ export const ActivityCard: Component<ActivityCardProps> = (props) => {
                           class="activity-participants"
                           style="font-size: var(--font-size-sm); color: var(--color-text-light); margin-top: var(--space-xs);"
                         >
-                          {getMemberName(activity.from!)} → {getMemberName(activity.to!)}
+                          {activity.fromName || getMemberName(activity.from!)} → {activity.toName || getMemberName(activity.to!)}
                         </div>
                       </Show>
                       <Show when={activity.changes && Object.keys(activity.changes).length > 0}>
@@ -465,7 +490,7 @@ export const ActivityCard: Component<ActivityCardProps> = (props) => {
                 return (
                   <>
                     <div class="activity-description">
-                      <strong>{getMemberName(activity.actorId)}</strong> {t('activity.deleted')}{' '}
+                      <strong>{activity.actorName}</strong> {t('activity.deleted')}{' '}
                       <span class="activity-highlight">"{activity.description}"</span>
                     </div>
                     <div class="activity-details">
@@ -482,8 +507,8 @@ export const ActivityCard: Component<ActivityCardProps> = (props) => {
                           class="activity-participants"
                           style="font-size: var(--font-size-sm); color: var(--color-text-light); margin-top: var(--space-xs);"
                         >
-                          {t('activity.paidBy')} {formatParticipants(activity.payers)} • {t('activity.for')}{' '}
-                          {formatParticipants(activity.beneficiaries)}
+                          {t('activity.paidBy')} {formatParticipants(activity.payers, activity.payerNames)} • {t('activity.for')}{' '}
+                          {formatParticipants(activity.beneficiaries, activity.beneficiaryNames)}
                         </div>
                       </Show>
                       <Show when={activity.from}>
@@ -491,7 +516,7 @@ export const ActivityCard: Component<ActivityCardProps> = (props) => {
                           class="activity-participants"
                           style="font-size: var(--font-size-sm); color: var(--color-text-light); margin-top: var(--space-xs);"
                         >
-                          {getMemberName(activity.from!)} → {getMemberName(activity.to!)}
+                          {activity.fromName || getMemberName(activity.from!)} → {activity.toName || getMemberName(activity.to!)}
                         </div>
                       </Show>
                     </div>
@@ -507,7 +532,7 @@ export const ActivityCard: Component<ActivityCardProps> = (props) => {
                 return (
                   <>
                     <div class="activity-description">
-                      <strong>{getMemberName(activity.actorId)}</strong> {t('activity.restored')}{' '}
+                      <strong>{activity.actorName}</strong> {t('activity.restored')}{' '}
                       <span class="activity-highlight">"{activity.description}"</span>
                     </div>
                     <div class="activity-details">
@@ -521,8 +546,8 @@ export const ActivityCard: Component<ActivityCardProps> = (props) => {
                           class="activity-participants"
                           style="font-size: var(--font-size-sm); color: var(--color-text-light); margin-top: var(--space-xs);"
                         >
-                          {t('activity.paidBy')} {formatParticipants(activity.payers)} • {t('activity.for')}{' '}
-                          {formatParticipants(activity.beneficiaries)}
+                          {t('activity.paidBy')} {formatParticipants(activity.payers, activity.payerNames)} • {t('activity.for')}{' '}
+                          {formatParticipants(activity.beneficiaries, activity.beneficiaryNames)}
                         </div>
                       </Show>
                       <Show when={activity.from}>
@@ -530,7 +555,7 @@ export const ActivityCard: Component<ActivityCardProps> = (props) => {
                           class="activity-participants"
                           style="font-size: var(--font-size-sm); color: var(--color-text-light); margin-top: var(--space-xs);"
                         >
-                          {getMemberName(activity.from!)} → {getMemberName(activity.to!)}
+                          {activity.fromName || getMemberName(activity.from!)} → {activity.toName || getMemberName(activity.to!)}
                         </div>
                       </Show>
                     </div>
@@ -541,13 +566,77 @@ export const ActivityCard: Component<ActivityCardProps> = (props) => {
 
             {/* Member Joined */}
             <Match when={props.activity.type === 'member_joined'}>
-              <div class="activity-description">
-                <strong>{'memberName' in props.activity && props.activity.memberName}</strong>{' '}
-                {t('activity.joinedGroup')}
-                {'isVirtual' in props.activity && props.activity.isVirtual && (
-                  <span class="activity-virtual"> ({t('activity.virtualMember')})</span>
-                )}
-              </div>
+              {(() => {
+                const activity = props.activity as any;
+                return (
+                  <div class="activity-description">
+                    <strong>
+                      {activity.memberName}
+                      {activity.currentName && (
+                        <span class="activity-current-name"> ({t('activity.now')} {activity.currentName})</span>
+                      )}
+                    </strong>{' '}
+                    {t('activity.joinedGroup')}
+                    {activity.isVirtual && (
+                      <span class="activity-virtual"> ({t('activity.virtualMember')})</span>
+                    )}
+                  </div>
+                );
+              })()}
+            </Match>
+
+            {/* Member Linked (re-joined) */}
+            <Match when={props.activity.type === 'member_linked'}>
+              {(() => {
+                const activity = props.activity as any;
+                return (
+                  <div class="activity-description">
+                    <strong>
+                      {activity.newMemberName}
+                      {activity.currentName && (
+                        <span class="activity-current-name"> ({t('activity.now')} {activity.currentName})</span>
+                      )}
+                    </strong>{' '}
+                    {t('activity.reJoined')}
+                  </div>
+                );
+              })()}
+            </Match>
+
+            {/* Member Renamed */}
+            <Match when={props.activity.type === 'member_renamed'}>
+              {(() => {
+                const activity = props.activity as any;
+                return (
+                  <div class="activity-description">
+                    <strong>{activity.oldName}</strong> {t('activity.renamedTo')}{' '}
+                    <strong>
+                      {activity.newName}
+                      {activity.currentName && (
+                        <span class="activity-current-name"> ({t('activity.now')} {activity.currentName})</span>
+                      )}
+                    </strong>
+                  </div>
+                );
+              })()}
+            </Match>
+
+            {/* Member Retired */}
+            <Match when={props.activity.type === 'member_retired'}>
+              {(() => {
+                const activity = props.activity as any;
+                return (
+                  <div class="activity-description">
+                    <strong>
+                      {activity.memberName}
+                      {activity.currentName && (
+                        <span class="activity-current-name"> ({t('activity.now')} {activity.currentName})</span>
+                      )}
+                    </strong>{' '}
+                    {t('activity.wasRemovedFromGroup')}
+                  </div>
+                );
+              })()}
             </Match>
           </Switch>
         </div>
@@ -565,6 +654,10 @@ export const ActivityCard: Component<ActivityCardProps> = (props) => {
       entry={selectedEntry()}
       changes={getChanges()}
       deletionReason={getDeletionReason()}
+      payerNames={getPayerNames()}
+      beneficiaryNames={getBeneficiaryNames()}
+      fromName={getFromName()}
+      toName={getToName()}
     />
     </>
   );

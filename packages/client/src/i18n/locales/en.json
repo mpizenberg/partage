@@ -371,7 +371,11 @@
     "newVersion": "New",
     "notesChanged": "Notes changed",
     "memberRenamed": "{oldName} was renamed to {newName}",
-    "memberRetired": "{member} was removed from the group"
+    "memberRetired": "{member} was removed from the group",
+    "reJoined": "re-joined",
+    "renamedTo": "renamed to",
+    "wasRemovedFromGroup": "was removed from the group",
+    "now": "now"
   },
 
   "categories": {

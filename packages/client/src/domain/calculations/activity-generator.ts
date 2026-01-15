@@ -12,131 +12,186 @@ import type {
   EntryDeletedActivity,
   EntryUndeletedActivity,
   MemberJoinedActivity,
+  MemberLinkedActivity,
+  MemberRenamedActivity,
+  MemberRetiredActivity,
   ActivityFilter,
   ExpenseEntry,
   TransferEntry,
+  MemberEvent,
+  MemberCreatedEvent,
+  MemberRenamedEvent,
+  MemberReplacedEvent,
 } from '@partage/shared';
+
+// =============================================================================
+// Shared Helper Functions
+// =============================================================================
+
+/**
+ * Create a member lookup map and name resolver with alias resolution
+ */
+function createMemberHelpers(members: Member[], canonicalIdMap?: Map<string, string>) {
+  const memberMap = new Map(members.map((m) => [m.id, m]));
+
+  const getMemberName = (memberId: string): string => {
+    // First resolve to canonical ID if we have alias info
+    const canonicalId = canonicalIdMap?.get(memberId) ?? memberId;
+    return memberMap.get(canonicalId)?.name || memberMap.get(memberId)?.name || 'Unknown';
+  };
+
+  return { memberMap, getMemberName };
+}
+
+/**
+ * Get entry description
+ */
+function getEntryDescription(entry: Entry): string {
+  if (entry.type === 'expense') {
+    return (entry as ExpenseEntry).description;
+  }
+  return 'Transfer';
+}
+
+/**
+ * Build participant data with names for an entry
+ */
+function getParticipantData(
+  entry: Entry,
+  getMemberName: (id: string) => string
+): Record<string, unknown> {
+  if (entry.type === 'expense') {
+    const expense = entry as ExpenseEntry;
+    const payerIds = expense.payers.map((p) => p.memberId);
+    const beneficiaryIds = expense.beneficiaries.map((b) => b.memberId);
+
+    const payerNames: Record<string, string> = {};
+    for (const id of payerIds) {
+      payerNames[id] = getMemberName(id);
+    }
+
+    const beneficiaryNames: Record<string, string> = {};
+    for (const id of beneficiaryIds) {
+      beneficiaryNames[id] = getMemberName(id);
+    }
+
+    return {
+      payers: payerIds,
+      payerNames,
+      beneficiaries: beneficiaryIds,
+      beneficiaryNames,
+    };
+  } else if (entry.type === 'transfer') {
+    const transfer = entry as TransferEntry;
+    return {
+      from: transfer.from,
+      fromName: getMemberName(transfer.from),
+      to: transfer.to,
+      toName: getMemberName(transfer.to),
+    };
+  }
+  return {};
+}
+
+/**
+ * Calculate changes between two entries
+ */
+function calculateChanges(
+  oldEntry: Entry,
+  newEntry: Entry
+): Record<string, { from: unknown; to: unknown }> {
+  const changes: Record<string, { from: unknown; to: unknown }> = {};
+
+  // Check common fields
+  if (oldEntry.amount !== newEntry.amount) {
+    changes.amount = { from: oldEntry.amount, to: newEntry.amount };
+  }
+  if (oldEntry.currency !== newEntry.currency) {
+    changes.currency = { from: oldEntry.currency, to: newEntry.currency };
+  }
+  if (oldEntry.date !== newEntry.date) {
+    changes.date = { from: oldEntry.date, to: newEntry.date };
+  }
+  if (oldEntry.notes !== newEntry.notes) {
+    changes.notes = { from: oldEntry.notes, to: newEntry.notes };
+  }
+  if (oldEntry.defaultCurrencyAmount !== newEntry.defaultCurrencyAmount) {
+    changes.defaultCurrencyAmount = {
+      from: oldEntry.defaultCurrencyAmount,
+      to: newEntry.defaultCurrencyAmount,
+    };
+  }
+
+  // Check expense-specific fields
+  if (oldEntry.type === 'expense' && newEntry.type === 'expense') {
+    const oldExpense = oldEntry as ExpenseEntry;
+    const newExpense = newEntry as ExpenseEntry;
+
+    if (oldExpense.description !== newExpense.description) {
+      changes.description = { from: oldExpense.description, to: newExpense.description };
+    }
+    if (oldExpense.category !== newExpense.category) {
+      changes.category = { from: oldExpense.category, to: newExpense.category };
+    }
+
+    // Check payer changes - but filter out if it's a single payer and only the amount changed
+    const payersChanged = JSON.stringify(oldExpense.payers) !== JSON.stringify(newExpense.payers);
+    if (payersChanged) {
+      const isSinglePayer = oldExpense.payers.length === 1 && newExpense.payers.length === 1;
+      const samePayer =
+        isSinglePayer && oldExpense.payers[0]?.memberId === newExpense.payers[0]?.memberId;
+      const onlyAmountChanged =
+        samePayer && oldExpense.payers[0]?.amount !== newExpense.payers[0]?.amount;
+
+      if (!onlyAmountChanged) {
+        changes.payers = { from: oldExpense.payers, to: newExpense.payers };
+      }
+    }
+
+    if (JSON.stringify(oldExpense.beneficiaries) !== JSON.stringify(newExpense.beneficiaries)) {
+      changes.beneficiaries = { from: oldExpense.beneficiaries, to: newExpense.beneficiaries };
+    }
+  }
+
+  // Check transfer-specific fields
+  if (oldEntry.type === 'transfer' && newEntry.type === 'transfer') {
+    const oldTransfer = oldEntry as TransferEntry;
+    const newTransfer = newEntry as TransferEntry;
+
+    if (oldTransfer.from !== newTransfer.from) {
+      changes.from = { from: oldTransfer.from, to: newTransfer.from };
+    }
+    if (oldTransfer.to !== newTransfer.to) {
+      changes.to = { from: oldTransfer.to, to: newTransfer.to };
+    }
+  }
+
+  return changes;
+}
+
+// =============================================================================
+// Entry Activity Generation
+// =============================================================================
 
 /**
  * Generate activities from entries (all versions)
  */
 export function generateActivitiesFromEntries(
   entries: Entry[],
-  members: Member[]
+  members: Member[],
+  canonicalIdMap?: Map<string, string>
 ): Activity[] {
   const activities: Activity[] = [];
-
-  // Create a map for quick member lookup
-  const memberMap = new Map(members.map((m) => [m.id, m]));
-
-  // Create a map for quick entry lookup (to check previous versions)
+  const { getMemberName } = createMemberHelpers(members, canonicalIdMap);
   const entryMap = new Map(entries.map((e) => [e.id, e]));
 
-  // Helper to get member name
-  const getMemberName = (memberId: string): string => {
-    return memberMap.get(memberId)?.name || 'Unknown';
-  };
-
-  // Helper to get entry description
-  const getEntryDescription = (entry: Entry): string => {
-    if (entry.type === 'expense') {
-      return (entry as ExpenseEntry).description;
-    }
-    return 'Transfer';
-  };
-
-  // Helper to get participants for expenses
-  const getExpenseParticipants = (entry: ExpenseEntry) => {
-    return {
-      payers: entry.payers.map(p => p.memberId),
-      beneficiaries: entry.beneficiaries.map(b => b.memberId),
-    };
-  };
-
-  // Helper to get participants for transfers
-  const getTransferParticipants = (entry: TransferEntry) => {
-    return {
-      from: entry.from,
-      to: entry.to,
-    };
-  };
-
-  // Helper to calculate changes between two entries
-  const calculateChanges = (oldEntry: Entry, newEntry: Entry): Record<string, { from: any; to: any }> => {
-    const changes: Record<string, { from: any; to: any }> = {};
-
-    // Check common fields
-    if (oldEntry.amount !== newEntry.amount) {
-      changes.amount = { from: oldEntry.amount, to: newEntry.amount };
-    }
-    if (oldEntry.currency !== newEntry.currency) {
-      changes.currency = { from: oldEntry.currency, to: newEntry.currency };
-    }
-    if (oldEntry.date !== newEntry.date) {
-      changes.date = { from: oldEntry.date, to: newEntry.date };
-    }
-    if (oldEntry.notes !== newEntry.notes) {
-      changes.notes = { from: oldEntry.notes, to: newEntry.notes };
-    }
-    // Track defaultCurrencyAmount changes for multi-currency entries
-    if (oldEntry.defaultCurrencyAmount !== newEntry.defaultCurrencyAmount) {
-      changes.defaultCurrencyAmount = { from: oldEntry.defaultCurrencyAmount, to: newEntry.defaultCurrencyAmount };
-    }
-
-    // Check expense-specific fields
-    if (oldEntry.type === 'expense' && newEntry.type === 'expense') {
-      const oldExpense = oldEntry as ExpenseEntry;
-      const newExpense = newEntry as ExpenseEntry;
-
-      if (oldExpense.description !== newExpense.description) {
-        changes.description = { from: oldExpense.description, to: newExpense.description };
-      }
-      if (oldExpense.category !== newExpense.category) {
-        changes.category = { from: oldExpense.category, to: newExpense.category };
-      }
-
-      // Check payer changes - but filter out if it's a single payer and only the amount changed
-      const payersChanged = JSON.stringify(oldExpense.payers) !== JSON.stringify(newExpense.payers);
-      if (payersChanged) {
-        const isSinglePayer = oldExpense.payers.length === 1 && newExpense.payers.length === 1;
-        const samePayer = isSinglePayer && oldExpense.payers[0]?.memberId === newExpense.payers[0]?.memberId;
-        const onlyAmountChanged = samePayer && oldExpense.payers[0]?.amount !== newExpense.payers[0]?.amount;
-
-        // Only track payer change if it's not just an amount update on a single payer
-        if (!onlyAmountChanged) {
-          changes.payers = { from: oldExpense.payers, to: newExpense.payers };
-        }
-      }
-
-      if (JSON.stringify(oldExpense.beneficiaries) !== JSON.stringify(newExpense.beneficiaries)) {
-        changes.beneficiaries = { from: oldExpense.beneficiaries, to: newExpense.beneficiaries };
-      }
-    }
-
-    // Check transfer-specific fields
-    if (oldEntry.type === 'transfer' && newEntry.type === 'transfer') {
-      const oldTransfer = oldEntry as TransferEntry;
-      const newTransfer = newEntry as TransferEntry;
-
-      if (oldTransfer.from !== newTransfer.from) {
-        changes.from = { from: oldTransfer.from, to: newTransfer.from };
-      }
-      if (oldTransfer.to !== newTransfer.to) {
-        changes.to = { from: oldTransfer.to, to: newTransfer.to };
-      }
-    }
-
-    return changes;
-  };
-
-  // Process each entry
   for (const entry of entries) {
     const actorName = getMemberName(entry.createdBy);
     const description = getEntryDescription(entry);
+    const participantData = getParticipantData(entry, getMemberName);
 
-    // Determine activity type based on entry properties
     if (!entry.previousVersionId) {
-      // This is a new entry (version 1)
+      // New entry (version 1)
       const activity: EntryAddedActivity = {
         id: `activity-${entry.id}`,
         type: 'entry_added',
@@ -151,16 +206,13 @@ export function generateActivitiesFromEntries(
         currency: entry.currency || 'USD',
         defaultCurrencyAmount: entry.defaultCurrencyAmount,
         entryDate: entry.date,
-        ...(entry.type === 'expense' ? getExpenseParticipants(entry as ExpenseEntry) : {}),
-        ...(entry.type === 'transfer' ? getTransferParticipants(entry as TransferEntry) : {}),
+        ...participantData,
       };
       activities.push(activity);
     } else {
-      // This is a versioned entry - check what type of change it represents
       const previousEntry = entryMap.get(entry.previousVersionId);
 
       if (entry.status === 'deleted') {
-        // Deletion activity
         const activity: EntryDeletedActivity = {
           id: `activity-${entry.id}`,
           type: 'entry_deleted',
@@ -176,13 +228,11 @@ export function generateActivitiesFromEntries(
           currency: entry.currency || 'USD',
           defaultCurrencyAmount: entry.defaultCurrencyAmount,
           entryDate: entry.date,
-          ...(entry.type === 'expense' ? getExpenseParticipants(entry as ExpenseEntry) : {}),
-          ...(entry.type === 'transfer' ? getTransferParticipants(entry as TransferEntry) : {}),
+          ...participantData,
           reason: entry.deletionReason,
         };
         activities.push(activity);
       } else if (previousEntry && previousEntry.status === 'deleted') {
-        // Undeletion activity (previous version was deleted, current is active)
         const activity: EntryUndeletedActivity = {
           id: `activity-${entry.id}`,
           type: 'entry_undeleted',
@@ -198,12 +248,10 @@ export function generateActivitiesFromEntries(
           currency: entry.currency || 'USD',
           defaultCurrencyAmount: entry.defaultCurrencyAmount,
           entryDate: entry.date,
-          ...(entry.type === 'expense' ? getExpenseParticipants(entry as ExpenseEntry) : {}),
-          ...(entry.type === 'transfer' ? getTransferParticipants(entry as TransferEntry) : {}),
+          ...participantData,
         };
         activities.push(activity);
       } else if (entry.modifiedAt && entry.modifiedBy) {
-        // Modification activity (normal edit)
         const changes = previousEntry ? calculateChanges(previousEntry, entry) : {};
         const activity: EntryModifiedActivity = {
           id: `activity-${entry.id}`,
@@ -220,8 +268,7 @@ export function generateActivitiesFromEntries(
           currency: entry.currency || 'USD',
           defaultCurrencyAmount: entry.defaultCurrencyAmount,
           entryDate: entry.date,
-          ...(entry.type === 'expense' ? getExpenseParticipants(entry as ExpenseEntry) : {}),
-          ...(entry.type === 'transfer' ? getTransferParticipants(entry as TransferEntry) : {}),
+          ...participantData,
           changes,
         };
         activities.push(activity);
@@ -232,31 +279,154 @@ export function generateActivitiesFromEntries(
   return activities;
 }
 
+// =============================================================================
+// Member Activity Generation
+// =============================================================================
+
 /**
- * Generate activities from members
+ * Generate activities from member events (historical)
+ * This produces activities with the correct names at the time of each event,
+ * plus the current name annotation when it differs from the historical name
  */
-export function generateActivitiesFromMembers(members: Member[]): Activity[] {
+export function generateActivitiesFromMemberEvents(
+  memberEvents: MemberEvent[],
+  members: Member[],
+  canonicalIdMap?: Map<string, string>
+): Activity[] {
   const activities: Activity[] = [];
 
-  for (const member of members) {
-    // Skip the first member (group creator) as they don't have a "join" event
-    // We can identify them by having the earliest joinedAt time
-    const activity: MemberJoinedActivity = {
-      id: `activity-member-${member.id}`,
-      type: 'member_joined',
-      timestamp: member.joinedAt,
-      actorId: member.id,
-      actorName: member.name,
-      groupId: '', // Will be filled by caller
-      memberId: member.id,
-      memberName: member.name,
-      isVirtual: member.isVirtual ?? false,
-    };
-    activities.push(activity);
+  // Build current name lookup from members array
+  const currentNameMap = new Map(members.map((m) => [m.id, m.name]));
+
+  // Helper to get current name, returns undefined if same as historical
+  // Resolves to canonical ID first to handle replaced members
+  const getCurrentNameIfDifferent = (memberId: string, historicalName: string): string | undefined => {
+    const canonicalId = canonicalIdMap?.get(memberId) ?? memberId;
+    const current = currentNameMap.get(canonicalId) || currentNameMap.get(memberId);
+    return current && current !== historicalName ? current : undefined;
+  };
+
+  // Track member names through events
+  const memberNameAtEvent = new Map<string, string>();
+
+  // Collect members who are "replacers" - they shouldn't get a "joined" activity
+  // because their join is represented by the "linked" activity
+  const replacerMemberIds = new Set<string>();
+  for (const event of memberEvents) {
+    if (event.type === 'member_replaced') {
+      const replacedEvent = event as MemberReplacedEvent;
+      replacerMemberIds.add(replacedEvent.replacedById);
+    }
+  }
+
+  // First pass: collect initial names from creation events
+  for (const event of memberEvents) {
+    if (event.type === 'member_created') {
+      const createdEvent = event as MemberCreatedEvent;
+      memberNameAtEvent.set(event.memberId, createdEvent.name);
+    }
+  }
+
+  // Sort events by timestamp
+  const sortedEvents = [...memberEvents].sort((a, b) => a.timestamp - b.timestamp);
+
+  // Helper to get actor name
+  const getActorName = (actorId: string): string => {
+    const tracked = memberNameAtEvent.get(actorId);
+    if (tracked) return tracked;
+    return currentNameMap.get(actorId) || 'Unknown';
+  };
+
+  for (const event of sortedEvents) {
+    switch (event.type) {
+      case 'member_created': {
+        const createdEvent = event as MemberCreatedEvent;
+        // Skip "joined" activity for members who are replacers
+        // Their joining is represented by the "linked" activity
+        if (replacerMemberIds.has(event.memberId)) {
+          break;
+        }
+        const activity: MemberJoinedActivity = {
+          id: `activity-event-${event.id}`,
+          type: 'member_joined',
+          timestamp: event.timestamp,
+          actorId: event.actorId,
+          actorName: getActorName(event.actorId),
+          groupId: '',
+          memberId: event.memberId,
+          memberName: createdEvent.name,
+          isVirtual: createdEvent.isVirtual,
+          currentName: getCurrentNameIfDifferent(event.memberId, createdEvent.name),
+        };
+        activities.push(activity);
+        break;
+      }
+
+      case 'member_renamed': {
+        const renamedEvent = event as MemberRenamedEvent;
+        const activity: MemberRenamedActivity = {
+          id: `activity-event-${event.id}`,
+          type: 'member_renamed',
+          timestamp: event.timestamp,
+          actorId: event.actorId,
+          actorName: getActorName(event.actorId),
+          groupId: '',
+          memberId: event.memberId,
+          oldName: renamedEvent.previousName,
+          newName: renamedEvent.newName,
+          currentName: getCurrentNameIfDifferent(event.memberId, renamedEvent.newName),
+        };
+        activities.push(activity);
+        memberNameAtEvent.set(event.memberId, renamedEvent.newName);
+        break;
+      }
+
+      case 'member_retired': {
+        const memberName = memberNameAtEvent.get(event.memberId) || 'Unknown';
+        const activity: MemberRetiredActivity = {
+          id: `activity-event-${event.id}`,
+          type: 'member_retired',
+          timestamp: event.timestamp,
+          actorId: event.actorId,
+          actorName: getActorName(event.actorId),
+          groupId: '',
+          memberId: event.memberId,
+          memberName,
+          currentName: getCurrentNameIfDifferent(event.memberId, memberName),
+        };
+        activities.push(activity);
+        break;
+      }
+
+      case 'member_replaced': {
+        const replacedEvent = event as MemberReplacedEvent;
+        const existingMemberName = memberNameAtEvent.get(event.memberId) || 'Unknown';
+        const newMemberName = memberNameAtEvent.get(replacedEvent.replacedById) || 'Unknown';
+        const activity: MemberLinkedActivity = {
+          id: `activity-event-${event.id}`,
+          type: 'member_linked',
+          timestamp: event.timestamp,
+          actorId: event.actorId,
+          actorName: getActorName(event.actorId),
+          groupId: '',
+          newMemberId: replacedEvent.replacedById,
+          newMemberName,
+          existingMemberId: event.memberId,
+          existingMemberName,
+          currentName: getCurrentNameIfDifferent(replacedEvent.replacedById, newMemberName),
+        };
+        activities.push(activity);
+        break;
+      }
+    }
   }
 
   return activities;
 }
+
+// =============================================================================
+// Main API
+// =============================================================================
 
 /**
  * Generate all activities and sort by timestamp (newest first)
@@ -264,10 +434,12 @@ export function generateActivitiesFromMembers(members: Member[]): Activity[] {
 export function generateAllActivities(
   entries: Entry[],
   members: Member[],
-  groupId: string
+  groupId: string,
+  memberEvents: MemberEvent[] = [],
+  canonicalIdMap?: Map<string, string>
 ): Activity[] {
-  const entryActivities = generateActivitiesFromEntries(entries, members);
-  const memberActivities = generateActivitiesFromMembers(members);
+  const entryActivities = generateActivitiesFromEntries(entries, members, canonicalIdMap);
+  const memberActivities = generateActivitiesFromMemberEvents(memberEvents, members, canonicalIdMap);
 
   // Set groupId for member activities
   memberActivities.forEach((activity) => {
@@ -284,23 +456,17 @@ export function generateAllActivities(
 /**
  * Filter activities based on criteria
  */
-export function filterActivities(
-  activities: Activity[],
-  filter: ActivityFilter
-): Activity[] {
+export function filterActivities(activities: Activity[], filter: ActivityFilter): Activity[] {
   let filtered = activities;
 
-  // Filter by types
   if (filter.types && filter.types.length > 0) {
     filtered = filtered.filter((activity) => filter.types!.includes(activity.type));
   }
 
-  // Filter by actors
   if (filter.actorIds && filter.actorIds.length > 0) {
     filtered = filtered.filter((activity) => filter.actorIds!.includes(activity.actorId));
   }
 
-  // Filter by date range
   if (filter.startDate !== undefined) {
     filtered = filtered.filter((activity) => activity.timestamp >= filter.startDate!);
   }
@@ -308,7 +474,6 @@ export function filterActivities(
     filtered = filtered.filter((activity) => activity.timestamp <= filter.endDate!);
   }
 
-  // Filter by entry ID
   if (filter.entryId) {
     filtered = filtered.filter((activity) => {
       if ('entryId' in activity) {
@@ -324,41 +489,36 @@ export function filterActivities(
   return filtered;
 }
 
+// =============================================================================
+// Incremental Activity Generation (for single entry updates)
+// =============================================================================
+
 /**
  * Generate a single activity for a newly added entry
- * Used for incremental activity updates
  */
 export function generateActivityForNewEntry(
   entry: Entry,
   members: Member[],
-  groupId: string
+  groupId: string,
+  canonicalIdMap?: Map<string, string>
 ): Activity {
-  const memberMap = new Map(members.map((m) => [m.id, m]));
-  const actorName = memberMap.get(entry.createdBy)?.name || 'Unknown';
-  const description = entry.type === 'expense' ? (entry as ExpenseEntry).description : 'Transfer';
+  const { getMemberName } = createMemberHelpers(members, canonicalIdMap);
 
   const activity: EntryAddedActivity = {
     id: `activity-${entry.id}`,
     type: 'entry_added',
     timestamp: entry.createdAt,
     actorId: entry.createdBy,
-    actorName,
+    actorName: getMemberName(entry.createdBy),
     groupId,
     entryId: entry.id,
     entryType: entry.type,
-    description,
+    description: getEntryDescription(entry),
     amount: entry.amount,
     currency: entry.currency || 'USD',
     defaultCurrencyAmount: entry.defaultCurrencyAmount,
     entryDate: entry.date,
-    ...(entry.type === 'expense' ? {
-      payers: (entry as ExpenseEntry).payers.map(p => p.memberId),
-      beneficiaries: (entry as ExpenseEntry).beneficiaries.map(b => b.memberId),
-    } : {}),
-    ...(entry.type === 'transfer' ? {
-      from: (entry as TransferEntry).from,
-      to: (entry as TransferEntry).to,
-    } : {}),
+    ...getParticipantData(entry, getMemberName),
   };
 
   return activity;
@@ -366,85 +526,33 @@ export function generateActivityForNewEntry(
 
 /**
  * Generate a single activity for a modified entry
- * Used for incremental activity updates
  */
 export function generateActivityForModifiedEntry(
   entry: Entry,
   previousEntry: Entry | null,
   members: Member[],
-  groupId: string
+  groupId: string,
+  canonicalIdMap?: Map<string, string>
 ): Activity {
-  const memberMap = new Map(members.map((m) => [m.id, m]));
-  const actorName = memberMap.get(entry.modifiedBy || entry.createdBy)?.name || 'Unknown';
-  const description = entry.type === 'expense' ? (entry as ExpenseEntry).description : 'Transfer';
-
-  // Calculate changes
-  const changes: Record<string, { from: any; to: any }> = {};
-  if (previousEntry) {
-    if (previousEntry.amount !== entry.amount) {
-      changes.amount = { from: previousEntry.amount, to: entry.amount };
-    }
-    if (previousEntry.currency !== entry.currency) {
-      changes.currency = { from: previousEntry.currency, to: entry.currency };
-    }
-    if (previousEntry.date !== entry.date) {
-      changes.date = { from: previousEntry.date, to: entry.date };
-    }
-
-    if (previousEntry.type === 'expense' && entry.type === 'expense') {
-      const oldExpense = previousEntry as ExpenseEntry;
-      const newExpense = entry as ExpenseEntry;
-
-      if (oldExpense.description !== newExpense.description) {
-        changes.description = { from: oldExpense.description, to: newExpense.description };
-      }
-      if (oldExpense.category !== newExpense.category) {
-        changes.category = { from: oldExpense.category, to: newExpense.category };
-      }
-      if (JSON.stringify(oldExpense.payers) !== JSON.stringify(newExpense.payers)) {
-        changes.payers = { from: oldExpense.payers, to: newExpense.payers };
-      }
-      if (JSON.stringify(oldExpense.beneficiaries) !== JSON.stringify(newExpense.beneficiaries)) {
-        changes.beneficiaries = { from: oldExpense.beneficiaries, to: newExpense.beneficiaries };
-      }
-    }
-
-    if (previousEntry.type === 'transfer' && entry.type === 'transfer') {
-      const oldTransfer = previousEntry as TransferEntry;
-      const newTransfer = entry as TransferEntry;
-
-      if (oldTransfer.from !== newTransfer.from) {
-        changes.from = { from: oldTransfer.from, to: newTransfer.from };
-      }
-      if (oldTransfer.to !== newTransfer.to) {
-        changes.to = { from: oldTransfer.to, to: newTransfer.to };
-      }
-    }
-  }
+  const { getMemberName } = createMemberHelpers(members, canonicalIdMap);
+  const changes = previousEntry ? calculateChanges(previousEntry, entry) : {};
 
   const activity: EntryModifiedActivity = {
     id: `activity-${entry.id}`,
     type: 'entry_modified',
     timestamp: entry.modifiedAt || entry.createdAt,
     actorId: entry.modifiedBy || entry.createdBy,
-    actorName,
+    actorName: getMemberName(entry.modifiedBy || entry.createdBy),
     groupId,
     entryId: entry.id,
     originalEntryId: entry.previousVersionId || '',
     entryType: entry.type,
-    description,
+    description: getEntryDescription(entry),
     amount: entry.amount,
     currency: entry.currency || 'USD',
     defaultCurrencyAmount: entry.defaultCurrencyAmount,
     entryDate: entry.date,
-    ...(entry.type === 'expense' ? {
-      payers: (entry as ExpenseEntry).payers.map(p => p.memberId),
-      beneficiaries: (entry as ExpenseEntry).beneficiaries.map(b => b.memberId),
-    } : {}),
-    ...(entry.type === 'transfer' ? {
-      from: (entry as TransferEntry).from,
-      to: (entry as TransferEntry).to,
-    } : {}),
+    ...getParticipantData(entry, getMemberName),
     changes,
   };
 
@@ -453,40 +561,31 @@ export function generateActivityForModifiedEntry(
 
 /**
  * Generate a single activity for a deleted entry
- * Used for incremental activity updates
  */
 export function generateActivityForDeletedEntry(
   entry: Entry,
   members: Member[],
-  groupId: string
+  groupId: string,
+  canonicalIdMap?: Map<string, string>
 ): Activity {
-  const memberMap = new Map(members.map((m) => [m.id, m]));
-  const actorName = memberMap.get(entry.deletedBy || entry.createdBy)?.name || 'Unknown';
-  const description = entry.type === 'expense' ? (entry as ExpenseEntry).description : 'Transfer';
+  const { getMemberName } = createMemberHelpers(members, canonicalIdMap);
 
   const activity: EntryDeletedActivity = {
     id: `activity-${entry.id}`,
     type: 'entry_deleted',
     timestamp: entry.deletedAt || entry.createdAt,
     actorId: entry.deletedBy || entry.createdBy,
-    actorName,
+    actorName: getMemberName(entry.deletedBy || entry.createdBy),
     groupId,
     entryId: entry.id,
     originalEntryId: entry.previousVersionId || '',
     entryType: entry.type,
-    description,
+    description: getEntryDescription(entry),
     amount: entry.amount,
     currency: entry.currency || 'USD',
     defaultCurrencyAmount: entry.defaultCurrencyAmount,
     entryDate: entry.date,
-    ...(entry.type === 'expense' ? {
-      payers: (entry as ExpenseEntry).payers.map(p => p.memberId),
-      beneficiaries: (entry as ExpenseEntry).beneficiaries.map(b => b.memberId),
-    } : {}),
-    ...(entry.type === 'transfer' ? {
-      from: (entry as TransferEntry).from,
-      to: (entry as TransferEntry).to,
-    } : {}),
+    ...getParticipantData(entry, getMemberName),
     reason: entry.deletionReason,
   };
 
@@ -495,40 +594,31 @@ export function generateActivityForDeletedEntry(
 
 /**
  * Generate a single activity for an undeleted entry
- * Used for incremental activity updates
  */
 export function generateActivityForUndeletedEntry(
   entry: Entry,
   members: Member[],
-  groupId: string
+  groupId: string,
+  canonicalIdMap?: Map<string, string>
 ): Activity {
-  const memberMap = new Map(members.map((m) => [m.id, m]));
-  const actorName = memberMap.get(entry.modifiedBy || entry.createdBy)?.name || 'Unknown';
-  const description = entry.type === 'expense' ? (entry as ExpenseEntry).description : 'Transfer';
+  const { getMemberName } = createMemberHelpers(members, canonicalIdMap);
 
   const activity: EntryUndeletedActivity = {
     id: `activity-${entry.id}`,
     type: 'entry_undeleted',
     timestamp: entry.modifiedAt || entry.createdAt,
     actorId: entry.modifiedBy || entry.createdBy,
-    actorName,
+    actorName: getMemberName(entry.modifiedBy || entry.createdBy),
     groupId,
     entryId: entry.id,
     originalEntryId: entry.previousVersionId || '',
     entryType: entry.type,
-    description,
+    description: getEntryDescription(entry),
     amount: entry.amount,
     currency: entry.currency || 'USD',
     defaultCurrencyAmount: entry.defaultCurrencyAmount,
     entryDate: entry.date,
-    ...(entry.type === 'expense' ? {
-      payers: (entry as ExpenseEntry).payers.map(p => p.memberId),
-      beneficiaries: (entry as ExpenseEntry).beneficiaries.map(b => b.memberId),
-    } : {}),
-    ...(entry.type === 'transfer' ? {
-      from: (entry as TransferEntry).from,
-      to: (entry as TransferEntry).to,
-    } : {}),
+    ...getParticipantData(entry, getMemberName),
   };
 
   return activity;
@@ -539,7 +629,6 @@ export function generateActivityForUndeletedEntry(
  * Returns a new array with the activity inserted at the correct position
  */
 export function insertActivitySorted(activities: Activity[], newActivity: Activity): Activity[] {
-  // Find insertion point using binary search for O(log n) performance
   let left = 0;
   let right = activities.length;
 
@@ -552,7 +641,6 @@ export function insertActivitySorted(activities: Activity[], newActivity: Activi
     }
   }
 
-  // Insert at the found position
   const newActivities = [...activities];
   newActivities.splice(left, 0, newActivity);
   return newActivities;

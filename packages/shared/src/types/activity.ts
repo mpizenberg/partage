@@ -39,10 +39,14 @@ export interface EntryAddedActivity extends BaseActivity {
   entryDate: number; // Transaction date (not creation date)
   // For expenses
   payers?: string[]; // Member IDs who paid
+  payerNames?: Record<string, string>; // Map of member ID to name at activity time
   beneficiaries?: string[]; // Member IDs who benefited
+  beneficiaryNames?: Record<string, string>; // Map of member ID to name at activity time
   // For transfers
   from?: string; // Member ID
+  fromName?: string; // Member name at activity time
   to?: string; // Member ID
+  toName?: string; // Member name at activity time
 }
 
 /**
@@ -60,10 +64,14 @@ export interface EntryModifiedActivity extends BaseActivity {
   entryDate: number;
   // For expenses
   payers?: string[];
+  payerNames?: Record<string, string>; // Map of member ID to name at activity time
   beneficiaries?: string[];
+  beneficiaryNames?: Record<string, string>; // Map of member ID to name at activity time
   // For transfers
   from?: string;
+  fromName?: string; // Member name at activity time
   to?: string;
+  toName?: string; // Member name at activity time
   // Modification metadata
   changes?: Record<string, { from: any; to: any }>; // Field name -> before/after values
 }
@@ -83,10 +91,14 @@ export interface EntryDeletedActivity extends BaseActivity {
   entryDate: number;
   // For expenses
   payers?: string[];
+  payerNames?: Record<string, string>; // Map of member ID to name at activity time
   beneficiaries?: string[];
+  beneficiaryNames?: Record<string, string>; // Map of member ID to name at activity time
   // For transfers
   from?: string;
+  fromName?: string; // Member name at activity time
   to?: string;
+  toName?: string; // Member name at activity time
   reason?: string;
 }
 
@@ -105,10 +117,14 @@ export interface EntryUndeletedActivity extends BaseActivity {
   entryDate: number;
   // For expenses
   payers?: string[];
+  payerNames?: Record<string, string>; // Map of member ID to name at activity time
   beneficiaries?: string[];
+  beneficiaryNames?: Record<string, string>; // Map of member ID to name at activity time
   // For transfers
   from?: string;
+  fromName?: string; // Member name at activity time
   to?: string;
+  toName?: string; // Member name at activity time
 }
 
 /**
@@ -119,6 +135,7 @@ export interface MemberJoinedActivity extends BaseActivity {
   memberId: string;
   memberName: string;
   isVirtual: boolean;
+  currentName?: string; // Set when current name differs from memberName
 }
 
 /**
@@ -131,6 +148,7 @@ export interface MemberLinkedActivity extends BaseActivity {
   newMemberName: string;
   existingMemberId: string;
   existingMemberName: string;
+  currentName?: string; // Set when current name differs from newMemberName
 }
 
 /**
@@ -142,6 +160,7 @@ export interface MemberRenamedActivity extends BaseActivity {
   memberId: string;
   oldName: string;
   newName: string;
+  currentName?: string; // Set when current name differs from newName
 }
 
 /**
@@ -152,6 +171,7 @@ export interface MemberRetiredActivity extends BaseActivity {
   type: 'member_retired';
   memberId: string;
   memberName: string;
+  currentName?: string; // Set when current name differs from memberName
 }
 
 /**

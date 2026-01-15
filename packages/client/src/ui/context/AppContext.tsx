@@ -718,10 +718,13 @@ export const AppProvider: Component<{ children: JSX.Element }> = (props) => {
       // Generate activities from ALL entries (including all versions for audit trail)
       const allEntriesForActivities = await store.getAllEntries(groupId, groupKey);
       const currentMembers = members();
+      const canonicalIdMap = store.getCanonicalIdMap();
       const generatedActivities = generateAllActivities(
         allEntriesForActivities,
         currentMembers,
-        groupId
+        groupId,
+        memberEvents,
+        canonicalIdMap
       );
       setAllActivities(generatedActivities);
     } catch (err) {
@@ -765,20 +768,21 @@ export const AppProvider: Component<{ children: JSX.Element }> = (props) => {
 
       // Generate single activity and insert incrementally
       const currentMembers = members();
+      const canonicalIdMap = store.getCanonicalIdMap();
       let newActivity: Activity;
 
       switch (operationType) {
         case 'add':
-          newActivity = generateActivityForNewEntry(newEntry, currentMembers, groupId);
+          newActivity = generateActivityForNewEntry(newEntry, currentMembers, groupId, canonicalIdMap);
           break;
         case 'modify':
-          newActivity = generateActivityForModifiedEntry(newEntry, previousEntry, currentMembers, groupId);
+          newActivity = generateActivityForModifiedEntry(newEntry, previousEntry, currentMembers, groupId, canonicalIdMap);
           break;
         case 'delete':
-          newActivity = generateActivityForDeletedEntry(newEntry, currentMembers, groupId);
+          newActivity = generateActivityForDeletedEntry(newEntry, currentMembers, groupId, canonicalIdMap);
           break;
         case 'undelete':
-          newActivity = generateActivityForUndeletedEntry(newEntry, currentMembers, groupId);
+          newActivity = generateActivityForUndeletedEntry(newEntry, currentMembers, groupId, canonicalIdMap);
           break;
       }
 

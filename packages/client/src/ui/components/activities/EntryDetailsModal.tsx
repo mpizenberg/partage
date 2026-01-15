@@ -23,6 +23,10 @@ export interface EntryDetailsModalProps {
   entry: Entry | null;
   changes?: Record<string, { from: any; to: any }>;
   deletionReason?: string;
+  payerNames?: Record<string, string>;
+  beneficiaryNames?: Record<string, string>;
+  fromName?: string;
+  toName?: string;
 }
 
 export const EntryDetailsModal: Component<EntryDetailsModalProps> = (props) => {
@@ -55,19 +59,19 @@ export const EntryDetailsModal: Component<EntryDetailsModalProps> = (props) => {
   };
 
   const getMemberName = (memberId: string): string => {
+    // Try to use historical names from activity first
+    if (props.payerNames?.[memberId]) return props.payerNames[memberId];
+    if (props.beneficiaryNames?.[memberId]) return props.beneficiaryNames[memberId];
+
     const store = loroStore();
     if (!store) {
       return t('common.unknown');
     }
 
-    const canonicalIdMap = store.getCanonicalIdMap();
     const allStates = store.getAllMemberStates();
-
-    const canonicalId = canonicalIdMap.get(memberId) ?? memberId;
-    const canonicalState = allStates.get(canonicalId);
     const state = allStates.get(memberId);
 
-    return canonicalState?.name ?? state?.name ?? t('common.unknown');
+    return state?.name ?? t('common.unknown');
   };
 
   const isExpense = (): boolean => props.entry?.type === 'expense';
@@ -323,7 +327,7 @@ export const EntryDetailsModal: Component<EntryDetailsModalProps> = (props) => {
                   class="detail-value"
                   classList={{ 'field-changed': isFieldChanged('from') }}
                 >
-                  {getMemberName(transferEntry()!.from)}
+                  {props.fromName || getMemberName(transferEntry()!.from)}
                 </span>
               </div>
 
@@ -333,7 +337,7 @@ export const EntryDetailsModal: Component<EntryDetailsModalProps> = (props) => {
                   class="detail-value"
                   classList={{ 'field-changed': isFieldChanged('to') }}
                 >
-                  {getMemberName(transferEntry()!.to)}
+                  {props.toName || getMemberName(transferEntry()!.to)}
                 </span>
               </div>
 
