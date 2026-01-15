@@ -9,7 +9,9 @@ export type ActivityType =
   | 'entry_deleted'
   | 'entry_undeleted'
   | 'member_joined'
-  | 'member_linked';
+  | 'member_linked'
+  | 'member_renamed'
+  | 'member_retired';
 
 /**
  * Base activity interface
@@ -33,6 +35,7 @@ export interface EntryAddedActivity extends BaseActivity {
   description: string;
   amount: number;
   currency: string;
+  defaultCurrencyAmount?: number;
   entryDate: number; // Transaction date (not creation date)
   // For expenses
   payers?: string[]; // Member IDs who paid
@@ -53,6 +56,7 @@ export interface EntryModifiedActivity extends BaseActivity {
   description: string;
   amount: number;
   currency: string;
+  defaultCurrencyAmount?: number;
   entryDate: number;
   // For expenses
   payers?: string[];
@@ -75,6 +79,7 @@ export interface EntryDeletedActivity extends BaseActivity {
   description: string;
   amount: number;
   currency: string;
+  defaultCurrencyAmount?: number;
   entryDate: number;
   // For expenses
   payers?: string[];
@@ -96,6 +101,7 @@ export interface EntryUndeletedActivity extends BaseActivity {
   description: string;
   amount: number;
   currency: string;
+  defaultCurrencyAmount?: number;
   entryDate: number;
   // For expenses
   payers?: string[];
@@ -128,6 +134,27 @@ export interface MemberLinkedActivity extends BaseActivity {
 }
 
 /**
+ * Member renamed activity
+ * When a member's name is changed
+ */
+export interface MemberRenamedActivity extends BaseActivity {
+  type: 'member_renamed';
+  memberId: string;
+  oldName: string;
+  newName: string;
+}
+
+/**
+ * Member retired activity
+ * When a member is marked as retired (soft delete)
+ */
+export interface MemberRetiredActivity extends BaseActivity {
+  type: 'member_retired';
+  memberId: string;
+  memberName: string;
+}
+
+/**
  * Union type of all activities
  */
 export type Activity =
@@ -136,7 +163,9 @@ export type Activity =
   | EntryDeletedActivity
   | EntryUndeletedActivity
   | MemberJoinedActivity
-  | MemberLinkedActivity;
+  | MemberLinkedActivity
+  | MemberRenamedActivity
+  | MemberRetiredActivity;
 
 /**
  * Activity filter options

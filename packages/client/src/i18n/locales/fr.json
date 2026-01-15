@@ -185,7 +185,16 @@
     "paidBy": "Payé par",
     "split": "Répartition",
     "yourShare": "Votre part",
-    "more": "autre(s)"
+    "more": "autre(s)",
+    "createdAt": "Créé le",
+    "modifiedAt": "Modifié le",
+    "deletedAt": "Supprimé le",
+    "category": "Catégorie",
+    "notes": "Notes",
+    "from": "De",
+    "to": "À",
+    "date": "Date",
+    "shares": "parts"
   },
 
   "filter": {
@@ -353,7 +362,16 @@
     "entryModifiedLabel": "Entrée modifiée",
     "entryDeletedLabel": "Entrée supprimée",
     "entryRestoredLabel": "Entrée restaurée",
-    "memberJoinedLabel": "Membre rejoint"
+    "memberJoinedLabel": "Membre rejoint",
+    "memberRenamedLabel": "Membre renommé",
+    "memberRetiredLabel": "Membre retiré",
+    "entryDetails": "Détails de l'entrée",
+    "deletionReason": "Raison de la suppression",
+    "previousVersion": "Précédent",
+    "newVersion": "Nouveau",
+    "notesChanged": "Notes modifiées",
+    "memberRenamed": "{oldName} a été renommé en {newName}",
+    "memberRetired": "{member} a été retiré du groupe"
   },
 
   "categories": {

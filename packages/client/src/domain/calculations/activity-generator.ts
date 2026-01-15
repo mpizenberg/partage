@@ -75,6 +75,13 @@ export function generateActivitiesFromEntries(
     if (oldEntry.date !== newEntry.date) {
       changes.date = { from: oldEntry.date, to: newEntry.date };
     }
+    if (oldEntry.notes !== newEntry.notes) {
+      changes.notes = { from: oldEntry.notes, to: newEntry.notes };
+    }
+    // Track defaultCurrencyAmount changes for multi-currency entries
+    if (oldEntry.defaultCurrencyAmount !== newEntry.defaultCurrencyAmount) {
+      changes.defaultCurrencyAmount = { from: oldEntry.defaultCurrencyAmount, to: newEntry.defaultCurrencyAmount };
+    }
 
     // Check expense-specific fields
     if (oldEntry.type === 'expense' && newEntry.type === 'expense') {
@@ -87,9 +94,20 @@ export function generateActivitiesFromEntries(
       if (oldExpense.category !== newExpense.category) {
         changes.category = { from: oldExpense.category, to: newExpense.category };
       }
-      if (JSON.stringify(oldExpense.payers) !== JSON.stringify(newExpense.payers)) {
-        changes.payers = { from: oldExpense.payers, to: newExpense.payers };
+
+      // Check payer changes - but filter out if it's a single payer and only the amount changed
+      const payersChanged = JSON.stringify(oldExpense.payers) !== JSON.stringify(newExpense.payers);
+      if (payersChanged) {
+        const isSinglePayer = oldExpense.payers.length === 1 && newExpense.payers.length === 1;
+        const samePayer = isSinglePayer && oldExpense.payers[0]?.memberId === newExpense.payers[0]?.memberId;
+        const onlyAmountChanged = samePayer && oldExpense.payers[0]?.amount !== newExpense.payers[0]?.amount;
+
+        // Only track payer change if it's not just an amount update on a single payer
+        if (!onlyAmountChanged) {
+          changes.payers = { from: oldExpense.payers, to: newExpense.payers };
+        }
       }
+
       if (JSON.stringify(oldExpense.beneficiaries) !== JSON.stringify(newExpense.beneficiaries)) {
         changes.beneficiaries = { from: oldExpense.beneficiaries, to: newExpense.beneficiaries };
       }
@@ -131,6 +149,7 @@ export function generateActivitiesFromEntries(
         description,
         amount: entry.amount,
         currency: entry.currency || 'USD',
+        defaultCurrencyAmount: entry.defaultCurrencyAmount,
         entryDate: entry.date,
         ...(entry.type === 'expense' ? getExpenseParticipants(entry as ExpenseEntry) : {}),
         ...(entry.type === 'transfer' ? getTransferParticipants(entry as TransferEntry) : {}),
@@ -155,6 +174,7 @@ export function generateActivitiesFromEntries(
           description,
           amount: entry.amount,
           currency: entry.currency || 'USD',
+          defaultCurrencyAmount: entry.defaultCurrencyAmount,
           entryDate: entry.date,
           ...(entry.type === 'expense' ? getExpenseParticipants(entry as ExpenseEntry) : {}),
           ...(entry.type === 'transfer' ? getTransferParticipants(entry as TransferEntry) : {}),
@@ -176,6 +196,7 @@ export function generateActivitiesFromEntries(
           description,
           amount: entry.amount,
           currency: entry.currency || 'USD',
+          defaultCurrencyAmount: entry.defaultCurrencyAmount,
           entryDate: entry.date,
           ...(entry.type === 'expense' ? getExpenseParticipants(entry as ExpenseEntry) : {}),
           ...(entry.type === 'transfer' ? getTransferParticipants(entry as TransferEntry) : {}),
@@ -197,6 +218,7 @@ export function generateActivitiesFromEntries(
           description,
           amount: entry.amount,
           currency: entry.currency || 'USD',
+          defaultCurrencyAmount: entry.defaultCurrencyAmount,
           entryDate: entry.date,
           ...(entry.type === 'expense' ? getExpenseParticipants(entry as ExpenseEntry) : {}),
           ...(entry.type === 'transfer' ? getTransferParticipants(entry as TransferEntry) : {}),
@@ -327,6 +349,7 @@ export function generateActivityForNewEntry(
     description,
     amount: entry.amount,
     currency: entry.currency || 'USD',
+    defaultCurrencyAmount: entry.defaultCurrencyAmount,
     entryDate: entry.date,
     ...(entry.type === 'expense' ? {
       payers: (entry as ExpenseEntry).payers.map(p => p.memberId),
@@ -412,6 +435,7 @@ export function generateActivityForModifiedEntry(
     description,
     amount: entry.amount,
     currency: entry.currency || 'USD',
+    defaultCurrencyAmount: entry.defaultCurrencyAmount,
     entryDate: entry.date,
     ...(entry.type === 'expense' ? {
       payers: (entry as ExpenseEntry).payers.map(p => p.memberId),
@@ -453,6 +477,7 @@ export function generateActivityForDeletedEntry(
     description,
     amount: entry.amount,
     currency: entry.currency || 'USD',
+    defaultCurrencyAmount: entry.defaultCurrencyAmount,
     entryDate: entry.date,
     ...(entry.type === 'expense' ? {
       payers: (entry as ExpenseEntry).payers.map(p => p.memberId),
@@ -494,6 +519,7 @@ export function generateActivityForUndeletedEntry(
     description,
     amount: entry.amount,
     currency: entry.currency || 'USD',
+    defaultCurrencyAmount: entry.defaultCurrencyAmount,
     entryDate: entry.date,
     ...(entry.type === 'expense' ? {
       payers: (entry as ExpenseEntry).payers.map(p => p.memberId),

@@ -185,7 +185,16 @@
     "paidBy": "Paid by",
     "split": "Split",
     "yourShare": "Your share",
-    "more": "more"
+    "more": "more",
+    "createdAt": "Created at",
+    "modifiedAt": "Modified at",
+    "deletedAt": "Deleted at",
+    "category": "Category",
+    "notes": "Notes",
+    "from": "From",
+    "to": "To",
+    "date": "Date",
+    "shares": "shares"
   },
 
   "filter": {
@@ -353,7 +362,16 @@
     "entryModifiedLabel": "Entry Modified",
     "entryDeletedLabel": "Entry Deleted",
     "entryRestoredLabel": "Entry Restored",
-    "memberJoinedLabel": "Member Joined"
+    "memberJoinedLabel": "Member Joined",
+    "memberRenamedLabel": "Member Renamed",
+    "memberRetiredLabel": "Member Removed",
+    "entryDetails": "Entry Details",
+    "deletionReason": "Reason for Deletion",
+    "previousVersion": "Previous",
+    "newVersion": "New",
+    "notesChanged": "Notes changed",
+    "memberRenamed": "{oldName} was renamed to {newName}",
+    "memberRetired": "{member} was removed from the group"
   },
 
   "categories": {

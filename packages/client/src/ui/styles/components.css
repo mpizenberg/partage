@@ -1578,6 +1578,11 @@
   box-shadow: var(--shadow-md);
 }
 
+.activity-card-involved {
+  background: linear-gradient(to right, var(--color-primary-light) 0%, var(--color-bg) 3%);
+  border-left: 3px solid var(--color-primary);
+}
+
 .activity-header {
   display: flex;
   gap: var(--space-md);
@@ -2523,4 +2528,51 @@ body:has(.offline-banner) .fab {
   color: var(--color-text-muted);
   margin: 0;
   line-height: 1.4;
+}
+
+/* Entry Details Modal */
+.detail-section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+}
+
+.detail-row {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+}
+
+.detail-label {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-light);
+  font-weight: var(--font-weight-medium);
+}
+
+.detail-value {
+  font-size: var(--font-size-base);
+  color: var(--color-text);
+}
+
+.field-changed {
+  background-color: var(--color-warning-light);
+  padding: var(--space-xs) var(--space-sm);
+  border-radius: var(--radius-sm);
+  border-left: 3px solid var(--color-warning);
+}
+
+@media (min-width: 768px) {
+  .detail-row {
+    flex-direction: row;
+    align-items: baseline;
+  }
+
+  .detail-label {
+    min-width: 120px;
+    flex-shrink: 0;
+  }
+
+  .detail-value {
+    flex: 1;
+  }
 }

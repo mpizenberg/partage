@@ -1,12 +1,14 @@
-import { Component, Match, Switch, Show, For, createMemo } from 'solid-js';
+import { Component, Match, Switch, Show, For, createMemo, createSignal } from 'solid-js';
 import { useAppContext } from '../../context/AppContext';
 import { useI18n, formatCurrency, formatRelativeTime } from '../../../i18n';
+import { EntryDetailsModal } from './EntryDetailsModal';
 import type {
   Activity,
   EntryModifiedActivity,
   EntryAddedActivity,
   EntryDeletedActivity,
   EntryUndeletedActivity,
+  Entry,
 } from '@partage/shared';
 
 export interface ActivityCardProps {
@@ -14,8 +16,15 @@ export interface ActivityCardProps {
 }
 
 export const ActivityCard: Component<ActivityCardProps> = (props) => {
-  const { members, loroStore } = useAppContext();
+  const { members, loroStore, getActiveGroupKey, activeGroup, identity } = useAppContext();
   const { t, locale } = useI18n();
+
+  // Modal state
+  const [showModal, setShowModal] = createSignal(false);
+  const [selectedEntry, setSelectedEntry] = createSignal<Entry | null>(null);
+  const [isLoadingEntry, setIsLoadingEntry] = createSignal(false);
+
+  const defaultCurrency = () => activeGroup()?.defaultCurrency;
 
   const formatAmount = (amount: number, currency: string): string => {
     return formatCurrency(amount, currency, locale());
@@ -67,7 +76,7 @@ export const ActivityCard: Component<ActivityCardProps> = (props) => {
     return `${getMemberName(validIds[0]!)} ${t('common.and')} ${validIds.length - 1} ${t('common.others')}`;
   };
 
-  const formatChangeValue = (value: any, field: string, currency?: string): string => {
+  const formatChangeValue = (value: any, field: string, currency?: string, defaultCurrency?: string): string => {
     // Handle null/undefined
     if (value == null) return t('activity.none');
 
@@ -75,6 +84,9 @@ export const ActivityCard: Component<ActivityCardProps> = (props) => {
     if (typeof value === 'number') {
       if (field === 'amount' && currency) {
         return formatAmount(value, currency);
+      }
+      if (field === 'defaultCurrencyAmount' && defaultCurrency) {
+        return formatAmount(value, defaultCurrency);
       }
       if (field === 'date') {
         return formatDate(value);
@@ -137,8 +149,168 @@ export const ActivityCard: Component<ActivityCardProps> = (props) => {
     }
   };
 
+  const isEntryActivity = (): boolean => {
+    return (
+      props.activity.type === 'entry_added' ||
+      props.activity.type === 'entry_modified' ||
+      props.activity.type === 'entry_deleted' ||
+      props.activity.type === 'entry_undeleted'
+    );
+  };
+
+  const getEntryId = (): string | null => {
+    const activity = props.activity as any;
+    return activity.entryId || null;
+  };
+
+  const getChanges = (): Record<string, { from: any; to: any }> | undefined => {
+    if (props.activity.type === 'entry_modified') {
+      return (props.activity as EntryModifiedActivity).changes;
+    }
+    return undefined;
+  };
+
+  const getDeletionReason = (): string | undefined => {
+    if (props.activity.type === 'entry_deleted') {
+      return (props.activity as EntryDeletedActivity).reason;
+    }
+    return undefined;
+  };
+
+  // Helper to format amount with optional default currency in parenthesis
+  const showAmount = (amount: number, defaultCurrencyAmount: number | undefined, currency: string): string => {
+    const defCurrency = defaultCurrency();
+    let result = formatAmount(amount, currency);
+
+    // If currency is different from default and we have a defaultCurrencyAmount, show it in parenthesis
+    if (defCurrency && currency !== defCurrency && defaultCurrencyAmount !== undefined && defaultCurrencyAmount !== amount) {
+      result += ` (${formatAmount(defaultCurrencyAmount, defCurrency)})`;
+    }
+
+    return result;
+  };
+
+  // Helper to check if we should show multi-currency amount display
+  const shouldShowMultiCurrencyAmount = (): boolean => {
+    if (props.activity.type !== 'entry_modified') return false;
+    const activity = props.activity as EntryModifiedActivity;
+    const changes = activity.changes;
+    if (!changes || !('amount' in changes || 'defaultCurrencyAmount' in changes)) return false;
+
+    // Get old and new currencies
+    const oldCurrency = changes.currency?.from ?? activity.currency;
+    const newCurrency = changes.currency?.to ?? activity.currency;
+    const defCurrency = defaultCurrency();
+
+    // Show multi-currency display if either old or new currency is not default
+    return oldCurrency !== defCurrency || newCurrency !== defCurrency;
+  };
+
+  const getOldCurrency = (): string => {
+    if (props.activity.type !== 'entry_modified') return '';
+    const activity = props.activity as EntryModifiedActivity;
+    return activity.changes?.currency?.from ?? activity.currency;
+  };
+
+  const getNewCurrency = (): string => {
+    if (props.activity.type !== 'entry_modified') return '';
+    const activity = props.activity as EntryModifiedActivity;
+    return activity.changes?.currency?.to ?? activity.currency;
+  };
+
+  const handleActivityClick = async () => {
+    if (!isEntryActivity()) return;
+
+    const entryId = getEntryId();
+    if (!entryId) return;
+
+    try {
+      setIsLoadingEntry(true);
+      const store = loroStore();
+      const groupKey = await getActiveGroupKey();
+
+      if (!store || !groupKey) {
+        console.error('Store or group key not available');
+        return;
+      }
+
+      const entry = await store.getEntry(entryId, groupKey);
+      if (entry) {
+        setSelectedEntry(entry);
+        setShowModal(true);
+      }
+    } catch (error) {
+      console.error('Failed to load entry:', error);
+    } finally {
+      setIsLoadingEntry(false);
+    }
+  };
+
+  // Helper to check if user is involved in this activity
+  const isUserInvolved = (): boolean => {
+    const store = loroStore();
+    const userIdentity = identity();
+    if (!store || !userIdentity) return false;
+
+    // Get current user's public key hash
+    const userPublicKeyHash = userIdentity.publicKeyHash;
+    if (!userPublicKeyHash) return false;
+
+    const activity = props.activity;
+
+    // For entry activities, check if user is in payers or beneficiaries
+    if (activity.type === 'entry_added' || activity.type === 'entry_modified' ||
+        activity.type === 'entry_deleted' || activity.type === 'entry_undeleted') {
+      const entryActivity = activity as any;
+
+      // Get canonical user ID
+      const canonicalUserId = store.resolveCanonicalMemberId(userPublicKeyHash);
+
+      // Check if user is in payers or beneficiaries (for expenses)
+      if (entryActivity.payers) {
+        const involved = entryActivity.payers.some((payerId: string) => {
+          const canonicalId = store.resolveCanonicalMemberId(payerId);
+          return canonicalId === canonicalUserId;
+        });
+        if (involved) return true;
+      }
+
+      if (entryActivity.beneficiaries) {
+        const involved = entryActivity.beneficiaries.some((benId: string) => {
+          const canonicalId = store.resolveCanonicalMemberId(benId);
+          return canonicalId === canonicalUserId;
+        });
+        if (involved) return true;
+      }
+
+      // Check if user is in from/to (for transfers)
+      if (entryActivity.from) {
+        const canonicalFrom = store.resolveCanonicalMemberId(entryActivity.from);
+        if (canonicalFrom === canonicalUserId) return true;
+      }
+
+      if (entryActivity.to) {
+        const canonicalTo = store.resolveCanonicalMemberId(entryActivity.to);
+        if (canonicalTo === canonicalUserId) return true;
+      }
+    }
+
+    return false;
+  };
+
   return (
-    <div class="activity-card card">
+    <>
+    <div
+      class="activity-card card"
+      classList={{
+        'activity-card-involved': isUserInvolved(),
+      }}
+      onClick={handleActivityClick}
+      style={{
+        cursor: isEntryActivity() ? 'pointer' : 'default',
+        opacity: isLoadingEntry() ? 0.6 : 1,
+      }}
+    >
       <div class="activity-header">
         <div class="activity-icon" style={{ color: getActivityColor() }}>
           {getActivityIcon()}
@@ -225,20 +397,59 @@ export const ActivityCard: Component<ActivityCardProps> = (props) => {
                           <div style="font-weight: var(--font-weight-semibold); margin-bottom: var(--space-xs); color: var(--color-text-light);">
                             {t('activity.changes')}
                           </div>
-                          <For each={Object.entries(activity.changes || {})}>
+
+                          {/* Multi-currency amount display (if needed) */}
+                          <Show when={shouldShowMultiCurrencyAmount()}>
+                            <div style="margin-bottom: var(--space-xs);">
+                              <span style="color: var(--color-text-light);">amount:</span>{' '}
+                              <span style="text-decoration: line-through; color: var(--color-danger);">
+                                {showAmount(
+                                  activity.changes!.amount?.from ?? activity.amount,
+                                  activity.changes!.defaultCurrencyAmount?.from ?? (getOldCurrency() === defaultCurrency() ? (activity.changes!.amount?.from ?? activity.amount) : activity.defaultCurrencyAmount),
+                                  getOldCurrency()
+                                )}
+                              </span>
+                              {' → '}
+                              <span style="color: var(--color-success);">
+                                {showAmount(
+                                  activity.changes!.amount?.to ?? activity.amount,
+                                  activity.changes!.defaultCurrencyAmount?.to ?? (getNewCurrency() === defaultCurrency() ? (activity.changes!.amount?.to ?? activity.amount) : activity.defaultCurrencyAmount),
+                                  getNewCurrency()
+                                )}
+                              </span>
+                            </div>
+                          </Show>
+
+                          {/* Other changes (excluding amount/defaultCurrencyAmount/currency when multi-currency display is shown) */}
+                          <For each={Object.entries(activity.changes || {}).filter(([field]) => {
+                            if (field === 'notes') return false;
+                            if (field === 'currency') return false;
+                            // If showing multi-currency display, skip amount and defaultCurrencyAmount
+                            if (shouldShowMultiCurrencyAmount() && (field === 'amount' || field === 'defaultCurrencyAmount')) return false;
+                            // If NOT showing multi-currency display, skip defaultCurrencyAmount (but keep amount)
+                            if (!shouldShowMultiCurrencyAmount() && field === 'defaultCurrencyAmount') return false;
+                            return true;
+                          })}>
                             {([field, change]) => (
                               <div style="margin-bottom: var(--space-xs);">
                                 <span style="color: var(--color-text-light);">{field}:</span>{' '}
                                 <span style="text-decoration: line-through; color: var(--color-danger);">
-                                  {formatChangeValue(change.from, field, activity.currency)}
+                                  {formatChangeValue(change.from, field, activity.currency, defaultCurrency())}
                                 </span>
                                 {' → '}
                                 <span style="color: var(--color-success);">
-                                  {formatChangeValue(change.to, field, activity.currency)}
+                                  {formatChangeValue(change.to, field, activity.currency, defaultCurrency())}
                                 </span>
                               </div>
                             )}
                           </For>
+
+                          {/* Show notes changed indicator */}
+                          <Show when={activity.changes && 'notes' in activity.changes}>
+                            <div style="margin-bottom: var(--space-xs); color: var(--color-text-light); font-style: italic;">
+                              • {t('activity.notesChanged')}
+                            </div>
+                          </Show>
                         </div>
                       </Show>
                     </div>
@@ -346,5 +557,15 @@ export const ActivityCard: Component<ActivityCardProps> = (props) => {
         <span class="activity-time">{formatRelativeTime(props.activity.timestamp, locale(), t)}</span>
       </div>
     </div>
+
+    {/* Entry Details Modal */}
+    <EntryDetailsModal
+      isOpen={showModal()}
+      onClose={() => setShowModal(false)}
+      entry={selectedEntry()}
+      changes={getChanges()}
+      deletionReason={getDeletionReason()}
+    />
+    </>
   );
 };

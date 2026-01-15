@@ -185,7 +185,16 @@
     "paidBy": "Pagado por",
     "split": "Dividir",
     "yourShare": "Tu parte",
-    "more": "más"
+    "more": "más",
+    "createdAt": "Creado el",
+    "modifiedAt": "Modificado el",
+    "deletedAt": "Eliminado el",
+    "category": "Categoría",
+    "notes": "Notas",
+    "from": "De",
+    "to": "Para",
+    "date": "Fecha",
+    "shares": "partes"
   },
 
   "filter": {
@@ -353,7 +362,16 @@
     "entryModifiedLabel": "Entrada Modificada",
     "entryDeletedLabel": "Entrada Eliminada",
     "entryRestoredLabel": "Entrada Restaurada",
-    "memberJoinedLabel": "Miembro Se Unió"
+    "memberJoinedLabel": "Miembro Se Unió",
+    "memberRenamedLabel": "Miembro Renombrado",
+    "memberRetiredLabel": "Miembro Retirado",
+    "entryDetails": "Detalles de la Entrada",
+    "deletionReason": "Razón de Eliminación",
+    "previousVersion": "Anterior",
+    "newVersion": "Nueva",
+    "notesChanged": "Notas cambiadas",
+    "memberRenamed": "{oldName} fue renombrado a {newName}",
+    "memberRetired": "{member} fue eliminado del grupo"
   },
 
   "categories": {
