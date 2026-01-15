@@ -1,4 +1,5 @@
 import { Component, createSignal, Show } from 'solid-js'
+import { useNavigate } from '@solidjs/router'
 import { useI18n } from '../../i18n'
 import { useAppContext } from '../context/AppContext'
 import { Button } from '../components/common/Button'
@@ -7,6 +8,7 @@ import { LanguageSwitcher } from '../components/common/LanguageSwitcher'
 
 export const SetupScreen: Component = () => {
   const { t } = useI18n()
+  const navigate = useNavigate()
   const { initializeIdentity, error, clearError } = useAppContext()
   const [isGenerating, setIsGenerating] = createSignal(false)
 
@@ -15,7 +17,8 @@ export const SetupScreen: Component = () => {
       setIsGenerating(true)
       clearError()
       await initializeIdentity()
-      // Identity created - App will automatically navigate to next screen
+      // Identity created - navigate to home
+      navigate('/')
     } catch (err) {
       console.error('Failed to initialize identity:', err)
       // Error is already set in context

@@ -1,15 +1,15 @@
 import { Component, Show, For, createSignal, createEffect, createResource } from 'solid-js';
+import { useNavigate } from '@solidjs/router';
 import { useI18n, formatDate, formatNumber } from '../../i18n';
 import { useAppContext, type ImportAnalysis } from '../context/AppContext';
 import { Button } from '../components/common/Button';
-import { CreateGroupScreen } from './CreateGroupScreen';
 import { ImportPreviewModal } from '../components/import/ImportPreviewModal';
 
 export const GroupSelectionScreen: Component = () => {
   const { t, locale } = useI18n();
-  const { groups, selectGroup, identity, exportGroups, importGroups, confirmImport, deleteGroup, getGroupBalance } =
+  const navigate = useNavigate();
+  const { groups, identity, exportGroups, importGroups, confirmImport, deleteGroup, getGroupBalance } =
     useAppContext();
-  const [showCreateGroup, setShowCreateGroup] = createSignal(false);
   const [importAnalysis, setImportAnalysis] = createSignal<ImportAnalysis | null>(null);
   const [showImportPreview, setShowImportPreview] = createSignal(false);
   const [groupToDelete, setGroupToDelete] = createSignal<string | null>(null);
@@ -22,13 +22,9 @@ export const GroupSelectionScreen: Component = () => {
     console.log('[GroupSelection] importAnalysis:', importAnalysis());
   });
 
-  const handleSelectGroup = async (groupId: string) => {
-    try {
-      await selectGroup(groupId);
-      // Group selected - App will navigate to GroupViewScreen
-    } catch (err) {
-      console.error('Failed to select group:', err);
-    }
+  const handleSelectGroup = (groupId: string) => {
+    // Navigate to group view - GroupViewScreen will load the group
+    navigate(`/groups/${groupId}`);
   };
 
   const truncateId = (id: string): string => {
@@ -210,10 +206,6 @@ export const GroupSelectionScreen: Component = () => {
 
   return (
     <>
-      <Show
-        when={!showCreateGroup()}
-        fallback={<CreateGroupScreen onCancel={() => setShowCreateGroup(false)} />}
-      >
         <div class="container">
           <div
             class="group-selection-screen"
@@ -337,14 +329,13 @@ export const GroupSelectionScreen: Component = () => {
             <Button
               variant="primary"
               size="large"
-              onClick={() => setShowCreateGroup(true)}
+              onClick={() => navigate('/groups/new')}
               class="w-full"
             >
               + {t('groups.createNew')}
             </Button>
           </div>
         </div>
-      </Show>
 
       {/* Import Preview Modal - Outside Show block for proper rendering */}
       <Show when={showImportPreview() && importAnalysis()}>

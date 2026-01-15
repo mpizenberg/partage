@@ -4,7 +4,7 @@
  * This simplified approach embeds the group key directly in the URL fragment.
  * The fragment (#) portion is never sent to the server, ensuring the key remains client-side only.
  *
- * URL format: https://app.example/#/join/{groupId}/{base64url-group-key}
+ * URL format: https://app.example/join/{groupId}#{base64url-group-key}
  *
  * Security model:
  * - Anyone with the link can join without approval
@@ -48,11 +48,12 @@ export function generateInviteLink(
   groupName?: string
 ): string {
   const keyBase64Url = base64ToBase64Url(groupKeyBase64);
-  const baseUrl = `${window.location.origin}/#/join/${groupId}/${keyBase64Url}`;
+  // Key is in fragment (#) so it's never sent to the server
+  const baseUrl = `${window.location.origin}/join/${groupId}#${keyBase64Url}`;
 
-  // Append group name as query parameter in the fragment (for hash routing)
+  // Group name can be appended as query parameter (before fragment)
   if (groupName) {
-    return `${baseUrl}?name=${encodeURIComponent(groupName)}`;
+    return `${window.location.origin}/join/${groupId}?name=${encodeURIComponent(groupName)}#${keyBase64Url}`;
   }
 
   return baseUrl;
@@ -61,32 +62,39 @@ export function generateInviteLink(
 /**
  * Parse an invite link to extract group ID and key
  *
- * @param fragment - URL fragment (portion after #)
+ * @param url - Full URL or pathname+fragment (e.g., /join/groupId#key)
  * @returns Object with groupId and groupKey, or null if invalid
  */
-export function parseInviteLink(fragment: string): { groupId: string; groupKey: string } | null {
-  // Expected format: /join/{groupId}/{base64url-key}
-  const match = fragment.match(/^\/join\/([^/]+)\/(.+)$/);
-  if (!match) {
-    return null;
-  }
-
-  const groupId = match[1];
-  const keyBase64Url = match[2];
-
-  if (!groupId || !keyBase64Url) {
-    return null;
-  }
-
-  // Remove any query parameters from the key if present
-  const keyWithoutQuery = keyBase64Url.split('?')[0];
-
-  if (!keyWithoutQuery) {
-    return null;
-  }
-
+export function parseInviteLink(url: string): { groupId: string; groupKey: string } | null {
   try {
-    const groupKey = base64UrlToBase64(keyWithoutQuery);
+    // Handle full URL or just pathname
+    let pathname: string;
+    let fragment: string;
+
+    if (url.startsWith('http://') || url.startsWith('https://')) {
+      const parsedUrl = new URL(url);
+      pathname = parsedUrl.pathname;
+      fragment = parsedUrl.hash.substring(1); // Remove leading #
+    } else {
+      // Assume it's pathname#fragment format
+      const parts = url.split('#');
+      pathname = parts[0] || '';
+      fragment = parts[1] || '';
+    }
+
+    // Expected pathname format: /join/{groupId}
+    const match = pathname.match(/^\/join\/([^/?]+)/);
+    if (!match) {
+      return null;
+    }
+
+    const groupId = match[1];
+    if (!groupId || !fragment) {
+      return null;
+    }
+
+    // Fragment is the Base64URL-encoded key
+    const groupKey = base64UrlToBase64(fragment);
     return { groupId, groupKey };
   } catch (error) {
     console.error('Failed to parse invite link:', error);

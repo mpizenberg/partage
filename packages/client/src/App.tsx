@@ -1,9 +1,10 @@
-import { Component, Show, Match, Switch, createEffect, onCleanup } from 'solid-js'
-import { HashRouter, Route } from '@solidjs/router'
+import { Component, Show, createEffect, onCleanup } from 'solid-js'
+import { Router, Route, Navigate, useNavigate } from '@solidjs/router'
 import { I18nProvider, useI18n } from './i18n'
 import { AppProvider, useAppContext } from './ui/context/AppContext'
 import { SetupScreen } from './ui/screens/SetupScreen'
 import { GroupSelectionScreen } from './ui/screens/GroupSelectionScreen'
+import { CreateGroupScreen } from './ui/screens/CreateGroupScreen'
 import { GroupViewScreen } from './ui/screens/GroupViewScreen'
 import { JoinGroupScreen } from './ui/screens/JoinGroupScreen'
 import { LoadingSpinner } from './ui/components/common/LoadingSpinner'
@@ -16,56 +17,77 @@ import type { Activity } from '@partage/shared/types/activity'
 import { getPushManager } from './domain/notifications/push-manager'
 import { isActivityRelevantToUser } from './domain/notifications/activity-filter'
 
-const MainApp: Component = () => {
-  const { identity, activeGroup, isLoading } = useAppContext()
+/**
+ * Loading screen shown while AppContext is initializing
+ */
+const LoadingScreen: Component = () => (
+  <div class="container flex-center" style="min-height: 100vh;">
+    <LoadingSpinner size="large" />
+  </div>
+)
+
+/**
+ * Guard that requires identity to be present
+ * Redirects to /setup if no identity exists
+ */
+const RequireIdentity: Component<{ children: any }> = (props) => {
+  const { identity, isLoading } = useAppContext()
+  const navigate = useNavigate()
+
+  createEffect(() => {
+    if (!isLoading() && !identity()) {
+      navigate('/setup', { replace: true })
+    }
+  })
 
   return (
-    <Show
-      when={!isLoading()}
-      fallback={
-        <div class="container flex-center" style="min-height: 100vh;">
-          <LoadingSpinner size="large" />
-        </div>
-      }
-    >
-      <Switch>
-        {/* No identity - show setup screen */}
-        <Match when={!identity()}>
-          <SetupScreen />
-        </Match>
-
-        {/* Has identity, no active group - show group selection */}
-        <Match when={identity() && !activeGroup()}>
-          <GroupSelectionScreen />
-        </Match>
-
-        {/* Has active group - show group view */}
-        <Match when={identity() && activeGroup()}>
-          <GroupViewScreen />
-        </Match>
-      </Switch>
+    <Show when={!isLoading() && identity()} fallback={<LoadingScreen />}>
+      {props.children}
     </Show>
   )
 }
 
 /**
- * Wrapper for JoinGroupScreen that waits for AppContext initialization
+ * Guard that redirects away from setup if identity already exists
+ */
+const SetupGuard: Component = () => {
+  const { identity, isLoading } = useAppContext()
+  const navigate = useNavigate()
+
+  createEffect(() => {
+    if (!isLoading() && identity()) {
+      navigate('/', { replace: true })
+    }
+  })
+
+  return (
+    <Show when={!isLoading()} fallback={<LoadingScreen />}>
+      <Show when={!identity()} fallback={<Navigate href="/" />}>
+        <SetupScreen />
+      </Show>
+    </Show>
+  )
+}
+
+/**
+ * Guard for JoinGroupScreen that waits for AppContext initialization
  */
 const JoinGroupGuard: Component = () => {
   const { isLoading } = useAppContext()
 
   return (
-    <Show
-      when={!isLoading()}
-      fallback={
-        <div class="container flex-center" style="min-height: 100vh;">
-          <LoadingSpinner size="large" />
-        </div>
-      }
-    >
+    <Show when={!isLoading()} fallback={<LoadingScreen />}>
       <JoinGroupScreen />
     </Show>
   )
+}
+
+/**
+ * Wrapper for CreateGroupScreen as a standalone page
+ */
+const CreateGroupPage: Component = () => {
+  const navigate = useNavigate()
+  return <CreateGroupScreen onCancel={() => navigate('/')} />
 }
 
 const App: Component = () => {
@@ -73,10 +95,37 @@ const App: Component = () => {
     <I18nProvider>
       <ToastProvider>
         <AppProvider>
-          <HashRouter>
-            <Route path="/join/:groupId/:groupKey" component={JoinGroupGuard} />
-            <Route path="/*" component={MainApp} />
-          </HashRouter>
+          <Router>
+            {/* Setup route - redirects to / if identity exists */}
+            <Route path="/setup" component={SetupGuard} />
+
+            {/* Join group route - key is in URL fragment (#) */}
+            <Route path="/join/:groupId" component={JoinGroupGuard} />
+
+            {/* Create group route */}
+            <Route path="/groups/new" component={() => (
+              <RequireIdentity>
+                <CreateGroupPage />
+              </RequireIdentity>
+            )} />
+
+            {/* Group view route with optional tab */}
+            <Route path="/groups/:groupId/:tab?" component={() => (
+              <RequireIdentity>
+                <GroupViewScreen />
+              </RequireIdentity>
+            )} />
+
+            {/* Home route - group selection */}
+            <Route path="/" component={() => (
+              <RequireIdentity>
+                <GroupSelectionScreen />
+              </RequireIdentity>
+            )} />
+
+            {/* Catch-all redirect to home */}
+            <Route path="*" component={() => <Navigate href="/" />} />
+          </Router>
           <ActivityNotifications />
           <NotificationPermissionBanner />
           <OfflineBanner />

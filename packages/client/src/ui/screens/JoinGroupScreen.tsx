@@ -1,13 +1,16 @@
 /**
  * Join Group Screen - Simplified trusted group join flow
  * Flow:
- * 1. Parse groupId and groupKey from URL params (hash-based routing)
+ * 1. Parse groupId from URL path and groupKey from URL fragment (#)
  * 2. Import group key and fetch group data from server
  * 3. Display existing members and ask user to:
  *    - Enter new name as new member, OR
  *    - Claim existing virtual member identity
  * 4. Add member to Loro CRDT (with alias if claiming existing)
  * 5. Sync to server and navigate to group
+ *
+ * URL format: /join/:groupId#<base64url-key>
+ * The key is in the fragment so it's never sent to the server
  */
 
 import { Component, createSignal, onMount, Show, For, createEffect } from 'solid-js';
@@ -35,7 +38,7 @@ function base64UrlToBase64(base64Url: string): string {
 
 export const JoinGroupScreen: Component = () => {
   const { t } = useI18n();
-  const params = useParams<{ groupId: string; groupKey: string }>();
+  const params = useParams<{ groupId: string }>();
   const navigate = useNavigate();
   const { identity, initializeIdentity, groups, joinGroupWithKey } = useAppContext();
 
@@ -89,16 +92,24 @@ export const JoinGroupScreen: Component = () => {
     try {
       setStatus('loading');
 
-      // Get groupId and groupKey from URL params
-      const { groupId, groupKey: groupKeyBase64Url } = params;
-      if (!groupId || !groupKeyBase64Url) {
+      // Get groupId from URL path params
+      const { groupId } = params;
+      if (!groupId) {
+        throw new Error(t('joinGroup.invalidLink'));
+      }
+
+      // Get groupKey from URL fragment (after #)
+      // Fragment is never sent to the server, keeping the key secure
+      const hash = window.location.hash;
+      const groupKeyBase64Url = hash.startsWith('#') ? hash.substring(1) : hash;
+      if (!groupKeyBase64Url) {
         throw new Error(t('joinGroup.invalidLink'));
       }
 
       // Convert Base64URL (from URL) back to standard Base64
       const groupKey = base64UrlToBase64(groupKeyBase64Url);
       setGroupKeyBase64(groupKey);
-      console.log('[JoinGroupScreen] Converted Base64URL key to Base64');
+      console.log('[JoinGroupScreen] Extracted key from URL fragment');
 
       // Ensure user has identity (AppContext has already initialized at this point)
       let currentIdentity = identity();
@@ -222,8 +233,8 @@ export const JoinGroupScreen: Component = () => {
 
       setStatus('success');
 
-      // Navigate to group view (joinGroupWithKey auto-selects the group)
-      setTimeout(() => navigate('/'), 500);
+      // Navigate to the group view
+      setTimeout(() => navigate(`/groups/${groupId}`), 500);
     } catch (err) {
       console.error('[JoinGroupScreen] Failed to join group:', err);
       setError(err instanceof Error ? err.message : 'Failed to join group. Please try again.');

@@ -1,5 +1,5 @@
-import { Component, createSignal, Match, Switch, Show } from 'solid-js'
-import { useNavigate } from '@solidjs/router'
+import { Component, createSignal, createEffect, createMemo, Match, Switch, Show } from 'solid-js'
+import { useNavigate, useParams } from '@solidjs/router'
 import { useI18n, formatCurrency } from '../../i18n'
 import { useAppContext } from '../context/AppContext'
 import { BalanceTab } from '../components/balance/BalanceTab'
@@ -9,15 +9,20 @@ import { ActivitiesTab } from '../components/activities/ActivitiesTab'
 import { SettleTab } from '../components/settle/SettleTab'
 import { AddEntryModal, type TransferInitialData } from '../components/forms/AddEntryModal'
 import { LanguageSwitcher } from '../components/common/LanguageSwitcher'
+import { LoadingSpinner } from '../components/common/LoadingSpinner'
 import { generateInviteLink } from '../../domain/invitations/invite-manager'
 
 type TabType = 'balance' | 'entries' | 'settle' | 'members' | 'activities'
 
+const VALID_TABS: TabType[] = ['balance', 'entries', 'settle', 'members', 'activities']
+
 export const GroupViewScreen: Component = () => {
   const { t, locale } = useI18n()
   const navigate = useNavigate()
+  const params = useParams<{ groupId: string; tab?: string }>()
   const {
     activeGroup,
+    selectGroup,
     deselectGroup,
     identity,
     balances,
@@ -29,11 +34,50 @@ export const GroupViewScreen: Component = () => {
     setEditingEntry,
     loroStore,
     db,
+    isLoading,
   } = useAppContext()
-  const [activeTab, setActiveTab] = createSignal<TabType>('balance')
   const [showAddEntry, setShowAddEntry] = createSignal(false)
   const [transferInitialData, setTransferInitialData] = createSignal<TransferInitialData | null>(null)
   const [showBannerDetails, setShowBannerDetails] = createSignal(false)
+  const [groupLoading, setGroupLoading] = createSignal(false)
+
+  // Get active tab from URL params, default to 'balance'
+  const activeTab = createMemo<TabType>(() => {
+    const tabParam = params.tab?.toLowerCase()
+    if (tabParam && VALID_TABS.includes(tabParam as TabType)) {
+      return tabParam as TabType
+    }
+    return 'balance'
+  })
+
+  // Set tab by navigating to the URL
+  const setActiveTab = (tab: TabType) => {
+    const groupId = params.groupId
+    if (tab === 'balance') {
+      // Default tab doesn't need to be in URL
+      navigate(`/groups/${groupId}`)
+    } else {
+      navigate(`/groups/${groupId}/${tab}`)
+    }
+  }
+
+  // Load group on mount based on URL params
+  createEffect(() => {
+    const groupId = params.groupId
+    const currentGroup = activeGroup()
+
+    // If the group from URL doesn't match the active group, load it
+    if (groupId && (!currentGroup || currentGroup.id !== groupId)) {
+      setGroupLoading(true)
+      selectGroup(groupId)
+        .catch((err) => {
+          console.error('[GroupViewScreen] Failed to load group:', err)
+          // Redirect to home if group not found
+          navigate('/')
+        })
+        .finally(() => setGroupLoading(false))
+    }
+  })
 
   // Modal is open when adding new entry OR editing existing entry OR quick settlement
   const isModalOpen = () => showAddEntry() || editingEntry() !== null || transferInitialData() !== null
@@ -62,6 +106,7 @@ export const GroupViewScreen: Component = () => {
 
   const handleBack = () => {
     deselectGroup()
+    navigate('/')
   }
 
   const myBalance = () => {
@@ -135,16 +180,25 @@ export const GroupViewScreen: Component = () => {
       const inviteLink = generateInviteLink(group.id, groupKeyBase64, group.name)
 
       // Extract the path from the invite link (remove origin)
-      // inviteLink format: http://localhost:3000/#/join/groupId/key?name=...
-      // We want: /join/groupId/key?name=...
+      // inviteLink format: http://localhost:3000/join/groupId?name=...#key
+      // We want: /join/groupId?name=...#key (or just /join/groupId#key)
       const url = new URL(inviteLink)
-      const path = url.hash.substring(1) // Remove the '#' prefix
+      const path = url.pathname + url.search + url.hash
 
       // Navigate to the join page
       navigate(path)
     } catch (error) {
       console.error('Failed to generate rejoin link:', error)
     }
+  }
+
+  // Show loading while group is being loaded
+  if (groupLoading() || isLoading() || !activeGroup()) {
+    return (
+      <div class="container flex-center" style="min-height: 100vh;">
+        <LoadingSpinner size="large" />
+      </div>
+    )
   }
 
   return (

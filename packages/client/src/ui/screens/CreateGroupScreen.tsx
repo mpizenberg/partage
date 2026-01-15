@@ -1,4 +1,5 @@
 import { Component, createSignal, Show } from 'solid-js';
+import { useNavigate } from '@solidjs/router';
 import { useI18n } from '../../i18n';
 import { useAppContext } from '../context/AppContext';
 import { Input } from '../components/common/Input';
@@ -38,7 +39,8 @@ export interface CreateGroupScreenProps {
 
 export const CreateGroupScreen: Component<CreateGroupScreenProps> = (props) => {
   const { t, locale } = useI18n();
-  const { identity, createGroup, isLoading, error, clearError } = useAppContext();
+  const navigate = useNavigate();
+  const { identity, createGroup, activeGroup, isLoading, error, clearError } = useAppContext();
 
   // Pre-select currency based on language
   const getDefaultCurrency = (): string => {
@@ -118,7 +120,15 @@ export const CreateGroupScreen: Component<CreateGroupScreenProps> = (props) => {
       // Pass only virtual members - AppContext will add current user
       await createGroup(groupName().trim(), currency(), members(), myName().trim());
       console.log('[CreateGroupScreen] Group created successfully');
-      // Group created successfully - App will navigate to GroupViewScreen
+
+      // Navigate to the newly created group
+      const group = activeGroup();
+      if (group) {
+        navigate(`/groups/${group.id}`);
+      } else {
+        // Fallback to home if group not found
+        navigate('/');
+      }
     } catch (err) {
       console.error('[CreateGroupScreen] Failed to create group:', err);
       // Error is already set in context
