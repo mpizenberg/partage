@@ -50,7 +50,7 @@ export const JoinGroupScreen: Component = () => {
   const [loading, setLoading] = createSignal(false);
   const [error, setError] = createSignal<string | null>(null);
   const [status, setStatus] = createSignal<
-    'loading' | 'ready' | 'joining' | 'success' | 'error'
+    'loading' | 'ready' | 'joining' | 'error'
   >('loading');
   const [showRealMembers, setShowRealMembers] = createSignal(false);
   const [nameError, setNameError] = createSignal<string>('');
@@ -231,10 +231,9 @@ export const JoinGroupScreen: Component = () => {
         memberId // Pass memberId if claiming existing member
       );
 
-      setStatus('success');
-
-      // Navigate to the group view
-      setTimeout(() => navigate(`/groups/${groupId}`), 500);
+      // Navigate immediately to avoid race condition with GroupViewScreen
+      // GroupViewScreen will handle the loading state as selectGroup completes
+      navigate(`/groups/${groupId}`);
     } catch (err) {
       console.error('[JoinGroupScreen] Failed to join group:', err);
       setError(err instanceof Error ? err.message : 'Failed to join group. Please try again.');
@@ -280,6 +279,13 @@ export const JoinGroupScreen: Component = () => {
               <Button variant="secondary" onClick={() => navigate('/')} class="btn-full-width">
                 {t('common.back')}
               </Button>
+            </div>
+          </Show>
+
+          <Show when={status() === 'joining'}>
+            <div class="loading-container">
+              <LoadingSpinner />
+              <p class="text-secondary">{t('joinGroup.joining')}</p>
             </div>
           </Show>
 
@@ -409,15 +415,6 @@ export const JoinGroupScreen: Component = () => {
             </div>
           </Show>
 
-          <Show when={status() === 'success'}>
-            <div class="success-container">
-              <div style="text-align: center;">
-                <div style="font-size: 48px; margin-bottom: var(--space-md);">✓</div>
-                <h2>{groupName()}</h2>
-                <p class="text-secondary">{t('common.done')}</p>
-              </div>
-            </div>
-          </Show>
         </Show>
       </div>
     </div>
