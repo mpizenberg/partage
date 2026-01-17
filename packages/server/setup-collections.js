@@ -57,7 +57,70 @@ async function collectionExists(name) {
 }
 
 /**
+ * Create the 'users' auth collection
+ * Each user is a "group user" - one user account per group for data access
+ */
+async function createUsersCollection() {
+  const collectionName = 'users';
+
+  if (await collectionExists(collectionName)) {
+    console.log(`✅ Collection '${collectionName}' already exists, skipping...`);
+    return;
+  }
+
+  console.log(`📦 Creating auth collection '${collectionName}'...`);
+
+  await pb.collections.create({
+    name: collectionName,
+    type: 'auth',
+    listRule: null, // Admin only
+    viewRule: '@request.auth.id = id', // Users can only view themselves
+    createRule: '', // Public (hook validates groupId exists)
+    updateRule: null, // Not editable
+    deleteRule: null, // Admin only
+    fields: [
+      // Username field - must be defined explicitly with unique index for identityFields
+      {
+        name: 'username',
+        type: 'text',
+        required: true,
+      },
+      // Email field - override default to make optional
+      {
+        name: 'email',
+        type: 'email',
+        required: false,
+      },
+      // groupId links to the group - required and unique (one user per group)
+      {
+        name: 'groupId',
+        type: 'text',
+        required: true,
+      },
+    ],
+    // Unique indexes: username for auth, groupId for one-user-per-group
+    indexes: [
+      'CREATE UNIQUE INDEX `idx_users_username` ON `users` (`username`)',
+      'CREATE UNIQUE INDEX `idx_users_groupId` ON `users` (`groupId`)',
+    ],
+    // Password authentication settings (PocketBase 0.23+ syntax)
+    passwordAuth: {
+      enabled: true,
+      identityFields: ['username'], // Allow login with username only
+    },
+    // Disable OAuth2
+    oauth2: {
+      enabled: false,
+    },
+  });
+
+  console.log(`✅ Collection '${collectionName}' created successfully`);
+}
+
+/**
  * Create the 'groups' collection
+ * Group creation requires PoW (validated by hook)
+ * powChallenge is stored to ensure one PoW = one group (unique constraint)
  */
 async function createGroupsCollection() {
   const collectionName = 'groups';
@@ -72,11 +135,12 @@ async function createGroupsCollection() {
   await pb.collections.create({
     name: collectionName,
     type: 'base',
-    listRule: '', // Empty string = allow all (public read for MVP)
-    viewRule: '', // Empty string = allow all
-    createRule: '', // Empty string = allow all
-    updateRule: '', // Empty string = allow all (for lastActivityAt updates in MVP)
-    deleteRule: null, // null = no access (disabled for MVP)
+    // Require group auth to read (groupId matches the record id)
+    listRule: '@request.auth.id != "" && @request.auth.groupId = id',
+    viewRule: '@request.auth.id != "" && @request.auth.groupId = id',
+    createRule: '', // Public (PoW validated by hook)
+    updateRule: null, // Not editable
+    deleteRule: null, // Admin only
     fields: [
       {
         name: 'name',
@@ -94,16 +158,19 @@ async function createGroupsCollection() {
         required: true,
       },
       {
-        name: 'lastActivityAt',
-        type: 'number',
-        required: true,
-      },
-      {
         name: 'memberCount',
         type: 'number',
         required: true,
       },
+      // Store the PoW challenge to ensure uniqueness (one PoW = one group)
+      {
+        name: 'powChallenge',
+        type: 'text',
+        required: true,
+      },
     ],
+    // Unique index on powChallenge prevents challenge reuse
+    indexes: ['CREATE UNIQUE INDEX `idx_groups_powChallenge` ON `groups` (`powChallenge`)'],
   });
 
   console.log(`✅ Collection '${collectionName}' created successfully`);
@@ -125,11 +192,12 @@ async function createLoroUpdatesCollection() {
   await pb.collections.create({
     name: collectionName,
     type: 'base',
-    listRule: '', // Empty string = allow all (public read for MVP)
-    viewRule: '', // Empty string = allow all
-    createRule: '', // Empty string = allow all
-    updateRule: null, // null = no access (disabled for MVP)
-    deleteRule: null, // null = no access (disabled for MVP)
+    // Require authenticated group account with matching groupId
+    listRule: '@request.auth.id != "" && @request.auth.groupId = groupId',
+    viewRule: '@request.auth.id != "" && @request.auth.groupId = groupId',
+    createRule: '@request.auth.id != "" && @request.auth.groupId = groupId',
+    updateRule: null, // Updates not allowed
+    deleteRule: null, // Deletes not allowed
     fields: [
       {
         name: 'groupId',
@@ -194,18 +262,20 @@ async function setup() {
   }
 
   try {
-    // Create collections
+    // Create collections (order matters: users first for auth references)
+    await createUsersCollection();
     await createGroupsCollection();
     await createLoroUpdatesCollection();
 
     console.log('\n✅ All collections are set up successfully!');
     console.log('\n📋 Collections created:');
-    console.log('   - groups (group metadata)');
-    console.log('   - loro_updates (CRDT sync)');
+    console.log('   - users (auth collection for group accounts, one per group)');
+    console.log('   - groups (group metadata, requires PoW to create)');
+    console.log('   - loro_updates (CRDT sync, requires group auth)');
 
     console.log('\n📋 Next steps:');
     console.log('   1. Start the client: pnpm --filter client dev');
-    console.log('   2. Test multi-user invite flow');
+    console.log('   2. Create a group (requires solving PoW challenge)');
     console.log('   3. Share invite links between devices!');
 
     console.log('\n🔍 Test with curl:');

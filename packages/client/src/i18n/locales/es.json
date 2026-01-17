@@ -34,6 +34,32 @@
     "keysStored": "Tus claves están almacenadas de forma segura solo en este dispositivo."
   },
 
+  "login": {
+    "title": "Iniciar Sesión",
+    "registerTitle": "Crear Cuenta",
+    "subtitle": "Inicia sesión para crear grupos",
+    "registerSubtitle": "Crea una cuenta para empezar a crear grupos",
+    "description": "Se requiere autenticación para crear nuevos grupos. Unirse a grupos existentes no requiere inicio de sesión.",
+    "usernamePlaceholder": "Nombre de usuario",
+    "passwordPlaceholder": "Contraseña",
+    "confirmPasswordPlaceholder": "Confirmar contraseña",
+    "signIn": "Iniciar Sesión",
+    "register": "Crear Cuenta",
+    "signingIn": "Iniciando sesión...",
+    "registering": "Creando cuenta...",
+    "fieldsRequired": "Por favor, completa todos los campos",
+    "passwordMismatch": "Las contraseñas no coinciden",
+    "passwordTooShort": "La contraseña debe tener al menos 8 caracteres",
+    "noAccount": "¿No tienes cuenta?",
+    "createAccount": "Crear una",
+    "haveAccount": "¿Ya tienes cuenta?",
+    "signInInstead": "Iniciar sesión",
+    "solvingPow": "Verificando que no eres un robot...",
+    "hashesComputed": "cálculos realizados",
+    "hashesPerSecond": "H/s",
+    "privacyNote": "Tus datos de gastos permanecen cifrados en tu dispositivo. La autenticación solo protege la creación de grupos."
+  },
+
   "groups": {
     "title": "Tus Grupos",
     "subtitle": "Selecciona un grupo o crea uno nuevo",
@@ -64,7 +90,9 @@
     "initialMembers": "Miembros Iniciales (Opcional)",
     "addVirtualMember": "Agregar Miembro Virtual",
     "createButton": "Crear Grupo",
-    "creating": "Creando..."
+    "creating": "Creando...",
+    "solvingPoW": "Verificando que no eres un robot...",
+    "powProgress": "{hashes} hashes calculados ({rate} H/s)"
   },
 
   "joinGroup": {
@@ -91,7 +119,8 @@
     "clickToExpand": "(haz clic para expandir)",
     "joinAsNewMember": "Únete como nuevo miembro:",
     "nameTaken": "Este nombre ya está en uso",
-    "duplicateName": "Ya existe un miembro con este nombre"
+    "duplicateName": "Ya existe un miembro con este nombre",
+    "linkExpired": "Este enlace de invitación ha expirado. Por favor, solicita uno nuevo."
   },
 
   "tabs": {

@@ -7,6 +7,8 @@ import { Select, SelectOption } from '../components/common/Select';
 import { Button } from '../components/common/Button';
 import { MemberManager } from '../components/forms/MemberManager';
 import { LoadingSpinner } from '../components/common/LoadingSpinner';
+import { pbClient } from '../../api';
+import { solvePoWChallenge } from '../../core/pow/proof-of-work';
 import type { Member } from '@partage/shared';
 
 // Predefined currency list
@@ -53,6 +55,10 @@ export const CreateGroupScreen: Component<CreateGroupScreenProps> = (props) => {
   const [myName, setMyName] = createSignal('');
   const [members, setMembers] = createSignal<Member[]>([]);
   const [validationError, setValidationError] = createSignal<string | null>(null);
+
+  // PoW state
+  const [isSolvingPoW, setIsSolvingPoW] = createSignal(false);
+  const [powProgress, setPowProgress] = createSignal<{ hashes: number; rate: number } | null>(null);
 
   // Initialize with current user
   const currentUser = (): Member => ({
@@ -107,19 +113,28 @@ export const CreateGroupScreen: Component<CreateGroupScreenProps> = (props) => {
 
   const handleSubmit = async (e: Event) => {
     e.preventDefault();
-    console.log('[CreateGroupScreen] Form submitted');
-    console.log('[CreateGroupScreen] Virtual members:', members());
 
     if (!validate()) {
-      console.log('[CreateGroupScreen] Validation failed');
       return;
     }
 
     try {
-      console.log('[CreateGroupScreen] Calling createGroup...');
+      // Step 1: Get and solve PoW challenge
+      setIsSolvingPoW(true);
+      setPowProgress(null);
+
+      const challenge = await pbClient.getPoWChallenge();
+
+      const powSolution = await solvePoWChallenge(challenge, (hashes, rate) => {
+        setPowProgress({ hashes, rate });
+      });
+
+      setIsSolvingPoW(false);
+      setPowProgress(null);
+
+      // Step 2: Create the group with PoW solution
       // Pass only virtual members - AppContext will add current user
-      await createGroup(groupName().trim(), currency(), members(), myName().trim());
-      console.log('[CreateGroupScreen] Group created successfully');
+      await createGroup(groupName().trim(), currency(), members(), powSolution, myName().trim());
 
       // Navigate to the newly created group
       const group = activeGroup();
@@ -131,9 +146,14 @@ export const CreateGroupScreen: Component<CreateGroupScreenProps> = (props) => {
       }
     } catch (err) {
       console.error('[CreateGroupScreen] Failed to create group:', err);
+      setIsSolvingPoW(false);
+      setPowProgress(null);
       // Error is already set in context
     }
   };
+
+  // Check if form is currently submitting
+  const isSubmitting = () => isSolvingPoW() || isLoading();
 
   return (
     <div class="container">
@@ -212,6 +232,24 @@ export const CreateGroupScreen: Component<CreateGroupScreenProps> = (props) => {
             />
           </div>
 
+          {/* PoW Progress */}
+          <Show when={isSolvingPoW()}>
+            <div class="info-message mb-md">
+              <div class="flex items-center gap-sm">
+                <LoadingSpinner size="small" />
+                <span>{t('createGroup.solvingPoW')}</span>
+              </div>
+              <Show when={powProgress()}>
+                <p class="text-sm text-muted mt-xs">
+                  {t('createGroup.powProgress', {
+                    hashes: (powProgress()?.hashes || 0).toLocaleString(),
+                    rate: (powProgress()?.rate || 0).toLocaleString(),
+                  })}
+                </p>
+              </Show>
+            </div>
+          </Show>
+
           {/* Errors */}
           <Show when={validationError() || error()}>
             <div class="error-message mb-md">{validationError() || error()}</div>
@@ -223,7 +261,7 @@ export const CreateGroupScreen: Component<CreateGroupScreenProps> = (props) => {
               type="button"
               variant="secondary"
               onClick={props.onCancel}
-              disabled={isLoading()}
+              disabled={isSubmitting()}
               class="flex-1"
             >
               {t('common.cancel')}
@@ -231,10 +269,10 @@ export const CreateGroupScreen: Component<CreateGroupScreenProps> = (props) => {
             <Button
               type="submit"
               variant="primary"
-              disabled={isLoading() || !groupName().trim() || !myName().trim()}
+              disabled={isSubmitting() || !groupName().trim() || !myName().trim()}
               class="flex-1"
             >
-              <Show when={isLoading()} fallback={t('createGroup.createButton')}>
+              <Show when={isSubmitting()} fallback={t('createGroup.createButton')}>
                 <LoadingSpinner size="small" />
               </Show>
             </Button>

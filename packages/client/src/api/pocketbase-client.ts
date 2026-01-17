@@ -2,15 +2,27 @@
  * PocketBase API client for Partage
  *
  * Handles communication with the PocketBase server for:
- * - Group metadata sync
+ * - Group creation with Proof-of-Work anti-spam
+ * - Group user authentication
  * - Loro CRDT update distribution
  * - Real-time subscriptions
  */
 
-import PocketBase, { type RecordSubscription } from 'pocketbase';
+import PocketBase, { type RecordSubscription, type RecordModel } from 'pocketbase';
+import type { PoWChallenge, PoWSolution } from '../core/pow/proof-of-work';
 
 // const POCKETBASE_URL = import.meta.env.VITE_POCKETBASE_URL || 'http://127.0.0.1:8090';
 const POCKETBASE_URL = import.meta.env.VITE_POCKETBASE_URL || '';
+
+/**
+ * User record schema (matches PocketBase auth collection)
+ * Each user is a "group user" - one user account per group
+ */
+export interface UserRecord extends RecordModel {
+  email?: string;
+  username: string;
+  groupId: string;
+}
 
 /**
  * Group record schema (matches PocketBase collection)
@@ -20,8 +32,8 @@ export interface GroupRecord {
   name: string;
   createdAt: number;
   createdBy: string;
-  lastActivityAt: number;
   memberCount: number;
+  powChallenge: string; // Stored to prevent challenge reuse
   collectionId?: string;
   collectionName?: string;
   created?: string;
@@ -79,20 +91,54 @@ export class PocketBaseClient {
     }
   }
 
+  // ==================== Proof-of-Work API ====================
+
+  /**
+   * Get a PoW challenge from the server
+   * The challenge must be solved before creating a group
+   */
+  async getPoWChallenge(): Promise<PoWChallenge> {
+    const response = await fetch(`${this.pb.baseUrl}/api/pow/challenge`);
+    if (!response.ok) {
+      throw new Error('Failed to get PoW challenge');
+    }
+    return await response.json();
+  }
+
   // ==================== Groups API ====================
 
   /**
    * Create a new group
-   * Returns the group record with PocketBase-generated ID
+   * Requires a solved PoW challenge to prevent spam
+   * @param data - Group data
+   * @param powSolution - The solved PoW challenge
+   * @returns The group record with PocketBase-generated ID
    */
-  async createGroup(data: {
-    name: string;
-    createdAt: number;
-    createdBy: string;
-    lastActivityAt: number;
-    memberCount: number;
-  }): Promise<GroupRecord> {
-    return await this.pb.collection('groups').create<GroupRecord>(data);
+  async createGroup(
+    data: {
+      name: string;
+      createdAt: number;
+      createdBy: string;
+      memberCount: number;
+    },
+    powSolution: PoWSolution
+  ): Promise<GroupRecord> {
+    // Use raw fetch to include PoW fields that the hook will process
+    const response = await fetch(`${this.pb.baseUrl}/api/collections/groups/records`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        ...data,
+        ...powSolution,
+      }),
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`Failed to create group: ${response.status} ${errorText}`);
+    }
+
+    return await response.json();
   }
 
   /**
@@ -111,23 +157,98 @@ export class PocketBaseClient {
       .collection('groups')
       .getList<GroupRecord>(1, options?.limit || 50, {
         filter,
-        sort: '-lastActivityAt',
+        sort: '-createdAt',
       });
     return result.items;
   }
 
+  // ==================== Authentication API ====================
+
   /**
-   * Update group's last activity timestamp
+   * Create a group user account (for group data access)
+   * The groupId must reference an existing group (validated by server hook)
+   * Password is derived from the group key for deterministic authentication
+   * @param groupId - The group ID this account is for
+   * @param groupKeyBase64 - The group's symmetric key in Base64 format
    */
-  async updateGroupActivity(groupId: string, timestamp: number): Promise<void> {
-    try {
-      await this.pb.collection('groups').update(groupId, {
-        lastActivityAt: timestamp,
-      });
-    } catch (error) {
-      // Ignore errors for activity updates (non-critical)
-      console.warn('Failed to update group activity:', error);
+  async createGroupUser(groupId: string, groupKeyBase64: string): Promise<void> {
+    const password = await this.derivePasswordFromKey(groupKeyBase64);
+    const username = `group_${groupId}`;
+
+    await this.pb.collection('users').create({
+      username,
+      password,
+      passwordConfirm: password,
+      groupId,
+    });
+  }
+
+  /**
+   * Authenticate as a group account using derived password
+   * @param groupId - The group ID to authenticate for
+   * @param groupKeyBase64 - The group's symmetric key in Base64 format
+   */
+  async authenticateAsGroup(groupId: string, groupKeyBase64: string): Promise<void> {
+    const password = await this.derivePasswordFromKey(groupKeyBase64);
+    const username = `group_${groupId}`;
+    await this.pb.collection('users').authWithPassword(username, password);
+  }
+
+  /**
+   * Check if authenticated as a group account for a specific group
+   */
+  isAuthenticatedForGroup(groupId: string): boolean {
+    return this.pb.authStore.isValid && this.pb.authStore.record?.groupId === groupId;
+  }
+
+  /**
+   * Logout (clear auth store)
+   */
+  logout(): void {
+    this.pb.authStore.clear();
+  }
+
+  /**
+   * Refresh the authentication token
+   */
+  async refreshAuth(): Promise<void> {
+    if (this.pb.authStore.isValid) {
+      try {
+        await this.pb.collection('users').authRefresh();
+      } catch (error) {
+        // Token refresh failed, clear auth store
+        console.warn('[PocketBase] Auth refresh failed:', error);
+        this.pb.authStore.clear();
+        throw error;
+      }
     }
+  }
+
+  /**
+   * Derive a password deterministically from a group key
+   * Uses SHA-256 hash of the key, encoded as base64url
+   * @param groupKeyBase64 - The group's symmetric key in Base64 format
+   */
+  async derivePasswordFromKey(groupKeyBase64: string): Promise<string> {
+    // Convert base64 key to bytes
+    const keyBytes = Uint8Array.from(atob(groupKeyBase64), (c) => c.charCodeAt(0));
+
+    // Hash the key with SHA-256
+    const hashBuffer = await crypto.subtle.digest('SHA-256', keyBytes);
+    const hashArray = new Uint8Array(hashBuffer);
+
+    // Convert to base64url (URL-safe, no padding)
+    const base64 = btoa(String.fromCharCode(...hashArray));
+    return base64.replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '');
+  }
+
+  /**
+   * Subscribe to auth store changes
+   */
+  onAuthChange(callback: (token: string, record: UserRecord | null) => void): () => void {
+    return this.pb.authStore.onChange((token, model) => {
+      callback(token, model as UserRecord | null);
+    });
   }
 
   // ==================== Loro Updates API ====================
@@ -142,14 +263,7 @@ export class PocketBaseClient {
     updateData: string; // Base64-encoded Uint8Array
     version?: any;
   }): Promise<LoroUpdateRecord> {
-    const record = await this.pb.collection('loro_updates').create<LoroUpdateRecord>(data);
-
-    // Update group activity timestamp
-    this.updateGroupActivity(data.groupId, data.timestamp).catch(() => {
-      // Ignore errors
-    });
-
-    return record;
+    return await this.pb.collection('loro_updates').create<LoroUpdateRecord>(data);
   }
 
   /**

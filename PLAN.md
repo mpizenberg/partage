@@ -12,19 +12,23 @@ Set up a monorepo structure for a fully encrypted, local-first bill-splitting PW
 ## Implementation Status
 
 **Current Phase**: Phase 8 - Polish & Production
-**Last Updated**: January 13, 2026
+**Last Updated**: January 18, 2026
 
 ### Completed
-- ✅ **Phase 8 (Partial)**: UI/UX Improvements
+- ✅ **Phase 8 (Partial)**: Security & UI/UX Improvements
+  - **Anti-spam protection** (Proof-of-Work):
+    - Server-side PoW challenge/response with HMAC-signed challenges
+    - Client-side SHA-256 computation (~2-4 seconds to solve)
+    - Unique challenge per group (prevents reuse)
+    - PocketBase hooks validate PoW before group creation
+  - **Simplified authentication model**:
+    - No user accounts (no login/registration needed)
+    - Group users created automatically with derived passwords
+    - Password derived from group key for seamless authentication
   - Spanish language support (full translation ~425 keys)
-  - Language selector with flags and shorthand (🇬🇧 EN, 🇫🇷 FR, 🇪🇸 ES)
+  - Language selector with flags and shorthand
   - Global footer with GitHub repository link
   - Toast notification system for relevant activities
-    - Smart filtering (only shows activities affecting the user)
-    - Color-coded by type (green/orange/red borders)
-    - Auto-dismiss after 5 seconds
-    - Multi-language support
-  - PWA push notifications (in progress)
 - ✅ **Phase 7**: Simplified Trusted Group Join (100% complete)
   - Single group key (no rotation) embedded in URL fragment
   - Member alias system for claiming virtual member identities
@@ -109,6 +113,7 @@ Set up a monorepo structure for a fully encrypted, local-first bill-splitting PW
 │   │   │   ├── /core              # Core business logic
 │   │   │   │   ├── /crypto        # WebCrypto operations ✅
 │   │   │   │   ├── /crdt          # Loro CRDT wrapper ✅
+│   │   │   │   ├── /pow           # Proof-of-Work computation ✅
 │   │   │   │   ├── /sync          # Sync engine ✅
 │   │   │   │   └── /storage       # IndexedDB wrapper ✅
 │   │   │   ├── /domain            # Domain models & calculations ✅

@@ -177,7 +177,7 @@ export const GroupViewScreen: Component = () => {
       }
 
       // Generate the invite link (same as when creating invitations)
-      const inviteLink = generateInviteLink(group.id, groupKeyBase64, group.name)
+      const inviteLink = generateInviteLink(group.id, groupKeyBase64)
 
       // Extract the path from the invite link (remove origin)
       // inviteLink format: http://localhost:3000/join/groupId?name=...#key

@@ -21,7 +21,7 @@ partage/
 ### Prerequisites
 
 - Node.js >= 20.0.0
-- pnpm >= 8.0.0
+- pnpm >= 10.0.0
 
 ### Installation
 
@@ -83,6 +83,7 @@ RAILPACK_SPA_OUTPUT_DIR=packages/client/dist
 - **Zero-knowledge server**: Server only relays encrypted CRDT operations
 - **Local-first**: Offline-capable with IndexedDB storage
 - **Cryptographic identity**: No passwords, keypair-based authentication
+- **Anti-spam protection**: Proof-of-Work challenge required for group creation
 
 ### Tech Stack
 - **Frontend**: SolidJS, Vite, TypeScript
@@ -97,16 +98,22 @@ See [PLAN.md](./PLAN.md) for the complete implementation roadmap.
 
 ### Current Phase: Phase 8 - Polish & Production 🔄
 
-**Recent Updates** (January 13, 2026):
+**Recent Updates** (January 18, 2026):
+- ✅ Proof-of-Work anti-spam protection for group creation
+  - Server-side challenge/response with HMAC-signed challenges
+  - Client-side SHA-256 computation (~2-4 seconds to solve)
+  - One PoW = one group (unique constraint prevents reuse)
+  - PocketBase hooks validate PoW before group creation
+- ✅ Simplified authentication model
+  - Removed user accounts (no login/registration required)
+  - Group users created automatically with derived passwords
+  - Password derived from group key for seamless authentication
+
+**Previous Updates** (January 13, 2026):
 - ✅ Spanish language support (full translation)
-- ✅ Language selector with flags (🇬🇧 EN, 🇫🇷 FR, 🇪🇸 ES)
+- ✅ Language selector with flags
 - ✅ Global footer with GitHub repository link
 - ✅ Toast notifications for relevant activities
-  - Smart filtering: only shows activities that affect you
-  - Color-coded by type (added/modified/deleted)
-  - Auto-dismiss after 5 seconds
-  - Translates to user's selected language
-- 🔄 PWA push notifications (in progress)
 
 **Phase 7 - Simplified Trusted Group Join: ✅ COMPLETED** (January 12, 2026)
 - ✅ Single group key (no rotation) embedded in URL fragment

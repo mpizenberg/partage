@@ -1,7 +1,7 @@
 import { Component, JSX } from 'solid-js'
 
 export interface InputProps {
-  type?: 'text' | 'number' | 'date' | 'email'
+  type?: 'text' | 'number' | 'date' | 'email' | 'password'
   value?: string | number
   placeholder?: string
   disabled?: boolean
@@ -17,6 +17,7 @@ export interface InputProps {
   min?: number
   max?: number
   step?: number
+  autocomplete?: string
 }
 
 export const Input: Component<InputProps> = (props) => {
@@ -44,6 +45,7 @@ export const Input: Component<InputProps> = (props) => {
       min={props.min}
       max={props.max}
       step={props.step}
+      autocomplete={props.autocomplete}
     />
   )
 }

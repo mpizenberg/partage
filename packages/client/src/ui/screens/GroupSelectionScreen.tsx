@@ -4,6 +4,7 @@ import { useI18n, formatDate, formatNumber } from '../../i18n';
 import { useAppContext, type ImportAnalysis } from '../context/AppContext';
 import { Button } from '../components/common/Button';
 import { ImportPreviewModal } from '../components/import/ImportPreviewModal';
+import { LanguageSwitcher } from '../components/common/LanguageSwitcher';
 
 export const GroupSelectionScreen: Component = () => {
   const { t, locale } = useI18n();
@@ -211,9 +212,12 @@ export const GroupSelectionScreen: Component = () => {
             class="group-selection-screen"
             style="max-width: 600px; margin: 0 auto; padding-top: var(--space-xl);"
           >
-            {/* Header */}
+            {/* Header with language switcher */}
             <div class="mb-xl">
-              <h1 class="text-2xl font-bold mb-sm">{t('groups.title')}</h1>
+              <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: var(--space-sm);">
+                <h1 class="text-2xl font-bold">{t('groups.title')}</h1>
+                <LanguageSwitcher />
+              </div>
               <p class="text-base text-muted">{t('groups.subtitle')}</p>
               <Show when={identity()}>
                 <p class="text-sm text-muted mt-sm">

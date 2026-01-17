@@ -9,8 +9,9 @@
  * Security model:
  * - Anyone with the link can join without approval
  * - The link should only be shared via trusted channels (WhatsApp, Signal, in person)
- * - Server never sees the group key
+ * - Server never sees the group key (it's in the URL fragment)
  * - All data remains end-to-end encrypted
+ * - PocketBase authentication password is derived from the group key
  */
 
 /**
@@ -25,7 +26,7 @@ function base64ToBase64Url(base64: string): string {
  * Convert Base64URL back to Base64
  * Replaces - with +, _ with /, and adds back = padding
  */
-function base64UrlToBase64(base64Url: string): string {
+export function base64UrlToBase64(base64Url: string): string {
   let base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
   // Add padding if needed
   while (base64.length % 4 !== 0) {
@@ -39,24 +40,12 @@ function base64UrlToBase64(base64Url: string): string {
  *
  * @param groupId - ID of the group
  * @param groupKeyBase64 - Base64-encoded group symmetric key
- * @param groupName - Name of the group (optional, for display)
  * @returns Shareable invite link with key in fragment
  */
-export function generateInviteLink(
-  groupId: string,
-  groupKeyBase64: string,
-  groupName?: string
-): string {
+export function generateInviteLink(groupId: string, groupKeyBase64: string): string {
   const keyBase64Url = base64ToBase64Url(groupKeyBase64);
   // Key is in fragment (#) so it's never sent to the server
-  const baseUrl = `${window.location.origin}/join/${groupId}#${keyBase64Url}`;
-
-  // Group name can be appended as query parameter (before fragment)
-  if (groupName) {
-    return `${window.location.origin}/join/${groupId}?name=${encodeURIComponent(groupName)}#${keyBase64Url}`;
-  }
-
-  return baseUrl;
+  return `${window.location.origin}/join/${groupId}#${keyBase64Url}`;
 }
 
 /**
@@ -98,21 +87,6 @@ export function parseInviteLink(url: string): { groupId: string; groupKey: strin
     return { groupId, groupKey };
   } catch (error) {
     console.error('Failed to parse invite link:', error);
-    return null;
-  }
-}
-
-/**
- * Extract group name from invite URL query parameters (if present)
- *
- * @param fullUrl - Complete URL including query parameters
- * @returns Group name or null if not present
- */
-export function extractGroupNameFromUrl(fullUrl: string): string | null {
-  try {
-    const url = new URL(fullUrl);
-    return url.searchParams.get('name');
-  } catch {
     return null;
   }
 }
