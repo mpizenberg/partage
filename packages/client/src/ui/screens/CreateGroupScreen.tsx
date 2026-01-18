@@ -1,4 +1,4 @@
-import { Component, createSignal, Show } from 'solid-js';
+import { Component, createSignal, Show, onMount, onCleanup } from 'solid-js';
 import { useNavigate } from '@solidjs/router';
 import { useI18n } from '../../i18n';
 import { useAppContext } from '../context/AppContext';
@@ -8,7 +8,7 @@ import { Button } from '../components/common/Button';
 import { MemberManager } from '../components/forms/MemberManager';
 import { LoadingSpinner } from '../components/common/LoadingSpinner';
 import { pbClient } from '../../api';
-import { solvePoWChallenge } from '../../core/pow/proof-of-work';
+import { BackgroundPoWSolver, type PoWState } from '../../core/pow/proof-of-work';
 import type { Member } from '@partage/shared';
 
 // Predefined currency list
@@ -56,9 +56,25 @@ export const CreateGroupScreen: Component<CreateGroupScreenProps> = (props) => {
   const [members, setMembers] = createSignal<Member[]>([]);
   const [validationError, setValidationError] = createSignal<string | null>(null);
 
-  // PoW state
-  const [isSolvingPoW, setIsSolvingPoW] = createSignal(false);
-  const [powProgress, setPowProgress] = createSignal<{ hashes: number; rate: number } | null>(null);
+  // PoW state - using background solver
+  const [powState, setPowState] = createSignal<PoWState>({ status: 'idle' });
+  const [isWaitingForPoW, setIsWaitingForPoW] = createSignal(false);
+
+  // Create background PoW solver
+  const powSolver = new BackgroundPoWSolver(() => pbClient.getPoWChallenge());
+
+  // Start background PoW computation on mount
+  onMount(() => {
+    powSolver.onStateChange((state) => {
+      setPowState(state);
+    });
+    powSolver.start();
+  });
+
+  // Cleanup on unmount
+  onCleanup(() => {
+    powSolver.abort();
+  });
 
   // Initialize with current user
   const currentUser = (): Member => ({
@@ -119,20 +135,12 @@ export const CreateGroupScreen: Component<CreateGroupScreenProps> = (props) => {
     }
 
     try {
-      // Step 1: Get and solve PoW challenge
-      setIsSolvingPoW(true);
-      setPowProgress(null);
+      // Wait for PoW solution (returns immediately if already solved)
+      setIsWaitingForPoW(true);
+      const powSolution = await powSolver.waitForSolution();
+      setIsWaitingForPoW(false);
 
-      const challenge = await pbClient.getPoWChallenge();
-
-      const powSolution = await solvePoWChallenge(challenge, (hashes, rate) => {
-        setPowProgress({ hashes, rate });
-      });
-
-      setIsSolvingPoW(false);
-      setPowProgress(null);
-
-      // Step 2: Create the group with PoW solution
+      // Create the group with PoW solution
       // Pass only virtual members - AppContext will add current user
       await createGroup(groupName().trim(), currency(), members(), powSolution, myName().trim());
 
@@ -146,14 +154,28 @@ export const CreateGroupScreen: Component<CreateGroupScreenProps> = (props) => {
       }
     } catch (err) {
       console.error('[CreateGroupScreen] Failed to create group:', err);
-      setIsSolvingPoW(false);
-      setPowProgress(null);
+      setIsWaitingForPoW(false);
       // Error is already set in context
     }
   };
 
-  // Check if form is currently submitting
-  const isSubmitting = () => isSolvingPoW() || isLoading();
+  // Check if form is currently submitting (waiting for PoW or creating group)
+  const isSubmitting = () => isWaitingForPoW() || isLoading();
+
+  // Check if PoW is still computing in background
+  const isPowComputing = () => {
+    const state = powState();
+    return state.status === 'fetching' || state.status === 'solving';
+  };
+
+  // Get PoW progress info
+  const getPowProgress = () => {
+    const state = powState();
+    if (state.status === 'solving') {
+      return { hashes: state.hashesComputed, rate: state.hashRate };
+    }
+    return null;
+  };
 
   return (
     <div class="container">
@@ -232,21 +254,36 @@ export const CreateGroupScreen: Component<CreateGroupScreenProps> = (props) => {
             />
           </div>
 
-          {/* PoW Progress */}
-          <Show when={isSolvingPoW()}>
+          {/* PoW Progress - shown when waiting after submit and PoW not ready */}
+          <Show when={isWaitingForPoW() && isPowComputing()}>
             <div class="info-message mb-md">
               <div class="flex items-center gap-sm">
                 <LoadingSpinner size="small" />
                 <span>{t('createGroup.solvingPoW')}</span>
               </div>
-              <Show when={powProgress()}>
+              <Show when={getPowProgress()}>
                 <p class="text-sm text-muted mt-xs">
                   {t('createGroup.powProgress', {
-                    hashes: (powProgress()?.hashes || 0).toLocaleString(),
-                    rate: (powProgress()?.rate || 0).toLocaleString(),
+                    hashes: (getPowProgress()?.hashes || 0).toLocaleString(),
+                    rate: (getPowProgress()?.rate || 0).toLocaleString(),
                   })}
                 </p>
               </Show>
+            </div>
+          </Show>
+
+          {/* Subtle background PoW indicator - shown while filling form */}
+          <Show when={!isWaitingForPoW() && isPowComputing()}>
+            <div class="text-sm text-muted mb-md" style="display: flex; align-items: center; gap: var(--space-xs);">
+              <LoadingSpinner size="small" />
+              <span>{t('createGroup.preparingInBackground')}</span>
+            </div>
+          </Show>
+
+          {/* PoW Error */}
+          <Show when={powState().status === 'error'}>
+            <div class="error-message mb-md">
+              {(powState() as { status: 'error'; error: string }).error}
             </div>
           </Show>
 

@@ -92,7 +92,8 @@
     "createButton": "Créer le groupe",
     "creating": "Création...",
     "solvingPoW": "Vérification anti-spam en cours...",
-    "powProgress": "{hashes} hashs calculés ({rate} H/s)"
+    "powProgress": "{hashes} hashs calculés ({rate} H/s)",
+    "preparingInBackground": "Préparation de la vérification..."
   },
 
   "joinGroup": {

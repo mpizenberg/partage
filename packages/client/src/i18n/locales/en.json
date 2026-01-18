@@ -92,7 +92,8 @@
     "createButton": "Create Group",
     "creating": "Creating...",
     "solvingPoW": "Verifying you're not a robot...",
-    "powProgress": "{hashes} hashes computed ({rate} H/s)"
+    "powProgress": "{hashes} hashes computed ({rate} H/s)",
+    "preparingInBackground": "Preparing verification..."
   },
 
   "joinGroup": {
