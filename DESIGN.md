@@ -390,6 +390,14 @@ For any entry:
 - User identity = cryptographic keypair
 - User generates keypair on first use (in browser/app)
 
+**Anti-Spam Protection** (Proof-of-Work):
+- Group creation requires solving a PoW challenge
+- Challenge: Find nonce where SHA256(challenge + nonce) has N leading zero bits
+- Difficulty: 18 bits (~2-4 seconds to solve on modern hardware)
+- Challenge signed by server (HMAC) to prevent forgery
+- Unique challenge stored per group (prevents reuse)
+- Group users created automatically after group exists
+
 **User Identity Persistence**:
 - Private key stored in browser/app secure storage
 - Same identity can be used across multiple groups
@@ -633,7 +641,6 @@ Especially if the beneficiary of a transfer has provided information making it e
 - Expense categories (beyond predefined)
 - Comments on entries
 - Dispute resolution workflow
-- Rate limiting / abuse prevention
 - Email notifications
 - Group chat
 - Map view

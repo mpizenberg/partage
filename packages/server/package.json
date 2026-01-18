@@ -8,6 +8,8 @@
     "serve": "cd bin && ./pocketbase serve",
     "start": "pnpm serve",
     "setup": "node setup-collections.js",
+    "clear": "node clear-database.js",
+    "reset": "node clear-database.js --delete-collections && node setup-collections.js",
     "build": "echo 'Server setup complete'",
     "clean": "rm -rf bin/pb_data/*.db"
   },

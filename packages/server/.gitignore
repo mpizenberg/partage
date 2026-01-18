@@ -1,2 +1,4 @@
-bin/
 .env
+pocketbase
+pb_data
+pb_migrations

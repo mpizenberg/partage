@@ -9,5 +9,5 @@ export const CRYPTO_CONFIG = {
 
 export const STORAGE_CONFIG = {
   DB_NAME: 'partage-db',
-  DB_VERSION: 2, // Incremental snapshot storage
+  DB_VERSION: 3, // Group passwords storage for PocketBase auth
 } as const;

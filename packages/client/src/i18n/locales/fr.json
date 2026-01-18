@@ -34,6 +34,32 @@
     "keysStored": "Vos clés sont stockées en toute sécurité sur cet appareil uniquement."
   },
 
+  "login": {
+    "title": "Connexion",
+    "registerTitle": "Créer un compte",
+    "subtitle": "Connectez-vous pour créer des groupes",
+    "registerSubtitle": "Créez un compte pour commencer à créer des groupes",
+    "description": "L'authentification est nécessaire pour créer de nouveaux groupes. Rejoindre des groupes existants ne nécessite pas de connexion.",
+    "usernamePlaceholder": "Nom d'utilisateur",
+    "passwordPlaceholder": "Mot de passe",
+    "confirmPasswordPlaceholder": "Confirmer le mot de passe",
+    "signIn": "Se connecter",
+    "register": "Créer un compte",
+    "signingIn": "Connexion en cours...",
+    "registering": "Création du compte...",
+    "fieldsRequired": "Veuillez remplir tous les champs",
+    "passwordMismatch": "Les mots de passe ne correspondent pas",
+    "passwordTooShort": "Le mot de passe doit contenir au moins 8 caractères",
+    "noAccount": "Pas encore de compte ?",
+    "createAccount": "Créer un compte",
+    "haveAccount": "Vous avez déjà un compte ?",
+    "signInInstead": "Se connecter",
+    "solvingPow": "Vérification que vous n'êtes pas un robot...",
+    "hashesComputed": "calculs effectués",
+    "hashesPerSecond": "H/s",
+    "privacyNote": "Vos données de dépenses restent chiffrées sur votre appareil. L'authentification protège uniquement la création de groupes."
+  },
+
   "groups": {
     "title": "Vos Groupes",
     "subtitle": "Sélectionnez un groupe ou créez-en un nouveau",
@@ -64,7 +90,10 @@
     "initialMembers": "Membres initiaux (Optionnel)",
     "addVirtualMember": "Ajouter un membre virtuel",
     "createButton": "Créer le groupe",
-    "creating": "Création..."
+    "creating": "Création...",
+    "solvingPoW": "Vérification anti-spam en cours...",
+    "powProgress": "{hashes} hashs calculés ({rate} H/s)",
+    "preparingInBackground": "Préparation de la vérification..."
   },
 
   "joinGroup": {
@@ -91,7 +120,8 @@
     "clickToExpand": "(cliquer pour développer)",
     "joinAsNewMember": "Rejoindre en tant que nouveau membre :",
     "nameTaken": "Ce nom est déjà utilisé",
-    "duplicateName": "Un membre avec ce nom existe déjà"
+    "duplicateName": "Un membre avec ce nom existe déjà",
+    "linkExpired": "Ce lien d'invitation a expiré. Veuillez en demander un nouveau."
   },
 
   "tabs": {

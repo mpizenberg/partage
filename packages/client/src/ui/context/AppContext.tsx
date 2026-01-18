@@ -55,6 +55,7 @@ import type {
 import { DEFAULT_GROUP_SETTINGS } from '@partage/shared';
 import { generateInviteLink } from '../../domain/invitations/invite-manager';
 import { publishNotification } from '../../domain/notifications/ntfy-client';
+import type { PoWSolution } from '../../core/pow/proof-of-work';
 
 // Expense form data interface
 export interface ExpenseFormData {
@@ -93,7 +94,7 @@ interface AppContextValue {
   loroStore: Accessor<LoroEntryStore | null>;
   syncManager: Accessor<SyncManager | null>;
 
-  // User identity
+  // User identity (local crypto keypair)
   identity: Accessor<SerializedKeypair | null>;
   initializeIdentity: () => Promise<void>;
 
@@ -104,6 +105,7 @@ interface AppContextValue {
     name: string,
     currency: string,
     members: Member[],
+    powSolution: PoWSolution,
     myUserName?: string
   ) => Promise<void>;
   selectGroup: (groupId: string) => Promise<void>;
@@ -144,7 +146,7 @@ interface AppContextValue {
   setActivityFilter: (filter: ActivityFilter) => void;
 
   // Invitations & Multi-User (Simplified)
-  createInvitation: (groupId: string, groupName: string) => Promise<{ inviteLink: string }>;
+  createInvitation: (groupId: string) => Promise<{ inviteLink: string }>;
   joinGroupWithKey: (
     groupId: string,
     groupKeyBase64: string,
@@ -444,10 +446,12 @@ export const AppProvider: Component<{ children: JSX.Element }> = (props) => {
   };
 
   // Create new group
+  // Requires a PoW solution to prevent spam
   const createGroup = async (
     name: string,
     currency: string,
     virtualMembers: Member[],
+    powSolution: PoWSolution,
     myUserName: string = 'You'
   ) => {
     try {
@@ -459,20 +463,34 @@ export const AppProvider: Component<{ children: JSX.Element }> = (props) => {
         throw new Error('No identity found. Please initialize identity first.');
       }
 
-      // Create group on server first to get server-generated ID
+      // Generate group key first (needed for password derivation)
+      const groupKey = await generateSymmetricKey();
+      const exportedKey = await exportSymmetricKey(groupKey);
+
+      // Create group on server to get server-generated ID
+      // PoW is required and validated by server hook
       let groupId: string;
       const createdAt = Date.now();
 
       if (navigator.onLine) {
         try {
-          const serverGroup = await pbClient.createGroup({
-            name,
-            createdAt,
-            createdBy: currentIdentity.publicKeyHash,
-            lastActivityAt: createdAt,
-            memberCount: virtualMembers.length + 1,
-          });
+          const serverGroup = await pbClient.createGroup(
+            {
+              name,
+              createdAt,
+              createdBy: currentIdentity.publicKeyHash,
+              memberCount: virtualMembers.length + 1,
+            },
+            powSolution
+          );
           groupId = serverGroup.id;
+
+          // Create group user account (password derived from group key)
+          // No PoW needed - server validates that groupId exists
+          await pbClient.createGroupUser(groupId, exportedKey);
+
+          // Authenticate as group account for subsequent API calls
+          await pbClient.authenticateAsGroup(groupId, exportedKey);
         } catch (error) {
           console.error('[AppContext] Failed to create group on server:', error);
           throw new Error('Failed to create group on server. Please check your connection.');
@@ -481,10 +499,6 @@ export const AppProvider: Component<{ children: JSX.Element }> = (props) => {
         // Offline: use UUID (will need special handling for sync later)
         groupId = crypto.randomUUID();
       }
-
-      // Generate group key
-      const groupKey = await generateSymmetricKey();
-      const exportedKey = await exportSymmetricKey(groupKey);
 
       // Default group settings
       const defaultSettings: GroupSettings = {
@@ -600,6 +614,16 @@ export const AppProvider: Component<{ children: JSX.Element }> = (props) => {
       const group = await db.getGroup(groupId);
       if (!group) {
         throw new Error('Group not found');
+      }
+
+      // Re-authenticate as group account for API access (password derived from key)
+      const groupKeyBase64 = await db.getGroupKey(groupId);
+      if (groupKeyBase64 && navigator.onLine) {
+        try {
+          await pbClient.authenticateAsGroup(groupId, groupKeyBase64);
+        } catch (authErr) {
+          console.warn('[AppContext] Failed to authenticate as group, some features may not work:', authErr);
+        }
       }
 
       // Load Loro snapshot + incremental updates (and consolidate)
@@ -1382,7 +1406,7 @@ export const AppProvider: Component<{ children: JSX.Element }> = (props) => {
   };
 
   // Simplified: Create invitation with embedded group key
-  const createInvitation = async (groupId: string, groupName: string) => {
+  const createInvitation = async (groupId: string) => {
     try {
       const group = activeGroup();
       if (!group || group.id !== groupId) {
@@ -1395,8 +1419,8 @@ export const AppProvider: Component<{ children: JSX.Element }> = (props) => {
         throw new Error('Group key not found');
       }
 
-      // Generate invite link with embedded key
-      const inviteLink = generateInviteLink(groupId, groupKeyBase64, groupName);
+      // Generate invite link with embedded key (password is derived from key)
+      const inviteLink = generateInviteLink(groupId, groupKeyBase64);
 
       return { inviteLink };
     } catch (err) {
@@ -1417,6 +1441,9 @@ export const AppProvider: Component<{ children: JSX.Element }> = (props) => {
       if (!currentIdentity) {
         throw new Error('No identity found');
       }
+
+      // Authenticate as group account (password derived from key)
+      await pbClient.authenticateAsGroup(groupId, groupKeyBase64);
 
       // Fetch all updates from server to build the Loro state
       const updates = await pbClient.fetchAllUpdates(groupId);
@@ -1464,7 +1491,7 @@ export const AppProvider: Component<{ children: JSX.Element }> = (props) => {
         activeMembers: existingMembers,
       };
 
-      // Save group and key locally
+      // Save group and key locally (password is derived from key, no need to store)
       await db.saveGroup(group);
       await db.saveGroupKey(groupId, groupKeyBase64);
 

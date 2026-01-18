@@ -2,12 +2,13 @@
  * Join Group Screen - Simplified trusted group join flow
  * Flow:
  * 1. Parse groupId from URL path and groupKey from URL fragment (#)
- * 2. Import group key and fetch group data from server
- * 3. Display existing members and ask user to:
+ * 2. Authenticate as group account (password derived from key)
+ * 3. Fetch group data from server
+ * 4. Display existing members and ask user to:
  *    - Enter new name as new member, OR
  *    - Claim existing virtual member identity
- * 4. Add member to Loro CRDT (with alias if claiming existing)
- * 5. Sync to server and navigate to group
+ * 5. Add member to Loro CRDT (with alias if claiming existing)
+ * 6. Sync to server and navigate to group
  *
  * URL format: /join/:groupId#<base64url-key>
  * The key is in the fragment so it's never sent to the server
@@ -22,19 +23,8 @@ import { Input } from '../components/common/Input';
 import { LoadingSpinner } from '../components/common/LoadingSpinner';
 import { LanguageSwitcher } from '../components/common/LanguageSwitcher';
 import { pbClient, PocketBaseClient } from '../../api';
+import { base64UrlToBase64 } from '../../domain/invitations/invite-manager';
 import type { Member } from '@partage/shared';
-
-/**
- * Convert Base64URL back to standard Base64
- */
-function base64UrlToBase64(base64Url: string): string {
-  let base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
-  // Add padding if needed
-  while (base64.length % 4 !== 0) {
-    base64 += '=';
-  }
-  return base64;
-}
 
 export const JoinGroupScreen: Component = () => {
   const { t } = useI18n();
@@ -109,7 +99,9 @@ export const JoinGroupScreen: Component = () => {
       // Convert Base64URL (from URL) back to standard Base64
       const groupKey = base64UrlToBase64(groupKeyBase64Url);
       setGroupKeyBase64(groupKey);
-      console.log('[JoinGroupScreen] Extracted key from URL fragment');
+
+      // Authenticate as group account (password derived from key)
+      await pbClient.authenticateAsGroup(groupId, groupKey);
 
       // Ensure user has identity (AppContext has already initialized at this point)
       let currentIdentity = identity();
@@ -223,7 +215,7 @@ export const JoinGroupScreen: Component = () => {
         ? existingMembers().find(m => m.id === memberId)?.name || ''
         : userName();
 
-      // Join the group using the simplified method (with converted Base64 key)
+      // Join the group using the simplified method (password derived from key)
       await joinGroupWithKey(
         groupId,
         groupKeyBase64(),

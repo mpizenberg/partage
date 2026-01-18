@@ -34,6 +34,32 @@
     "keysStored": "Your keys are stored securely on this device only."
   },
 
+  "login": {
+    "title": "Sign In",
+    "registerTitle": "Create Account",
+    "subtitle": "Login to create groups",
+    "registerSubtitle": "Create an account to start creating groups",
+    "description": "Authentication is required to create new groups. Joining existing groups doesn't require login.",
+    "usernamePlaceholder": "Username",
+    "passwordPlaceholder": "Password",
+    "confirmPasswordPlaceholder": "Confirm Password",
+    "signIn": "Sign In",
+    "register": "Create Account",
+    "signingIn": "Signing in...",
+    "registering": "Creating account...",
+    "fieldsRequired": "Please fill in all fields",
+    "passwordMismatch": "Passwords do not match",
+    "passwordTooShort": "Password must be at least 8 characters",
+    "noAccount": "Don't have an account?",
+    "createAccount": "Create one",
+    "haveAccount": "Already have an account?",
+    "signInInstead": "Sign in",
+    "solvingPow": "Verifying you're not a robot...",
+    "hashesComputed": "hashes computed",
+    "hashesPerSecond": "H/s",
+    "privacyNote": "Your expense data remains encrypted on your device. Authentication only protects group creation."
+  },
+
   "groups": {
     "title": "Your Groups",
     "subtitle": "Select a group or create a new one",
@@ -64,7 +90,10 @@
     "initialMembers": "Initial Members (Optional)",
     "addVirtualMember": "Add Virtual Member",
     "createButton": "Create Group",
-    "creating": "Creating..."
+    "creating": "Creating...",
+    "solvingPoW": "Verifying you're not a robot...",
+    "powProgress": "{hashes} hashes computed ({rate} H/s)",
+    "preparingInBackground": "Preparing verification..."
   },
 
   "joinGroup": {
@@ -91,7 +120,8 @@
     "clickToExpand": "(click to expand)",
     "joinAsNewMember": "Join as a new member:",
     "nameTaken": "This name is already taken",
-    "duplicateName": "A member with this name already exists"
+    "duplicateName": "A member with this name already exists",
+    "linkExpired": "This invite link has expired. Please request a new one."
   },
 
   "tabs": {

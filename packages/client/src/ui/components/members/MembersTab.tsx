@@ -27,7 +27,7 @@ export const MembersTab: Component<MembersTabProps> = (props) => {
     const group = activeGroup()
     if (!group) return
 
-    const result = await createInvitation(group.id, group.name)
+    const result = await createInvitation(group.id)
     setInviteLink(result.inviteLink)
   }
 

@@ -1,4 +1,4 @@
-import { Component, createSignal, Show } from 'solid-js';
+import { Component, createSignal, Show, onMount, onCleanup } from 'solid-js';
 import { useNavigate } from '@solidjs/router';
 import { useI18n } from '../../i18n';
 import { useAppContext } from '../context/AppContext';
@@ -7,6 +7,8 @@ import { Select, SelectOption } from '../components/common/Select';
 import { Button } from '../components/common/Button';
 import { MemberManager } from '../components/forms/MemberManager';
 import { LoadingSpinner } from '../components/common/LoadingSpinner';
+import { pbClient } from '../../api';
+import { BackgroundPoWSolver, type PoWState } from '../../core/pow/proof-of-work';
 import type { Member } from '@partage/shared';
 
 // Predefined currency list
@@ -53,6 +55,26 @@ export const CreateGroupScreen: Component<CreateGroupScreenProps> = (props) => {
   const [myName, setMyName] = createSignal('');
   const [members, setMembers] = createSignal<Member[]>([]);
   const [validationError, setValidationError] = createSignal<string | null>(null);
+
+  // PoW state - using background solver
+  const [powState, setPowState] = createSignal<PoWState>({ status: 'idle' });
+  const [isWaitingForPoW, setIsWaitingForPoW] = createSignal(false);
+
+  // Create background PoW solver
+  const powSolver = new BackgroundPoWSolver(() => pbClient.getPoWChallenge());
+
+  // Start background PoW computation on mount
+  onMount(() => {
+    powSolver.onStateChange((state) => {
+      setPowState(state);
+    });
+    powSolver.start();
+  });
+
+  // Cleanup on unmount
+  onCleanup(() => {
+    powSolver.abort();
+  });
 
   // Initialize with current user
   const currentUser = (): Member => ({
@@ -107,19 +129,20 @@ export const CreateGroupScreen: Component<CreateGroupScreenProps> = (props) => {
 
   const handleSubmit = async (e: Event) => {
     e.preventDefault();
-    console.log('[CreateGroupScreen] Form submitted');
-    console.log('[CreateGroupScreen] Virtual members:', members());
 
     if (!validate()) {
-      console.log('[CreateGroupScreen] Validation failed');
       return;
     }
 
     try {
-      console.log('[CreateGroupScreen] Calling createGroup...');
+      // Wait for PoW solution (returns immediately if already solved)
+      setIsWaitingForPoW(true);
+      const powSolution = await powSolver.waitForSolution();
+      setIsWaitingForPoW(false);
+
+      // Create the group with PoW solution
       // Pass only virtual members - AppContext will add current user
-      await createGroup(groupName().trim(), currency(), members(), myName().trim());
-      console.log('[CreateGroupScreen] Group created successfully');
+      await createGroup(groupName().trim(), currency(), members(), powSolution, myName().trim());
 
       // Navigate to the newly created group
       const group = activeGroup();
@@ -131,8 +154,27 @@ export const CreateGroupScreen: Component<CreateGroupScreenProps> = (props) => {
       }
     } catch (err) {
       console.error('[CreateGroupScreen] Failed to create group:', err);
+      setIsWaitingForPoW(false);
       // Error is already set in context
     }
+  };
+
+  // Check if form is currently submitting (waiting for PoW or creating group)
+  const isSubmitting = () => isWaitingForPoW() || isLoading();
+
+  // Check if PoW is still computing in background
+  const isPowComputing = () => {
+    const state = powState();
+    return state.status === 'fetching' || state.status === 'solving';
+  };
+
+  // Get PoW progress info
+  const getPowProgress = () => {
+    const state = powState();
+    if (state.status === 'solving') {
+      return { hashes: state.hashesComputed, rate: state.hashRate };
+    }
+    return null;
   };
 
   return (
@@ -212,6 +254,39 @@ export const CreateGroupScreen: Component<CreateGroupScreenProps> = (props) => {
             />
           </div>
 
+          {/* PoW Progress - shown when waiting after submit and PoW not ready */}
+          <Show when={isWaitingForPoW() && isPowComputing()}>
+            <div class="info-message mb-md">
+              <div class="flex items-center gap-sm">
+                <LoadingSpinner size="small" />
+                <span>{t('createGroup.solvingPoW')}</span>
+              </div>
+              <Show when={getPowProgress()}>
+                <p class="text-sm text-muted mt-xs">
+                  {t('createGroup.powProgress', {
+                    hashes: (getPowProgress()?.hashes || 0).toLocaleString(),
+                    rate: (getPowProgress()?.rate || 0).toLocaleString(),
+                  })}
+                </p>
+              </Show>
+            </div>
+          </Show>
+
+          {/* Subtle background PoW indicator - shown while filling form */}
+          <Show when={!isWaitingForPoW() && isPowComputing()}>
+            <div class="text-sm text-muted mb-md" style="display: flex; align-items: center; gap: var(--space-xs);">
+              <LoadingSpinner size="small" />
+              <span>{t('createGroup.preparingInBackground')}</span>
+            </div>
+          </Show>
+
+          {/* PoW Error */}
+          <Show when={powState().status === 'error'}>
+            <div class="error-message mb-md">
+              {(powState() as { status: 'error'; error: string }).error}
+            </div>
+          </Show>
+
           {/* Errors */}
           <Show when={validationError() || error()}>
             <div class="error-message mb-md">{validationError() || error()}</div>
@@ -223,7 +298,7 @@ export const CreateGroupScreen: Component<CreateGroupScreenProps> = (props) => {
               type="button"
               variant="secondary"
               onClick={props.onCancel}
-              disabled={isLoading()}
+              disabled={isSubmitting()}
               class="flex-1"
             >
               {t('common.cancel')}
@@ -231,10 +306,10 @@ export const CreateGroupScreen: Component<CreateGroupScreenProps> = (props) => {
             <Button
               type="submit"
               variant="primary"
-              disabled={isLoading() || !groupName().trim() || !myName().trim()}
+              disabled={isSubmitting() || !groupName().trim() || !myName().trim()}
               class="flex-1"
             >
-              <Show when={isLoading()} fallback={t('createGroup.createButton')}>
+              <Show when={isSubmitting()} fallback={t('createGroup.createButton')}>
                 <LoadingSpinner size="small" />
               </Show>
             </Button>
