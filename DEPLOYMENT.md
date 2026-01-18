@@ -17,19 +17,68 @@ Partage consists of two separate services that must be deployed:
 
 ## Deploying PocketBase
 
-### Option 1: Dokploy
+### Option 1: Dokploy (Recommended)
 
-1. Create a new application in Dokploy
-2. Configure as a Node.js application
-3. Set build command: `pnpm --filter server setup`
-4. Set start command: `./packages/server/bin/pocketbase serve --http=0.0.0.0:8090`
-5. Configure environment variables:
-   - `PB_ADMIN_EMAIL` - Admin email for PocketBase
-   - `PB_ADMIN_PASSWORD` - Admin password
-   - `VITE_POCKETBASE_URL` - URL where PocketBase will be accessible (e.g., `https://partage-pocketbase.yourhost.com`)
-6. Set port to `8090`
-7. Enable SSL/TLS via Traefik
-8. Deploy
+The project includes a custom PocketBase Docker image with hooks for anti-spam PoW protection.
+
+**Docker Compose:**
+
+```yaml
+version: "3.8"
+
+services:
+  pocketbase:
+    # Upgrade of adrianmusante/pocketbase:latest with my hooks on top
+    image: ghcr.io/mpizenberg/partage/pocketbase:latest
+    restart: always
+    expose:
+      - 8090
+    volumes:
+      - pocketbase-data:/pocketbase-data
+    environment:
+      - POCKETBASE_ADMIN_EMAIL=${ADMIN_EMAIL}
+      - POCKETBASE_ADMIN_PASSWORD=${ADMIN_PASSWORD}
+      - POCKETBASE_ADMIN_UPSERT=true
+      - POCKETBASE_PORT_NUMBER=8090
+      - POW_SECRET=${POW_SECRET}
+      - POCKETBASE_WORKDIR=/pocketbase-data
+      - POCKETBASE_HOOK_DIR=/pocketbase/pb_hooks
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:8090/_/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+volumes:
+  pocketbase-data: {}
+```
+
+**Environment Variables:**
+
+| Variable | Required | Description |
+|----------|----------|-------------|
+| `ADMIN_EMAIL` | Yes | Admin email for PocketBase |
+| `ADMIN_PASSWORD` | Yes | Admin password for PocketBase |
+| `POW_SECRET` | Yes | Secret for signing PoW challenges (generate with `openssl rand -hex 32`) |
+
+**Important:** The volume mounts at `/pocketbase-data` (not `/pocketbase`) to preserve the hooks directory from the Docker image. The `POCKETBASE_WORKDIR` environment variable redirects PocketBase to use the mounted volume.
+
+**Verify hooks are working:**
+
+```bash
+curl https://your-pocketbase-url/api/pow/challenge
+# Should return: {"challenge":"...","timestamp":...,"difficulty":18,"signature":"..."}
+```
+
+### Building the PocketBase Image
+
+The custom PocketBase image is built automatically via GitHub Actions when files in `packages/server/bin/pb_hooks/` or `packages/server/Dockerfile` change.
+
+To manually trigger a build:
+1. Go to GitHub Actions → "Build PocketBase Image"
+2. Click "Run workflow"
+
+The image is published to `ghcr.io/mpizenberg/partage/pocketbase:latest`.
 
 ### Option 2: Manual Deployment
 
@@ -38,6 +87,8 @@ Partage consists of two separate services that must be deployed:
 cd packages/server
 ./bin/pocketbase serve --http=0.0.0.0:8090
 ```
+
+Ensure the `pb_hooks` directory is in the same directory as the PocketBase executable, and set the `POW_SECRET` environment variable.
 
 Set up reverse proxy (nginx/Caddy) to handle SSL and proxy to port 8090.
 
@@ -196,6 +247,11 @@ These must be set **before** building the client:
 |----------|----------|-------------|
 | `PB_ADMIN_EMAIL` | Yes | Admin email for PocketBase |
 | `PB_ADMIN_PASSWORD` | Yes | Admin password for PocketBase |
+| `POW_SECRET` | Yes | Secret for signing PoW challenges |
+| `POCKETBASE_WORKDIR` | Yes* | Work directory path |
+| `POCKETBASE_HOOK_DIR` | Yes* | Hooks directory path |
+
+*Required when using the custom Docker image with Dokploy to separate data from hooks.
 
 ### Deployment (Dokploy/Railpack)
 
