@@ -1,0 +1,288 @@
+/* Settle Tab */
+.settle-tab {
+  padding: var(--space-md) 0;
+}
+
+.settle-section {
+  margin-bottom: var(--space-2xl);
+}
+
+.settle-section-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: var(--space-md);
+  margin-bottom: var(--space-lg);
+}
+
+.settle-section-title {
+  font-size: var(--font-size-xl);
+  font-weight: var(--font-weight-bold);
+  color: var(--color-text);
+  margin: 0 0 var(--space-xs) 0;
+}
+
+.settle-section-description {
+  font-size: var(--font-size-base);
+  color: var(--color-text-light);
+  margin: 0 0 var(--space-lg) 0;
+}
+
+/* Preferences */
+.preferences-empty {
+  padding: var(--space-xl);
+  text-align: center;
+  background: var(--color-bg-secondary);
+  border-radius: var(--radius-lg);
+}
+
+.preferences-list {
+  background: var(--color-bg);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  padding: var(--space-lg);
+}
+
+.preferences-label {
+  font-size: var(--font-size-base);
+  font-weight: var(--font-weight-medium);
+  color: var(--color-text);
+  margin: 0 0 var(--space-md) 0;
+}
+
+.preferred-members-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+}
+
+.preferred-member-item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  padding: var(--space-sm);
+  background: var(--color-bg-secondary);
+  border-radius: var(--radius-md);
+}
+
+.preferred-member-rank {
+  font-size: var(--font-size-base);
+  font-weight: var(--font-weight-bold);
+  color: var(--color-text-light);
+  min-width: 24px;
+}
+
+.preferred-member-name {
+  font-size: var(--font-size-base);
+  color: var(--color-text);
+}
+
+/* Preferences Editor */
+.preferences-editor {
+  background: var(--color-bg);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  padding: var(--space-lg);
+}
+
+.preferences-help {
+  margin-bottom: var(--space-lg);
+}
+
+.member-selection {
+  margin-bottom: var(--space-xl);
+}
+
+.member-selection-title {
+  font-size: var(--font-size-lg);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text);
+  margin: 0 0 var(--space-md) 0;
+}
+
+.member-selection-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+}
+
+.member-selection-item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  padding: var(--space-md);
+  background: var(--color-bg-secondary);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: all var(--transition-base);
+  width: 100%;
+  text-align: left;
+}
+
+.member-selection-item:hover {
+  background: var(--color-bg);
+  border-color: var(--color-primary);
+}
+
+.member-selection-item.selected {
+  background: var(--color-primary);
+  color: white;
+  border-color: var(--color-primary);
+}
+
+.member-selection-checkbox {
+  font-size: var(--font-size-lg);
+}
+
+.member-selection-name {
+  font-size: var(--font-size-base);
+  font-weight: var(--font-weight-medium);
+}
+
+.member-selection-item.selected .member-selection-name {
+  color: white;
+}
+
+.member-ordering {
+  margin-bottom: var(--space-xl);
+}
+
+.member-ordering-title {
+  font-size: var(--font-size-lg);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text);
+  margin: 0 0 var(--space-md) 0;
+}
+
+.member-ordering-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+}
+
+.member-ordering-item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+  padding: var(--space-md);
+  background: var(--color-bg-secondary);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+}
+
+.member-ordering-rank {
+  font-size: var(--font-size-base);
+  font-weight: var(--font-weight-bold);
+  color: var(--color-text-light);
+  min-width: 24px;
+}
+
+.member-ordering-name {
+  flex: 1;
+  font-size: var(--font-size-base);
+  color: var(--color-text);
+}
+
+.member-ordering-controls {
+  display: flex;
+  gap: var(--space-xs);
+}
+
+.member-ordering-btn {
+  padding: var(--space-xs) var(--space-sm);
+  background: var(--color-bg);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  font-size: var(--font-size-sm);
+  cursor: pointer;
+  transition: all var(--transition-base);
+  min-width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.member-ordering-btn:hover:not(:disabled) {
+  background: var(--color-primary);
+  color: white;
+  border-color: var(--color-primary);
+}
+
+.member-ordering-btn:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+}
+
+.member-ordering-btn-remove {
+  color: var(--color-danger);
+}
+
+.member-ordering-btn-remove:hover:not(:disabled) {
+  background: var(--color-danger);
+  color: white;
+  border-color: var(--color-danger);
+}
+
+.preferences-actions {
+  display: flex;
+  gap: var(--space-md);
+  justify-content: flex-end;
+  margin-top: var(--space-xl);
+  padding-top: var(--space-lg);
+  border-top: 1px solid var(--color-border);
+}
+
+/* Member Preference Cards */
+.member-preferences-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-lg);
+}
+
+.member-preference-card {
+  background: var(--color-bg);
+  border: 1px solid var(--color-border);
+}
+
+.member-preference-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--space-md);
+  margin-bottom: var(--space-md);
+}
+
+.member-preference-title {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+}
+
+.member-preference-name {
+  font-size: var(--font-size-lg);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text);
+}
+
+.member-preference-actions {
+  display: flex;
+  gap: var(--space-sm);
+}
+
+.member-preference-empty {
+  padding: var(--space-lg);
+  background: var(--color-bg-secondary);
+  border-radius: var(--radius-md);
+  text-align: center;
+}
+
+.member-preference-list {
+  background: var(--color-bg-secondary);
+  border-radius: var(--radius-md);
+  padding: var(--space-md);
+}
