@@ -12,8 +12,9 @@ partage/
 │   ├── client/          # SolidJS PWA (main application)
 │   ├── shared/          # Shared TypeScript types and constants
 │   └── server/          # PocketBase server setup
-├── DESIGN.md            # Product specification
-└── PLAN.md             # Implementation plan
+├── docs/
+│   ├── DESIGN.md            # Product specification
+│   └── PLAN.md             # Implementation plan
 ```
 
 ## Getting Started
@@ -63,7 +64,7 @@ This creates production-ready static files in `packages/client/dist/`.
 
 ### Deployment
 
-For production deployment instructions, see [DEPLOYMENT.md](./DEPLOYMENT.md).
+For production deployment instructions, see [DEPLOYMENT.md](./docs/DEPLOYMENT.md).
 
 **Quick summary:**
 
@@ -98,7 +99,7 @@ RAILPACK_SPA_OUTPUT_DIR=packages/client/dist
 
 ## Implementation Status
 
-See [PLAN.md](./PLAN.md) for the complete implementation roadmap.
+See [PLAN.md](./docs/PLAN.md) for the complete implementation roadmap.
 
 ### Current Phase: Phase 8 - Polish & Production 🔄
 
@@ -233,9 +234,9 @@ See [PLAN.md](./PLAN.md) for the complete implementation roadmap.
 
 ## Documentation
 
-- [DESIGN.md](./DESIGN.md) - Complete product specification
-- [PLAN.md](./PLAN.md) - Detailed implementation plan
-- [DEPLOYMENT.md](./DEPLOYMENT.md) - Production deployment guide
+- [DESIGN.md](./docs/DESIGN.md) - Complete product specification
+- [PLAN.md](./docs/PLAN.md) - Detailed implementation plan
+- [DEPLOYMENT.md](./docs/DEPLOYMENT.md) - Production deployment guide
 - [packages/server/README.md](./packages/server/README.md) - Server setup guide
 
 ## License
