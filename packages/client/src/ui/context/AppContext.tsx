@@ -479,7 +479,6 @@ export const AppProvider: Component<{ children: JSX.Element }> = (props) => {
               name,
               createdAt,
               createdBy: currentIdentity.publicKeyHash,
-              memberCount: virtualMembers.length + 1,
             },
             powSolution
           );

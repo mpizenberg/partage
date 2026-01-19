@@ -32,7 +32,6 @@ export interface GroupRecord {
   name: string;
   createdAt: number;
   createdBy: string;
-  memberCount: number;
   powChallenge: string; // Stored to prevent challenge reuse
   collectionId?: string;
   collectionName?: string;
@@ -119,7 +118,6 @@ export class PocketBaseClient {
       name: string;
       createdAt: number;
       createdBy: string;
-      memberCount: number;
     },
     powSolution: PoWSolution
   ): Promise<GroupRecord> {

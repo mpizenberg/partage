@@ -157,11 +157,6 @@ async function createGroupsCollection() {
         type: 'text',
         required: true,
       },
-      {
-        name: 'memberCount',
-        type: 'number',
-        required: true,
-      },
       // Store the PoW challenge to ensure uniqueness (one PoW = one group)
       {
         name: 'powChallenge',
