@@ -704,7 +704,155 @@ class IncrementalStateManager {
 
 ---
 
-## 7. Traversal Necessity Analysis
+## 7. Conflict Handling and Edge Cases
+
+### Concurrent Operation Scenarios
+
+In a distributed offline-first system, concurrent operations can create conflicts. Here's how the current architecture handles them:
+
+#### Scenario 1: Concurrent Member Replacements
+
+```
+Peer 1 (online):  A replaced by B  (event E1, t=100)
+Peer 2 (offline): A replaced by C  (event E2, t=150)
+                  ↓ sync
+Both events exist in Loro
+```
+
+**Current behavior:**
+
+- Both `member_replaced` events are stored in Loro
+- When computing member state, events are sorted by timestamp
+- The later event (E2, t=150) overwrites the earlier one
+- Result: A → C (last-writer-wins)
+
+#### Scenario 2: Entry Referencing "Stale" Member
+
+```
+Peer 1: A replaced by B  (t=100)
+Peer 2: Entry with payer=A created (t=150, before knowing about replacement)
+        ↓ sync
+```
+
+**Current behavior:**
+
+- Entry still has `payer.memberId = A`
+- Balance calculation resolves `A → B` via canonical ID map
+- Balance is correctly attributed to B
+- **Works correctly** due to canonical ID resolution
+
+#### Scenario 3: Entry Referencing Replaced-Twice Member
+
+```
+Peer 1: A replaced by B  (t=100)
+Peer 2: B replaced by C  (t=200)
+Peer 3: Entry with payer=A (t=150, created offline)
+        ↓ sync
+```
+
+**Current behavior:**
+
+- `resolveCanonicalMemberId(A)` follows the chain: A → B → C
+- Entry is attributed to C
+- **Works correctly** due to recursive resolution
+
+### Timestamp Ordering
+
+There are **two timestamp systems** in the codebase:
+
+| Timestamp                             | Set By                    | Used For                                 |
+| ------------------------------------- | ------------------------- | ---------------------------------------- |
+| `event.timestamp` / `entry.createdAt` | **Client** (`Date.now()`) | Sorting member events, activity ordering |
+| `record.created` / `record.updated`   | **PocketBase server**     | Sync metadata, database ordering         |
+
+The application logic uses **client-side timestamps** for ordering:
+
+```typescript
+// member-state.ts - Events sorted by client timestamp
+const memberEvents = events
+  .filter((e) => e.memberId === memberId)
+  .sort((a, b) => a.timestamp - b.timestamp);
+```
+
+**Why client timestamps?**
+
+- Preserves "logical" order (when user intended the action)
+- An offline action created at 10:00 but synced at 14:00 is ordered by 10:00
+- More intuitive for users
+
+**Collision risk:**
+
+- `Date.now()` has millisecond precision
+- Two clients would need to create events at the exact same millisecond
+- Very low probability in practice for small trusted groups
+
+### Why Commutativity Is Preserved
+
+Despite potential conflicts, balance commutativity holds because:
+
+1. **Canonical ID resolution is deterministic**
+   - Same set of member events → same timestamp ordering → same canonical ID map
+   - All devices compute the same resolution
+
+2. **Entry contributions are independent**
+   - Each entry adds/subtracts from balances independently
+   - Order of entry processing doesn't affect final sums
+
+3. **Conflicts resolve deterministically**
+   - Last-writer-wins based on timestamp
+   - Same timestamps are extremely rare (millisecond precision)
+
+| Scenario                         | Commutativity Preserved? | Reason                           |
+| -------------------------------- | ------------------------ | -------------------------------- |
+| Concurrent entries               | ✅ Yes                   | Independent contributions        |
+| Concurrent member events         | ✅ Yes                   | Deterministic timestamp ordering |
+| Entry references replaced member | ✅ Yes                   | Canonical ID resolution          |
+| Concurrent replacements          | ✅ Yes                   | Last-writer-wins by timestamp    |
+
+### Edge Case: Circular Replacement
+
+```
+Event 1: A replaced by B
+Event 2: B replaced by A  (concurrent, doesn't know about Event 1)
+```
+
+**Current handling:**
+
+- `resolveCanonicalMemberId()` has a `maxDepth` parameter (default 10)
+- Prevents infinite loops but doesn't detect cycles explicitly
+- In practice, this is an unlikely user error scenario
+
+**Recommended improvement** (future):
+
+```typescript
+function resolveCanonicalMemberId(
+  memberId: string,
+  events: MemberEvent[],
+  visited: Set<string> = new Set()
+): string {
+  if (visited.has(memberId)) {
+    console.warn(`Circular replacement chain detected involving ${memberId}`);
+    return memberId; // Break cycle
+  }
+  visited.add(memberId);
+  // ... rest of resolution
+}
+```
+
+### Risk Assessment
+
+| Risk                          | Probability                      | Impact                     | Mitigation                    |
+| ----------------------------- | -------------------------------- | -------------------------- | ----------------------------- |
+| Timestamp collision           | Very low (millisecond precision) | Non-deterministic ordering | Accept risk for simplicity    |
+| Concurrent replacements       | Low (rare operation)             | Last-writer-wins           | Acceptable for trusted groups |
+| Circular replacement          | Very low (user error)            | maxDepth fallback          | Current handling sufficient   |
+| Entry references stale member | Medium                           | Resolved via canonical ID  | Already handled correctly     |
+
+**Decision:** Accept the low collision risk (Option A) rather than adding complexity. The probability of two events having identical millisecond timestamps is negligible for a bill-splitting app with small trusted groups and low event frequency.
+
+---
+
+## 8. Traversal Necessity Analysis
 
 | Function                   | Always Necessary?       | Can Be Cached/Incremental?     |
 | -------------------------- | ----------------------- | ------------------------------ |
@@ -723,7 +871,7 @@ class IncrementalStateManager {
 
 ---
 
-## 8. Recommended Implementation Phases
+## 9. Recommended Implementation Phases
 
 ### Phase 1: Quick Wins (Estimated: 1-2 days)
 
@@ -787,7 +935,7 @@ class IncrementalStateManager {
 
 ---
 
-## 9. Architectural Recommendation: CQRS Pattern
+## 10. Architectural Recommendation: CQRS Pattern
 
 The app already uses event sourcing (append-only Loro log). The natural evolution is **CQRS (Command Query Responsibility Segregation)** with materialized views:
 
@@ -823,7 +971,7 @@ Each view:
 
 ---
 
-## 10. Summary
+## 11. Summary
 
 | Issue                     | Current Cost         | After Optimization              |
 | ------------------------- | -------------------- | ------------------------------- |
