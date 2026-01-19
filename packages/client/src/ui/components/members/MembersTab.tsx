@@ -1,52 +1,64 @@
-import { Component, Show, createSignal, createMemo } from 'solid-js'
-import { useAppContext } from '../../context/AppContext'
-import { useI18n } from '../../../i18n'
-import { MemberList } from './MemberList'
-import { InviteModal } from '../invites/InviteModal'
-import { Button } from '../common/Button'
+import { Component, Show, createSignal, createMemo } from 'solid-js';
+import { useAppContext } from '../../context/AppContext';
+import { useI18n } from '../../../i18n';
+import { MemberList } from './MemberList';
+import { InviteModal } from '../invites/InviteModal';
+import { Button } from '../common/Button';
 
 export interface MembersTabProps {
-  disabled?: boolean
+  disabled?: boolean;
 }
 
 export const MembersTab: Component<MembersTabProps> = (props) => {
-  const { members, activeGroup, createInvitation, addVirtualMember, renameMember, removeMember, identity, balances, loroStore } = useAppContext()
-  const { t } = useI18n()
-  const [showInviteModal, setShowInviteModal] = createSignal(false)
-  const [inviteLink, setInviteLink] = createSignal<string | null>(null)
-  const [showAddMemberModal, setShowAddMemberModal] = createSignal(false)
-  const [newMemberName, setNewMemberName] = createSignal('')
+  const {
+    members,
+    activeGroup,
+    createInvitation,
+    addVirtualMember,
+    renameMember,
+    removeMember,
+    identity,
+    balances,
+    loroStore,
+  } = useAppContext();
+  const { t } = useI18n();
+  const [showInviteModal, setShowInviteModal] = createSignal(false);
+  const [inviteLink, setInviteLink] = createSignal<string | null>(null);
+  const [showAddMemberModal, setShowAddMemberModal] = createSignal(false);
+  const [newMemberName, setNewMemberName] = createSignal('');
 
-  const activeMembersCount = createMemo(() => members().filter(m => m.status === 'active').length)
+  const activeMembersCount = createMemo(
+    () => members().filter((m) => m.status === 'active').length
+  );
 
   const handleInvite = async () => {
-    setInviteLink(null)
-    setShowInviteModal(true)
+    setInviteLink(null);
+    setShowInviteModal(true);
 
     // Auto-generate the link immediately
-    const group = activeGroup()
-    if (!group) return
+    const group = activeGroup();
+    if (!group) return;
 
-    const result = await createInvitation(group.id)
-    setInviteLink(result.inviteLink)
-  }
+    const result = await createInvitation(group.id);
+    setInviteLink(result.inviteLink);
+  };
 
   const handleAddVirtualMember = async () => {
-    const name = newMemberName().trim()
+    const name = newMemberName().trim();
     if (!name) {
-      alert(t('members.memberNameRequired'))
-      return
+      alert(t('members.memberNameRequired'));
+      return;
     }
 
     try {
-      await addVirtualMember(name)
-      setShowAddMemberModal(false)
-      setNewMemberName('')
+      await addVirtualMember(name);
+      setShowAddMemberModal(false);
+      setNewMemberName('');
     } catch (error) {
-      console.error('Failed to add member:', error)
-      alert(t('members.addMemberFailed'))
+      console.error('Failed to add member:', error);
+      alert(t('members.addMemberFailed'));
     }
-  }
+  };
 
   return (
     <div class="members-tab">
@@ -66,7 +78,9 @@ export const MembersTab: Component<MembersTabProps> = (props) => {
 
       {/* Member List */}
       <div class="members-section">
-        <h2 class="members-section-title">{t('members.title')} ({activeMembersCount()})</h2>
+        <h2 class="members-section-title">
+          {t('members.title')} ({activeMembersCount()})
+        </h2>
         <MemberList
           members={members()}
           currentUserPublicKeyHash={identity()?.publicKeyHash}
@@ -91,9 +105,7 @@ export const MembersTab: Component<MembersTabProps> = (props) => {
           <div class="modal-content" onClick={(e) => e.stopPropagation()}>
             <div class="modal-body">
               <h2 class="text-xl font-bold mb-md">{t('members.addVirtualMember')}</h2>
-              <p class="mb-md text-muted">
-                {t('members.virtualMemberDescription')}
-              </p>
+              <p class="mb-md text-muted">{t('members.virtualMemberDescription')}</p>
               <div class="form-group">
                 <label class="form-label">{t('members.memberName')}</label>
                 <input
@@ -118,5 +130,5 @@ export const MembersTab: Component<MembersTabProps> = (props) => {
         </div>
       </Show>
     </div>
-  )
-}
+  );
+};

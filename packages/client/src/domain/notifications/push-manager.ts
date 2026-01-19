@@ -7,12 +7,12 @@
  * local notifications when the app is backgrounded/closed.
  */
 
-import type { Activity } from '@partage/shared/types/activity'
+import type { Activity } from '@partage/shared/types/activity';
 
 export interface NotificationPermissionState {
-  granted: boolean
-  denied: boolean
-  prompt: boolean
+  granted: boolean;
+  denied: boolean;
+  prompt: boolean;
 }
 
 /**
@@ -20,7 +20,7 @@ export interface NotificationPermissionState {
  * Coordinates with service worker for showing notifications
  */
 export class PushNotificationManager {
-  private serviceWorkerRegistration: ServiceWorkerRegistration | null = null
+  private serviceWorkerRegistration: ServiceWorkerRegistration | null = null;
 
   /**
    * Initialize the push notification manager
@@ -28,13 +28,13 @@ export class PushNotificationManager {
    */
   async initialize(): Promise<void> {
     if (!('serviceWorker' in navigator)) {
-      return
+      return;
     }
 
     try {
-      this.serviceWorkerRegistration = await navigator.serviceWorker.ready
+      this.serviceWorkerRegistration = await navigator.serviceWorker.ready;
     } catch (error) {
-      console.error('Failed to initialize push notifications:', error)
+      console.error('Failed to initialize push notifications:', error);
     }
   }
 
@@ -43,16 +43,16 @@ export class PushNotificationManager {
    */
   getPermissionState(): NotificationPermissionState {
     if (!('Notification' in window)) {
-      return { granted: false, denied: true, prompt: false }
+      return { granted: false, denied: true, prompt: false };
     }
 
-    const permission = Notification.permission
+    const permission = Notification.permission;
 
     return {
       granted: permission === 'granted',
       denied: permission === 'denied',
       prompt: permission === 'default',
-    }
+    };
   }
 
   /**
@@ -61,27 +61,27 @@ export class PushNotificationManager {
    */
   async requestPermission(): Promise<boolean> {
     if (!('Notification' in window)) {
-      console.warn('Notifications not supported')
-      return false
+      console.warn('Notifications not supported');
+      return false;
     }
 
     // Already granted
     if (Notification.permission === 'granted') {
-      return true
+      return true;
     }
 
     // Already denied
     if (Notification.permission === 'denied') {
-      console.warn('Notification permission denied')
-      return false
+      console.warn('Notification permission denied');
+      return false;
     }
 
     try {
-      const permission = await Notification.requestPermission()
-      return permission === 'granted'
+      const permission = await Notification.requestPermission();
+      return permission === 'granted';
     } catch (error) {
-      console.error('Failed to request notification permission:', error)
-      return false
+      console.error('Failed to request notification permission:', error);
+      return false;
     }
   }
 
@@ -89,13 +89,9 @@ export class PushNotificationManager {
    * Show a notification for an activity
    * Uses service worker to show notification even when app is backgrounded
    */
-  async showNotification(
-    activity: Activity,
-    message: string,
-    groupName?: string
-  ): Promise<void> {
+  async showNotification(activity: Activity, message: string, groupName?: string): Promise<void> {
     if (!this.serviceWorkerRegistration || !this.getPermissionState().granted) {
-      return
+      return;
     }
 
     try {
@@ -113,9 +109,9 @@ export class PushNotificationManager {
           groupName,
           timestamp: activity.timestamp,
         },
-      })
+      });
     } catch (error) {
-      console.error('Failed to show notification:', error)
+      console.error('Failed to show notification:', error);
     }
   }
 
@@ -127,26 +123,26 @@ export class PushNotificationManager {
       'Notification' in window &&
       'serviceWorker' in navigator &&
       this.serviceWorkerRegistration !== null
-    )
+    );
   }
 
   /**
    * Check if notification permission is granted
    */
   isEnabled(): boolean {
-    return this.getPermissionState().granted
+    return this.getPermissionState().granted;
   }
 }
 
 // Singleton instance
-let pushManagerInstance: PushNotificationManager | null = null
+let pushManagerInstance: PushNotificationManager | null = null;
 
 /**
  * Get the push notification manager instance
  */
 export function getPushManager(): PushNotificationManager {
   if (!pushManagerInstance) {
-    pushManagerInstance = new PushNotificationManager()
+    pushManagerInstance = new PushNotificationManager();
   }
-  return pushManagerInstance
+  return pushManagerInstance;
 }

@@ -3,8 +3,8 @@
  * Determines which activities are relevant to the current user
  */
 
-import type { Activity } from '@partage/shared/types/activity'
-import type { LoroEntryStore } from '../../core/crdt/loro-wrapper'
+import type { Activity } from '@partage/shared/types/activity';
+import type { LoroEntryStore } from '../../core/crdt/loro-wrapper';
 
 /**
  * Check if an activity is relevant to the current user
@@ -21,15 +21,15 @@ export function isActivityRelevantToUser(
 ): boolean {
   // Don't notify about own actions
   if (activity.actorId === currentUserId) {
-    return false
+    return false;
   }
 
   // Helper to resolve canonical IDs (handles member aliases/linking)
   const resolveId = (id: string): string => {
-    return store.resolveCanonicalMemberId(id)
-  }
+    return store.resolveCanonicalMemberId(id);
+  };
 
-  const canonicalCurrentUserId = resolveId(currentUserId)
+  const canonicalCurrentUserId = resolveId(currentUserId);
 
   // Entry activities: check if user is involved
   if (
@@ -42,35 +42,35 @@ export function isActivityRelevantToUser(
     if (activity.payers && activity.payers.length > 0) {
       const isInvolved = activity.payers.some(
         (payerId) => resolveId(payerId) === canonicalCurrentUserId
-      )
-      if (isInvolved) return true
+      );
+      if (isInvolved) return true;
     }
 
     if (activity.beneficiaries && activity.beneficiaries.length > 0) {
       const isInvolved = activity.beneficiaries.some(
         (beneficiaryId) => resolveId(beneficiaryId) === canonicalCurrentUserId
-      )
-      if (isInvolved) return true
+      );
+      if (isInvolved) return true;
     }
 
     // For transfers: check if user is sender or receiver
     if (activity.from && resolveId(activity.from) === canonicalCurrentUserId) {
-      return true
+      return true;
     }
     if (activity.to && resolveId(activity.to) === canonicalCurrentUserId) {
-      return true
+      return true;
     }
 
-    return false
+    return false;
   }
 
   // Member activities: always show (group awareness)
   // Note: This notifies all members when someone joins or links
   if (activity.type === 'member_joined' || activity.type === 'member_linked') {
-    return true
+    return true;
   }
 
-  return false
+  return false;
 }
 
 /**
@@ -86,9 +86,7 @@ export function getRelevantActivities(
   currentUserId: string,
   store: LoroEntryStore
 ): Activity[] {
-  return activities.filter((activity) =>
-    isActivityRelevantToUser(activity, currentUserId, store)
-  )
+  return activities.filter((activity) => isActivityRelevantToUser(activity, currentUserId, store));
 }
 
 /**
@@ -108,7 +106,5 @@ export function getNewRelevantActivities(
 ): Activity[] {
   return activities
     .filter((activity) => activity.timestamp > sinceTimestamp)
-    .filter((activity) =>
-      isActivityRelevantToUser(activity, currentUserId, store)
-    )
+    .filter((activity) => isActivityRelevantToUser(activity, currentUserId, store));
 }

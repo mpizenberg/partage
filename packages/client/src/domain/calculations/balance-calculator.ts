@@ -92,7 +92,7 @@ function processExpense(
   // Calculate payer amounts (with currency conversion if needed)
   const payerSplits = expense.defaultCurrencyAmount
     ? calculatePayerSplits(expense.payers, expense.defaultCurrencyAmount, resolve)
-    : new Map(expense.payers.map(p => [resolve(p.memberId), p.amount]));
+    : new Map(expense.payers.map((p) => [resolve(p.memberId), p.amount]));
 
   // Record who paid
   for (const [memberId, amount] of payerSplits.entries()) {
@@ -202,7 +202,7 @@ function calculateSplits(
     const centsPerShare = Math.floor(remainingCents / totalShares);
 
     // Calculate remainder to distribute
-    let remainderCents = remainingCents - (centsPerShare * totalShares);
+    let remainderCents = remainingCents - centsPerShare * totalShares;
 
     // Sort beneficiaries by resolved member ID for deterministic distribution
     const sortedBeneficiaries = [...sharesBeneficiaries].sort((a, b) =>
@@ -372,4 +372,3 @@ export function generateSettlementPlan(
     totalTransactions: debtGraph.length,
   };
 }
-

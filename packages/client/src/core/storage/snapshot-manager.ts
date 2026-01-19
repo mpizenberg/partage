@@ -22,10 +22,7 @@ export class SnapshotManager {
    * Save incremental update after mutation
    * Automatically consolidates if threshold reached
    */
-  async saveIncremental(
-    groupId: string,
-    loroStore: LoroEntryStore
-  ): Promise<void> {
+  async saveIncremental(groupId: string, loroStore: LoroEntryStore): Promise<void> {
     const { updateData, version } = loroStore.exportIncrementalUpdate();
 
     // If no changes, skip save (optimization for no-op transactions)

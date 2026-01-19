@@ -58,6 +58,7 @@ node setup-collections.js
 ```
 
 The script is **idempotent** - safe to run multiple times. It will:
+
 - Create `groups` collection with proper schema and indexes
 - Create `loro_updates` collection with real-time enabled
 - Skip collections that already exist
@@ -97,11 +98,13 @@ The server acts as a zero-knowledge relay for encrypted CRDT operations:
 ## Security
 
 **Phase 4 (MVP):**
+
 - No authentication (development only)
 - Anyone can read/write any group
 - Focus: Get sync working
 
 **Phase 5 (Production):**
+
 - Cryptographic member verification
 - Signature-based access control
 - Public key infrastructure

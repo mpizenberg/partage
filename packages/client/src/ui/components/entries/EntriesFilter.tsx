@@ -129,7 +129,11 @@ export const EntriesFilter: Component<EntriesFilterProps> = (props) => {
     } else {
       // Add default custom range (yesterday to today - a range that doesn't match any preset)
       const today = new Date();
-      const startOfToday = new Date(today.getFullYear(), today.getMonth(), today.getDate()).getTime();
+      const startOfToday = new Date(
+        today.getFullYear(),
+        today.getMonth(),
+        today.getDate()
+      ).getTime();
       const startDate = startOfToday - 24 * 60 * 60 * 1000; // Yesterday at 00:00:00
       const endDate = startOfToday + 24 * 60 * 60 * 1000 - 1; // Today at 23:59:59
 
@@ -152,9 +156,7 @@ export const EntriesFilter: Component<EntriesFilterProps> = (props) => {
     const startDate = new Date(dateString).getTime();
     const newRange: DateRange = { startDate, endDate: customRange.endDate };
 
-    const newRanges = currentRanges.map((range) =>
-      isPresetRange(range) ? range : newRange
-    );
+    const newRanges = currentRanges.map((range) => (isPresetRange(range) ? range : newRange));
 
     props.onFilterChange({
       ...props.filter,
@@ -173,9 +175,7 @@ export const EntriesFilter: Component<EntriesFilterProps> = (props) => {
     const endDate = new Date(dateString).setHours(23, 59, 59, 999);
     const newRange: DateRange = { startDate: customRange.startDate, endDate };
 
-    const newRanges = currentRanges.map((range) =>
-      isPresetRange(range) ? range : newRange
-    );
+    const newRanges = currentRanges.map((range) => (isPresetRange(range) ? range : newRange));
 
     props.onFilterChange({
       ...props.filter,
@@ -337,11 +337,7 @@ export const EntriesFilter: Component<EntriesFilterProps> = (props) => {
 
           {/* Custom Date Range */}
           <label class="filter-checkbox">
-            <input
-              type="checkbox"
-              checked={isCustomRangeEnabled()}
-              onChange={toggleCustomRange}
-            />
+            <input type="checkbox" checked={isCustomRangeEnabled()} onChange={toggleCustomRange} />
             <span>{t('filter.customRange')}</span>
           </label>
         </div>

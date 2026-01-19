@@ -1,9 +1,9 @@
-import { Component, Show, createSignal } from 'solid-js'
-import { useI18n, formatCurrency, formatRelativeTime } from '../../../i18n'
-import { useAppContext } from '../../context/AppContext'
-import { Modal } from '../common/Modal'
-import { Button } from '../common/Button'
-import type { Entry, ExpenseEntry, TransferEntry, ExpenseCategory } from '@partage/shared'
+import { Component, Show, createSignal } from 'solid-js';
+import { useI18n, formatCurrency, formatRelativeTime } from '../../../i18n';
+import { useAppContext } from '../../context/AppContext';
+import { Modal } from '../common/Modal';
+import { Button } from '../common/Button';
+import type { Entry, ExpenseEntry, TransferEntry, ExpenseCategory } from '@partage/shared';
 
 // Category emoji mapping
 const CATEGORY_EMOJI: Record<ExpenseCategory, string> = {
@@ -16,207 +16,213 @@ const CATEGORY_EMOJI: Record<ExpenseCategory, string> = {
   utilities: '💡',
   healthcare: '⚕️',
   other: '📝',
-}
+};
 
 export interface EntryCardProps {
-  entry: Entry
-  disabled?: boolean
+  entry: Entry;
+  disabled?: boolean;
 }
 
 export const EntryCard: Component<EntryCardProps> = (props) => {
-  const { t, locale } = useI18n()
-  const { members, identity, setEditingEntry, deleteEntry, undeleteEntry, loroStore, activeGroup } = useAppContext()
-  const [showDeleteModal, setShowDeleteModal] = createSignal(false)
-  const [isDeleting, setIsDeleting] = createSignal(false)
-  const [isUndeleting, setIsUndeleting] = createSignal(false)
+  const { t, locale } = useI18n();
+  const { members, identity, setEditingEntry, deleteEntry, undeleteEntry, loroStore, activeGroup } =
+    useAppContext();
+  const [showDeleteModal, setShowDeleteModal] = createSignal(false);
+  const [isDeleting, setIsDeleting] = createSignal(false);
+  const [isUndeleting, setIsUndeleting] = createSignal(false);
 
-  const isDeleted = () => props.entry.status === 'deleted'
+  const isDeleted = () => props.entry.status === 'deleted';
 
   const handleClick = () => {
     // Don't allow editing if disabled or deleted
     if (!props.disabled && !isDeleted()) {
-      setEditingEntry(props.entry)
+      setEditingEntry(props.entry);
     }
-  }
+  };
 
   const handleDeleteClick = (e: MouseEvent) => {
-    e.stopPropagation()
+    e.stopPropagation();
     if (!props.disabled) {
-      setShowDeleteModal(true)
+      setShowDeleteModal(true);
     }
-  }
+  };
 
   const handleConfirmDelete = async () => {
     try {
-      setIsDeleting(true)
-      await deleteEntry(props.entry.id)
-      setShowDeleteModal(false)
+      setIsDeleting(true);
+      await deleteEntry(props.entry.id);
+      setShowDeleteModal(false);
     } catch (err) {
-      console.error('Failed to delete entry:', err)
+      console.error('Failed to delete entry:', err);
     } finally {
-      setIsDeleting(false)
+      setIsDeleting(false);
     }
-  }
+  };
 
   const handleUndeleteClick = async (e: MouseEvent) => {
-    e.stopPropagation()
-    if (props.disabled) return
+    e.stopPropagation();
+    if (props.disabled) return;
     try {
-      setIsUndeleting(true)
-      await undeleteEntry(props.entry.id)
+      setIsUndeleting(true);
+      await undeleteEntry(props.entry.id);
     } catch (err) {
-      console.error('Failed to undelete entry:', err)
+      console.error('Failed to undelete entry:', err);
     } finally {
-      setIsUndeleting(false)
+      setIsUndeleting(false);
     }
-  }
+  };
 
   const formatAmount = (amount: number, currency: string): string => {
-    return formatCurrency(amount, currency, locale())
-  }
+    return formatCurrency(amount, currency, locale());
+  };
 
   const formatAmountWithDefault = (): string => {
-    const defaultCurrency = activeGroup()?.defaultCurrency
-    const entryCurrency = props.entry.currency
-    const entryAmount = props.entry.amount
-    const defaultAmount = props.entry.defaultCurrencyAmount
+    const defaultCurrency = activeGroup()?.defaultCurrency;
+    const entryCurrency = props.entry.currency;
+    const entryAmount = props.entry.amount;
+    const defaultAmount = props.entry.defaultCurrencyAmount;
 
     // Format the original amount
-    let result = formatAmount(entryAmount, entryCurrency!)
+    let result = formatAmount(entryAmount, entryCurrency!);
 
     // If currency is different from default and we have a defaultCurrencyAmount, show it in parenthesis
-    if (defaultCurrency && entryCurrency !== defaultCurrency && defaultAmount !== undefined && defaultAmount !== entryAmount) {
-      result += ` (${formatAmount(defaultAmount, defaultCurrency)})`
+    if (
+      defaultCurrency &&
+      entryCurrency !== defaultCurrency &&
+      defaultAmount !== undefined &&
+      defaultAmount !== entryAmount
+    ) {
+      result += ` (${formatAmount(defaultAmount, defaultCurrency)})`;
     }
 
-    return result
-  }
+    return result;
+  };
 
   const getRelativeTime = (timestamp: number): string | null => {
-    const now = Date.now()
-    const diff = now - timestamp
-    const hours = Math.floor(diff / (1000 * 60 * 60))
+    const now = Date.now();
+    const diff = now - timestamp;
+    const hours = Math.floor(diff / (1000 * 60 * 60));
 
     // Only show time if created within last 24 hours
     if (hours >= 24) {
-      return null
+      return null;
     }
 
-    return formatRelativeTime(timestamp, locale(), t)
-  }
+    return formatRelativeTime(timestamp, locale(), t);
+  };
 
   const shouldShowTime = (timestamp: number): boolean => {
-    const now = Date.now()
-    const diff = now - timestamp
-    const hours = Math.floor(diff / (1000 * 60 * 60))
-    return hours < 24
-  }
+    const now = Date.now();
+    const diff = now - timestamp;
+    const hours = Math.floor(diff / (1000 * 60 * 60));
+    return hours < 24;
+  };
 
   const getMemberName = (memberId: string): string => {
-    const store = loroStore()
+    const store = loroStore();
     if (!store) {
       // Fallback to members list
-      const member = members().find(m => m.id === memberId)
-      return member?.name || t('common.unknown')
+      const member = members().find((m) => m.id === memberId);
+      return member?.name || t('common.unknown');
     }
 
     // Use event-based system: resolve to canonical ID and get name
-    const canonicalIdMap = store.getCanonicalIdMap()
-    const allStates = store.getAllMemberStates()
+    const canonicalIdMap = store.getCanonicalIdMap();
+    const allStates = store.getAllMemberStates();
 
-    const canonicalId = canonicalIdMap.get(memberId) ?? memberId
-    const canonicalState = allStates.get(canonicalId)
-    const state = allStates.get(memberId)
+    const canonicalId = canonicalIdMap.get(memberId) ?? memberId;
+    const canonicalState = allStates.get(canonicalId);
+    const state = allStates.get(memberId);
 
-    return canonicalState?.name ?? state?.name ?? t('common.unknown')
-  }
+    return canonicalState?.name ?? state?.name ?? t('common.unknown');
+  };
 
-  const isExpense = (): boolean => props.entry.type === 'expense'
-  const isTransfer = (): boolean => props.entry.type === 'transfer'
+  const isExpense = (): boolean => props.entry.type === 'expense';
+  const isTransfer = (): boolean => props.entry.type === 'transfer';
 
-  const expenseEntry = () => (isExpense() ? (props.entry as ExpenseEntry) : null)
-  const transferEntry = () => (isTransfer() ? (props.entry as TransferEntry) : null)
+  const expenseEntry = () => (isExpense() ? (props.entry as ExpenseEntry) : null);
+  const transferEntry = () => (isTransfer() ? (props.entry as TransferEntry) : null);
 
   const getCategoryEmoji = (): string => {
-    const expense = expenseEntry()
-    if (!expense || !expense.category) return '📝'
-    return CATEGORY_EMOJI[expense.category as ExpenseCategory] || '📝'
-  }
+    const expense = expenseEntry();
+    if (!expense || !expense.category) return '📝';
+    return CATEGORY_EMOJI[expense.category as ExpenseCategory] || '📝';
+  };
 
   const getPayersText = (): string => {
-    const expense = expenseEntry()
-    if (!expense) return ''
+    const expense = expenseEntry();
+    if (!expense) return '';
 
-    const payerNames = expense.payers.map(p => getMemberName(p.memberId))
-    if (payerNames.length === 1) return payerNames[0]!
-    if (payerNames.length === 2) return payerNames.join(` ${t('common.and')} `)
-    return `${payerNames[0]!} ${t('common.and')} ${payerNames.length - 1} ${t('common.others')}`
-  }
+    const payerNames = expense.payers.map((p) => getMemberName(p.memberId));
+    if (payerNames.length === 1) return payerNames[0]!;
+    if (payerNames.length === 2) return payerNames.join(` ${t('common.and')} `);
+    return `${payerNames[0]!} ${t('common.and')} ${payerNames.length - 1} ${t('common.others')}`;
+  };
 
   const getBeneficiariesText = (): string => {
-    const expense = expenseEntry()
-    if (!expense) return ''
+    const expense = expenseEntry();
+    if (!expense) return '';
 
-    const beneficiaryNames = expense.beneficiaries.map(b => getMemberName(b.memberId))
-    if (beneficiaryNames.length === 1) return beneficiaryNames[0]!
-    if (beneficiaryNames.length === 2) return beneficiaryNames.join(` ${t('common.and')} `)
-    if (beneficiaryNames.length === 3) return beneficiaryNames.join(', ')
-    return `${beneficiaryNames.slice(0, 2).join(', ')} ${t('common.and')} ${beneficiaryNames.length - 2} ${t('entries.more')}`
-  }
+    const beneficiaryNames = expense.beneficiaries.map((b) => getMemberName(b.memberId));
+    if (beneficiaryNames.length === 1) return beneficiaryNames[0]!;
+    if (beneficiaryNames.length === 2) return beneficiaryNames.join(` ${t('common.and')} `);
+    if (beneficiaryNames.length === 3) return beneficiaryNames.join(', ');
+    return `${beneficiaryNames.slice(0, 2).join(', ')} ${t('common.and')} ${beneficiaryNames.length - 2} ${t('entries.more')}`;
+  };
 
   const getUserShare = (): number | null => {
-    const expense = expenseEntry()
-    if (!expense) return null
+    const expense = expenseEntry();
+    if (!expense) return null;
 
-    const userId = identity()?.publicKeyHash
-    if (!userId) return null
+    const userId = identity()?.publicKeyHash;
+    if (!userId) return null;
 
-    const beneficiary = expense.beneficiaries.find(b => b.memberId === userId)
-    if (!beneficiary) return null
+    const beneficiary = expense.beneficiaries.find((b) => b.memberId === userId);
+    if (!beneficiary) return null;
 
     if (beneficiary.splitType === 'exact' && beneficiary.amount !== undefined) {
-      return beneficiary.amount
+      return beneficiary.amount;
     }
 
     if (beneficiary.splitType === 'shares' && beneficiary.shares !== undefined) {
-      const totalShares = expense.beneficiaries.reduce((sum, b) => sum + (b.shares || 0), 0)
-      return (expense.amount * beneficiary.shares) / totalShares
+      const totalShares = expense.beneficiaries.reduce((sum, b) => sum + (b.shares || 0), 0);
+      return (expense.amount * beneficiary.shares) / totalShares;
     }
 
-    return null
-  }
+    return null;
+  };
 
   const isUserInvolved = (): boolean => {
-    const userId = identity()?.publicKeyHash
-    if (!userId) return false
+    const userId = identity()?.publicKeyHash;
+    if (!userId) return false;
 
-    const store = loroStore()
-    if (!store) return false
+    const store = loroStore();
+    if (!store) return false;
 
     // Get canonical user ID (if user claimed a virtual member)
-    const canonicalUserId = store.resolveCanonicalMemberId(userId)
+    const canonicalUserId = store.resolveCanonicalMemberId(userId);
 
     // Helper to check if an entry member ID resolves to the current user
     const matchesUser = (memberId: string): boolean => {
-      const canonicalMemberId = store.resolveCanonicalMemberId(memberId)
-      return canonicalMemberId === canonicalUserId
-    }
+      const canonicalMemberId = store.resolveCanonicalMemberId(memberId);
+      return canonicalMemberId === canonicalUserId;
+    };
 
     if (isExpense()) {
-      const expense = expenseEntry()!
+      const expense = expenseEntry()!;
       return (
-        expense.payers.some(p => matchesUser(p.memberId)) ||
-        expense.beneficiaries.some(b => matchesUser(b.memberId))
-      )
+        expense.payers.some((p) => matchesUser(p.memberId)) ||
+        expense.beneficiaries.some((b) => matchesUser(b.memberId))
+      );
     }
 
     if (isTransfer()) {
-      const transfer = transferEntry()!
-      return matchesUser(transfer.from) || matchesUser(transfer.to)
+      const transfer = transferEntry()!;
+      return matchesUser(transfer.from) || matchesUser(transfer.to);
     }
 
-    return false
-  }
+    return false;
+  };
 
   return (
     <>
@@ -355,16 +361,12 @@ export const EntryCard: Component<EntryCardProps> = (props) => {
             >
               {t('common.cancel')}
             </Button>
-            <Button
-              variant="danger"
-              onClick={handleConfirmDelete}
-              disabled={isDeleting()}
-            >
+            <Button variant="danger" onClick={handleConfirmDelete} disabled={isDeleting()}>
               {isDeleting() ? t('entries.deleting') : t('common.delete')}
             </Button>
           </div>
         </div>
       </Modal>
     </>
-  )
-}
+  );
+};

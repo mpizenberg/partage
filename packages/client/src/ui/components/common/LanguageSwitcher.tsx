@@ -1,25 +1,25 @@
-import { Component } from 'solid-js'
-import { useI18n, type Locale } from '../../../i18n'
-import { Select } from './Select'
+import { Component } from 'solid-js';
+import { useI18n, type Locale } from '../../../i18n';
+import { Select } from './Select';
 
 const LANGUAGE_OPTIONS = [
   { value: 'en', label: '🇬🇧 EN' },
   { value: 'fr', label: '🇫🇷 FR' },
   { value: 'es', label: '🇪🇸 ES' },
-]
+];
 
 export interface LanguageSwitcherProps {
-  class?: string
+  class?: string;
 }
 
 export const LanguageSwitcher: Component<LanguageSwitcherProps> = (props) => {
-  const { locale, setLocale } = useI18n()
+  const { locale, setLocale } = useI18n();
 
   const handleChange = (e: Event) => {
-    const target = e.target as HTMLSelectElement
-    const newLocale = target.value as Locale
-    setLocale(newLocale)
-  }
+    const target = e.target as HTMLSelectElement;
+    const newLocale = target.value as Locale;
+    setLocale(newLocale);
+  };
 
   return (
     <Select
@@ -28,5 +28,5 @@ export const LanguageSwitcher: Component<LanguageSwitcherProps> = (props) => {
       onChange={handleChange}
       class={props.class}
     />
-  )
-}
+  );
+};

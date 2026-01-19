@@ -1,25 +1,25 @@
-import { Component, createSignal, createEffect, createMemo, Match, Switch, Show } from 'solid-js'
-import { useNavigate, useParams } from '@solidjs/router'
-import { useI18n, formatCurrency } from '../../i18n'
-import { useAppContext } from '../context/AppContext'
-import { BalanceTab } from '../components/balance/BalanceTab'
-import { EntriesTab } from '../components/entries/EntriesTab'
-import { MembersTab } from '../components/members/MembersTab'
-import { ActivitiesTab } from '../components/activities/ActivitiesTab'
-import { SettleTab } from '../components/settle/SettleTab'
-import { AddEntryModal, type TransferInitialData } from '../components/forms/AddEntryModal'
-import { LanguageSwitcher } from '../components/common/LanguageSwitcher'
-import { LoadingSpinner } from '../components/common/LoadingSpinner'
-import { generateInviteLink } from '../../domain/invitations/invite-manager'
+import { Component, createSignal, createEffect, createMemo, Match, Switch, Show } from 'solid-js';
+import { useNavigate, useParams } from '@solidjs/router';
+import { useI18n, formatCurrency } from '../../i18n';
+import { useAppContext } from '../context/AppContext';
+import { BalanceTab } from '../components/balance/BalanceTab';
+import { EntriesTab } from '../components/entries/EntriesTab';
+import { MembersTab } from '../components/members/MembersTab';
+import { ActivitiesTab } from '../components/activities/ActivitiesTab';
+import { SettleTab } from '../components/settle/SettleTab';
+import { AddEntryModal, type TransferInitialData } from '../components/forms/AddEntryModal';
+import { LanguageSwitcher } from '../components/common/LanguageSwitcher';
+import { LoadingSpinner } from '../components/common/LoadingSpinner';
+import { generateInviteLink } from '../../domain/invitations/invite-manager';
 
-type TabType = 'balance' | 'entries' | 'settle' | 'members' | 'activities'
+type TabType = 'balance' | 'entries' | 'settle' | 'members' | 'activities';
 
-const VALID_TABS: TabType[] = ['balance', 'entries', 'settle', 'members', 'activities']
+const VALID_TABS: TabType[] = ['balance', 'entries', 'settle', 'members', 'activities'];
 
 export const GroupViewScreen: Component = () => {
-  const { t, locale } = useI18n()
-  const navigate = useNavigate()
-  const params = useParams<{ groupId: string; tab?: string }>()
+  const { t, locale } = useI18n();
+  const navigate = useNavigate();
+  const params = useParams<{ groupId: string; tab?: string }>();
   const {
     activeGroup,
     selectGroup,
@@ -35,162 +35,165 @@ export const GroupViewScreen: Component = () => {
     loroStore,
     db,
     isLoading,
-  } = useAppContext()
-  const [showAddEntry, setShowAddEntry] = createSignal(false)
-  const [transferInitialData, setTransferInitialData] = createSignal<TransferInitialData | null>(null)
-  const [showBannerDetails, setShowBannerDetails] = createSignal(false)
-  const [groupLoading, setGroupLoading] = createSignal(false)
+  } = useAppContext();
+  const [showAddEntry, setShowAddEntry] = createSignal(false);
+  const [transferInitialData, setTransferInitialData] = createSignal<TransferInitialData | null>(
+    null
+  );
+  const [showBannerDetails, setShowBannerDetails] = createSignal(false);
+  const [groupLoading, setGroupLoading] = createSignal(false);
 
   // Get active tab from URL params, default to 'balance'
   const activeTab = createMemo<TabType>(() => {
-    const tabParam = params.tab?.toLowerCase()
+    const tabParam = params.tab?.toLowerCase();
     if (tabParam && VALID_TABS.includes(tabParam as TabType)) {
-      return tabParam as TabType
+      return tabParam as TabType;
     }
-    return 'balance'
-  })
+    return 'balance';
+  });
 
   // Set tab by navigating to the URL
   const setActiveTab = (tab: TabType) => {
-    const groupId = params.groupId
+    const groupId = params.groupId;
     if (tab === 'balance') {
       // Default tab doesn't need to be in URL
-      navigate(`/groups/${groupId}`)
+      navigate(`/groups/${groupId}`);
     } else {
-      navigate(`/groups/${groupId}/${tab}`)
+      navigate(`/groups/${groupId}/${tab}`);
     }
-  }
+  };
 
   // Load group on mount based on URL params
   createEffect(() => {
-    const groupId = params.groupId
-    const currentGroup = activeGroup()
+    const groupId = params.groupId;
+    const currentGroup = activeGroup();
 
     // If the group from URL doesn't match the active group, load it
     if (groupId && (!currentGroup || currentGroup.id !== groupId)) {
-      setGroupLoading(true)
+      setGroupLoading(true);
       selectGroup(groupId)
         .catch((err) => {
-          console.error('[GroupViewScreen] Failed to load group:', err)
+          console.error('[GroupViewScreen] Failed to load group:', err);
           // Redirect to home if group not found
-          navigate('/')
+          navigate('/');
         })
-        .finally(() => setGroupLoading(false))
+        .finally(() => setGroupLoading(false));
     }
-  })
+  });
 
   // Modal is open when adding new entry OR editing existing entry OR quick settlement
-  const isModalOpen = () => showAddEntry() || editingEntry() !== null || transferInitialData() !== null
+  const isModalOpen = () =>
+    showAddEntry() || editingEntry() !== null || transferInitialData() !== null;
 
   // Close modal and clear all states
   const handleModalClose = () => {
-    setShowAddEntry(false)
-    setEditingEntry(null)
-    setTransferInitialData(null)
-  }
+    setShowAddEntry(false);
+    setEditingEntry(null);
+    setTransferInitialData(null);
+  };
 
   // Handle "Pay [member]" button click from BalanceCard
   const handlePayMember = (memberId: string, _memberName: string, amount: number) => {
-    const currentUserId = identity()?.publicKeyHash
-    if (!currentUserId) return
+    const currentUserId = identity()?.publicKeyHash;
+    if (!currentUserId) return;
 
-    const currency = activeGroup()?.defaultCurrency || 'USD'
+    const currency = activeGroup()?.defaultCurrency || 'USD';
 
     setTransferInitialData({
       from: currentUserId,
       to: memberId,
       amount: amount,
       currency: currency,
-    })
-  }
+    });
+  };
 
   const handleBack = () => {
-    deselectGroup()
-    navigate('/')
-  }
+    deselectGroup();
+    navigate('/');
+  };
 
   const myBalance = () => {
-    const userIdentity = identity()
-    if (!userIdentity) return null
+    const userIdentity = identity();
+    if (!userIdentity) return null;
 
     // Resolve to canonical ID (if user claimed a virtual member)
-    const store = loroStore()
-    if (!store) return balances().get(userIdentity.publicKeyHash)
+    const store = loroStore();
+    if (!store) return balances().get(userIdentity.publicKeyHash);
 
-    const canonicalUserId = store.resolveCanonicalMemberId(userIdentity.publicKeyHash)
-    return balances().get(canonicalUserId)
-  }
+    const canonicalUserId = store.resolveCanonicalMemberId(userIdentity.publicKeyHash);
+    return balances().get(canonicalUserId);
+  };
 
   const getBalanceText = (): string => {
-    const balance = myBalance()
-    if (!balance) return t('balance.noTransactions')
+    const balance = myBalance();
+    if (!balance) return t('balance.noTransactions');
 
-    const amount = balance.netBalance
+    const amount = balance.netBalance;
     if (Math.abs(amount) < 0.01) {
-      return t('balance.allSettled') + ' ✓'
+      return t('balance.allSettled') + ' ✓';
     }
 
-    const currency = activeGroup()?.defaultCurrency || 'USD'
-    const formattedAmount = formatCurrency(Math.abs(amount), currency, locale())
+    const currency = activeGroup()?.defaultCurrency || 'USD';
+    const formattedAmount = formatCurrency(Math.abs(amount), currency, locale());
     if (amount > 0) {
-      return t('balance.youAreOwed', { amount: formattedAmount })
+      return t('balance.youAreOwed', { amount: formattedAmount });
     } else {
-      return t('balance.youOwe', { amount: formattedAmount })
+      return t('balance.youOwe', { amount: formattedAmount });
     }
-  }
+  };
 
   const getBalanceColor = (): string => {
-    const balance = myBalance()
-    if (!balance) return 'text-muted'
+    const balance = myBalance();
+    if (!balance) return 'text-muted';
 
-    const amount = balance.netBalance
-    if (Math.abs(amount) < 0.01) return 'text-muted'
-    return amount > 0 ? 'text-success' : 'text-danger'
-  }
+    const amount = balance.netBalance;
+    if (Math.abs(amount) < 0.01) return 'text-muted';
+    return amount > 0 ? 'text-success' : 'text-danger';
+  };
 
   // Check if current user is a valid member of the group
   // Optimized to use O(n) with early exit - much faster than computing all member states
   const isUnknownUser = () => {
-    const userIdentity = identity()
-    if (!userIdentity) return false
+    const userIdentity = identity();
+    if (!userIdentity) return false;
 
-    const store = loroStore()
+    const store = loroStore();
     if (!store) {
-      console.error('[GroupViewScreen] Loro store not initialized')
-      return false
+      console.error('[GroupViewScreen] Loro store not initialized');
+      return false;
     }
 
     // Use isMemberKnown() for efficient check with early exit
-    return !store.isMemberKnown(userIdentity.publicKeyHash)
-  }
+    return !store.isMemberKnown(userIdentity.publicKeyHash);
+  };
 
   const handleRejoin = async () => {
-    const group = activeGroup()
-    if (!group) return
+    const group = activeGroup();
+    if (!group) return;
 
     try {
       // Get the group key from storage
-      const groupKeyBase64 = await db.getGroupKey(group.id)
+      const groupKeyBase64 = await db.getGroupKey(group.id);
       if (!groupKeyBase64) {
-        console.error('Group key not found')
-        return
+        console.error('Group key not found');
+        return;
       }
 
       // Generate the invite link (same as when creating invitations)
-      const inviteLink = generateInviteLink(group.id, groupKeyBase64)
+      const inviteLink = generateInviteLink(group.id, groupKeyBase64);
 
       // Extract the path from the invite link (remove origin)
       // inviteLink format: http://localhost:3000/join/groupId?name=...#key
       // We want: /join/groupId?name=...#key (or just /join/groupId#key)
-      const url = new URL(inviteLink)
-      const path = url.pathname + url.search + url.hash
+      const url = new URL(inviteLink);
+      const path = url.pathname + url.search + url.hash;
 
       // Navigate to the join page
-      navigate(path)
+      navigate(path);
     } catch (error) {
-      console.error('Failed to generate rejoin link:', error)
+      console.error('Failed to generate rejoin link:', error);
     }
-  }
+  };
 
   // Show loading while group is being loaded
   if (groupLoading() || isLoading() || !activeGroup()) {
@@ -198,7 +201,7 @@ export const GroupViewScreen: Component = () => {
       <div class="container flex-center" style="min-height: 100vh;">
         <LoadingSpinner size="large" />
       </div>
-    )
+    );
   }
 
   return (
@@ -212,9 +215,7 @@ export const GroupViewScreen: Component = () => {
             </button>
             <div class="group-info">
               <h1 class="group-name">{activeGroup()?.name}</h1>
-              <p class={`balance-summary ${getBalanceColor()}`}>
-                {getBalanceText()}
-              </p>
+              <p class={`balance-summary ${getBalanceColor()}`}>{getBalanceText()}</p>
             </div>
             <div class="group-header-actions">
               <LanguageSwitcher />
@@ -274,8 +275,10 @@ export const GroupViewScreen: Component = () => {
               <span class="banner-icon">⚠️</span>
               <div class="banner-text">
                 <span class="banner-message">
-                  {t('banner.unknownUser')} <button class="banner-link" onClick={handleRejoin}>[{t('banner.rejoin')}]</button>
-                  {' '}
+                  {t('banner.unknownUser')}{' '}
+                  <button class="banner-link" onClick={handleRejoin}>
+                    [{t('banner.rejoin')}]
+                  </button>{' '}
                   <button
                     class="banner-expand"
                     onClick={() => setShowBannerDetails(!showBannerDetails())}
@@ -284,9 +287,7 @@ export const GroupViewScreen: Component = () => {
                   </button>
                 </span>
                 <Show when={showBannerDetails()}>
-                  <div class="banner-details">
-                    {t('banner.unknownUserDetails')}
-                  </div>
+                  <div class="banner-details">{t('banner.unknownUserDetails')}</div>
                 </Show>
               </div>
             </div>
@@ -340,5 +341,5 @@ export const GroupViewScreen: Component = () => {
         transferInitialData={transferInitialData()}
       />
     </div>
-  )
-}
+  );
+};

@@ -263,10 +263,16 @@ export class SyncManager {
       );
       // Log PocketBase error details if available
       if (error && typeof error === 'object' && 'data' in error) {
-        console.error('[SyncManager] PocketBase error data:', JSON.stringify((error as any).data, null, 2));
+        console.error(
+          '[SyncManager] PocketBase error data:',
+          JSON.stringify((error as any).data, null, 2)
+        );
       }
       if (error && typeof error === 'object' && 'response' in error) {
-        console.error('[SyncManager] PocketBase response:', JSON.stringify((error as any).response, null, 2));
+        console.error(
+          '[SyncManager] PocketBase response:',
+          JSON.stringify((error as any).response, null, 2)
+        );
       }
 
       // Queue for retry

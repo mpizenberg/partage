@@ -1,44 +1,44 @@
-import { Component, Show } from 'solid-js'
-import { useI18n, formatCurrency } from '../../../i18n'
-import { Button } from '../common/Button'
-import type { Balance } from '@partage/shared'
+import { Component, Show } from 'solid-js';
+import { useI18n, formatCurrency } from '../../../i18n';
+import { Button } from '../common/Button';
+import type { Balance } from '@partage/shared';
 
 export interface BalanceCardProps {
-  balance: Balance
-  memberName: string
-  memberId: string
-  currency: string
-  isCurrentUser?: boolean
-  onPayMember?: (memberId: string, memberName: string, amount: number) => void
+  balance: Balance;
+  memberName: string;
+  memberId: string;
+  currency: string;
+  isCurrentUser?: boolean;
+  onPayMember?: (memberId: string, memberName: string, amount: number) => void;
 }
 
 export const BalanceCard: Component<BalanceCardProps> = (props) => {
-  const { t, locale } = useI18n()
+  const { t, locale } = useI18n();
 
   const isSettled = (): boolean => {
-    return Math.abs(props.balance.netBalance) < 0.01
-  }
+    return Math.abs(props.balance.netBalance) < 0.01;
+  };
 
   const getBalanceClass = (): string => {
-    if (isSettled()) return 'balance-neutral'
-    return props.balance.netBalance > 0 ? 'balance-positive' : 'balance-negative'
-  }
+    if (isSettled()) return 'balance-neutral';
+    return props.balance.netBalance > 0 ? 'balance-positive' : 'balance-negative';
+  };
 
   const getBalanceSign = (): string => {
-    if (isSettled()) return ''
-    return props.balance.netBalance > 0 ? '+' : '-'
-  }
+    if (isSettled()) return '';
+    return props.balance.netBalance > 0 ? '+' : '-';
+  };
 
   // Show "Pay" button for non-current user members with positive balance (owed money)
   const showPayButton = (): boolean => {
-    return !props.isCurrentUser && props.balance.netBalance > 0.01 && !!props.onPayMember
-  }
+    return !props.isCurrentUser && props.balance.netBalance > 0.01 && !!props.onPayMember;
+  };
 
   const handlePayClick = () => {
     if (props.onPayMember) {
-      props.onPayMember(props.memberId, props.memberName, Math.abs(props.balance.netBalance))
+      props.onPayMember(props.memberId, props.memberName, Math.abs(props.balance.netBalance));
     }
-  }
+  };
 
   return (
     <div class={`balance-card card ${props.isCurrentUser ? 'balance-card-current' : ''}`}>
@@ -52,7 +52,8 @@ export const BalanceCard: Component<BalanceCardProps> = (props) => {
 
         <div class="balance-card-amount">
           <span class={`balance-net ${getBalanceClass()}`}>
-            {getBalanceSign()}{formatCurrency(Math.abs(props.balance.netBalance), props.currency, locale())}
+            {getBalanceSign()}
+            {formatCurrency(Math.abs(props.balance.netBalance), props.currency, locale())}
           </span>
         </div>
 
@@ -66,5 +67,5 @@ export const BalanceCard: Component<BalanceCardProps> = (props) => {
         </Show>
       </div>
     </div>
-  )
-}
+  );
+};

@@ -154,9 +154,7 @@ describe('Keypair Management (ECDH P-256)', () => {
       const recipientKey = await deriveSharedKey(recipient.privateKey, sender.publicKey);
       const decrypted = await decrypt(encrypted, recipientKey);
 
-      expect(new TextDecoder().decode(decrypted)).toBe(
-        'Private message from sender to recipient'
-      );
+      expect(new TextDecoder().decode(decrypted)).toBe('Private message from sender to recipient');
     });
   });
 
@@ -174,14 +172,8 @@ describe('Keypair Management (ECDH P-256)', () => {
 
       // Both should derive same shared keys
       const otherUser = await generateKeypair();
-      const device1Shared = await deriveSharedKey(
-        device1Keypair.privateKey,
-        otherUser.publicKey
-      );
-      const device2Shared = await deriveSharedKey(
-        device2Keypair.privateKey,
-        otherUser.publicKey
-      );
+      const device1Shared = await deriveSharedKey(device1Keypair.privateKey, otherUser.publicKey);
+      const device2Shared = await deriveSharedKey(device2Keypair.privateKey, otherUser.publicKey);
 
       const message = new TextEncoder().encode('test');
       const encrypted = await encrypt(message, device1Shared);
@@ -209,9 +201,7 @@ describe('Keypair Management (ECDH P-256)', () => {
 
       // Should not be able to use it for key derivation (as private key)
       const otherKeypair = await generateKeypair();
-      await expect(
-        deriveSharedKey(imported as any, otherKeypair.publicKey)
-      ).rejects.toThrow();
+      await expect(deriveSharedKey(imported as any, otherKeypair.publicKey)).rejects.toThrow();
     });
   });
 });

@@ -35,26 +35,26 @@ export const JoinGroupScreen: Component = () => {
   const [groupName, setGroupName] = createSignal<string>('');
   const [groupKeyBase64, setGroupKeyBase64] = createSignal<string>('');
   const [existingMembers, setExistingMembers] = createSignal<Member[]>([]);
-  const [claimedVirtualMemberIds, setClaimedVirtualMemberIds] = createSignal<Set<string>>(new Set());
+  const [claimedVirtualMemberIds, setClaimedVirtualMemberIds] = createSignal<Set<string>>(
+    new Set()
+  );
   const [userName, setUserName] = createSignal('');
   const [loading, setLoading] = createSignal(false);
   const [error, setError] = createSignal<string | null>(null);
-  const [status, setStatus] = createSignal<
-    'loading' | 'ready' | 'joining' | 'error'
-  >('loading');
+  const [status, setStatus] = createSignal<'loading' | 'ready' | 'joining' | 'error'>('loading');
   const [showRealMembers, setShowRealMembers] = createSignal(false);
   const [nameError, setNameError] = createSignal<string>('');
 
   // Separate members into virtual (unclaimed) and real, sorted alphabetically by name
   const virtualMembers = () =>
     existingMembers()
-      .filter(m => m.isVirtual === true)
-      .filter(m => !claimedVirtualMemberIds().has(m.id))
+      .filter((m) => m.isVirtual === true)
+      .filter((m) => !claimedVirtualMemberIds().has(m.id))
       .sort((a, b) => a.name.toLowerCase().localeCompare(b.name.toLowerCase()));
 
   const realMembers = () =>
     existingMembers()
-      .filter(m => m.isVirtual !== true)
+      .filter((m) => m.isVirtual !== true)
       .sort((a, b) => a.name.toLowerCase().localeCompare(b.name.toLowerCase()));
 
   // Validate that name is not already taken
@@ -64,7 +64,7 @@ export const JoinGroupScreen: Component = () => {
       setNameError(t('joinGroup.nameRequired'));
       return false;
     }
-    if (existingMembers().some(m => m.name === trimmedName)) {
+    if (existingMembers().some((m) => m.name === trimmedName)) {
       setNameError(t('joinGroup.duplicateName'));
       return false;
     }
@@ -212,7 +212,7 @@ export const JoinGroupScreen: Component = () => {
       }
 
       const memberName = memberId
-        ? existingMembers().find(m => m.id === memberId)?.name || ''
+        ? existingMembers().find((m) => m.id === memberId)?.name || ''
         : userName();
 
       // Join the group using the simplified method (password derived from key)
@@ -236,7 +236,10 @@ export const JoinGroupScreen: Component = () => {
   };
 
   return (
-    <div class="container" style="padding-top: var(--space-xl); max-width: 500px; margin: 0 auto; padding-bottom: 60px;">
+    <div
+      class="container"
+      style="padding-top: var(--space-xl); max-width: 500px; margin: 0 auto; padding-bottom: 60px;"
+    >
       {/* Language switcher in top-right corner */}
       <div style="position: absolute; top: 1rem; right: 1rem;">
         <LanguageSwitcher />
@@ -342,9 +345,7 @@ export const JoinGroupScreen: Component = () => {
                         </span>
                       </Show>
                     </span>
-                    <span style="margin-left: auto;">
-                      {showRealMembers() ? '▼' : '▶'}
-                    </span>
+                    <span style="margin-left: auto;">{showRealMembers() ? '▼' : '▶'}</span>
                   </button>
 
                   <Show when={showRealMembers()}>
@@ -383,7 +384,10 @@ export const JoinGroupScreen: Component = () => {
                       disabled={loading()}
                     />
                     <Show when={nameError()}>
-                      <p class="error-message" style="margin-top: var(--space-xs); font-size: var(--font-size-sm);">
+                      <p
+                        class="error-message"
+                        style="margin-top: var(--space-xs); font-size: var(--font-size-sm);"
+                      >
                         {nameError()}
                       </p>
                     </Show>
@@ -406,7 +410,6 @@ export const JoinGroupScreen: Component = () => {
               </Show>
             </div>
           </Show>
-
         </Show>
       </div>
     </div>

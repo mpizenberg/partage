@@ -425,7 +425,7 @@ describe('LoroEntryStore', () => {
 
       await store.createEntry(expense, groupKey, actorId);
 
-      const retrieved = await store.getEntry('expense-12', groupKey) as ExpenseEntry;
+      const retrieved = (await store.getEntry('expense-12', groupKey)) as ExpenseEntry;
       expect(retrieved.payers.length).toBe(2);
       expect(retrieved.payers[0]!.amount).toBe(120);
       expect(retrieved.payers[1]!.amount).toBe(80);
@@ -454,7 +454,7 @@ describe('LoroEntryStore', () => {
 
       await store.createEntry(expense, groupKey, actorId);
 
-      const retrieved = await store.getEntry('expense-13', groupKey) as ExpenseEntry;
+      const retrieved = (await store.getEntry('expense-13', groupKey)) as ExpenseEntry;
       expect(retrieved.beneficiaries.length).toBe(3);
       expect(retrieved.beneficiaries[0]!.splitType).toBe('exact');
       expect(retrieved.beneficiaries[1]!.splitType).toBe('shares');

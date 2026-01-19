@@ -9,9 +9,7 @@ export interface ActivityListProps {
 export const ActivityList: Component<ActivityListProps> = (props) => {
   return (
     <div class="activity-list">
-      <For each={props.activities}>
-        {(activity) => <ActivityCard activity={activity} />}
-      </For>
+      <For each={props.activities}>{(activity) => <ActivityCard activity={activity} />}</For>
     </div>
   );
 };

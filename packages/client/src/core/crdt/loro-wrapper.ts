@@ -336,7 +336,6 @@ export class LoroEntryStore {
     const entryMapTyped = entryMap as LoroMap;
     const metadata = this.getMetadataFromMap(entryMapTyped);
 
-
     // 1) Try the provided key first (helps tests and non-rotating contexts).
     // If it fails, fall back to per-entry keyVersion lookup.
     try {
@@ -434,9 +433,7 @@ export class LoroEntryStore {
     }
 
     // Filter to only active entries that haven't been superseded
-    return allEntries.filter(
-      (entry) => entry.status === 'active' && !supersededIds.has(entry.id)
-    );
+    return allEntries.filter((entry) => entry.status === 'active' && !supersededIds.has(entry.id));
   }
 
   // ==================== Member Management ====================
@@ -509,10 +506,7 @@ export class LoroEntryStore {
    */
   addMemberAlias(alias: MemberAlias): void {
     this.transact(() => {
-      const aliasMap = this.memberAliases.setContainer(
-        alias.newMemberId,
-        new LoroMap()
-      ) as LoroMap;
+      const aliasMap = this.memberAliases.setContainer(alias.newMemberId, new LoroMap()) as LoroMap;
       aliasMap.set('newMemberId', alias.newMemberId);
       aliasMap.set('existingMemberId', alias.existingMemberId);
       aliasMap.set('linkedAt', alias.linkedAt);
@@ -755,10 +749,7 @@ export class LoroEntryStore {
    * Retire a member via event
    * Returns the event if successful, or validation result if invalid
    */
-  retireMember(
-    memberId: string,
-    actorId: string
-  ): MemberEvent | MemberOperationValidation {
+  retireMember(memberId: string, actorId: string): MemberEvent | MemberOperationValidation {
     const events = this.getMemberEvents();
     const validation = canRetireMember(memberId, events);
     if (!validation.valid) {
@@ -774,10 +765,7 @@ export class LoroEntryStore {
    * Unretire a member via event
    * Returns the event if successful, or validation result if invalid
    */
-  unretireMember(
-    memberId: string,
-    actorId: string
-  ): MemberEvent | MemberOperationValidation {
+  unretireMember(memberId: string, actorId: string): MemberEvent | MemberOperationValidation {
     const events = this.getMemberEvents();
     const validation = canUnretireMember(memberId, events);
     if (!validation.valid) {

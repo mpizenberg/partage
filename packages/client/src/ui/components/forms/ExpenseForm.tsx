@@ -1,11 +1,11 @@
-import { Component, createSignal, For, Show, createMemo } from 'solid-js'
-import { useAppContext } from '../../context/AppContext'
-import { useI18n } from '../../../i18n'
-import { Input } from '../common/Input'
-import { Select } from '../common/Select'
-import { Button } from '../common/Button'
-import type { ExpenseFormData, FormErrors } from './types'
-import type { ExpenseCategory, SplitType, Payer, Beneficiary, ExpenseEntry } from '@partage/shared'
+import { Component, createSignal, For, Show, createMemo } from 'solid-js';
+import { useAppContext } from '../../context/AppContext';
+import { useI18n } from '../../../i18n';
+import { Input } from '../common/Input';
+import { Select } from '../common/Select';
+import { Button } from '../common/Button';
+import type { ExpenseFormData, FormErrors } from './types';
+import type { ExpenseCategory, SplitType, Payer, Beneficiary, ExpenseEntry } from '@partage/shared';
 
 const CATEGORIES: { value: ExpenseCategory; labelKey: string; emoji: string }[] = [
   { value: 'food', labelKey: 'categories.food', emoji: '🍔' },
@@ -17,268 +17,278 @@ const CATEGORIES: { value: ExpenseCategory; labelKey: string; emoji: string }[] 
   { value: 'utilities', labelKey: 'categories.utilities', emoji: '💡' },
   { value: 'healthcare', labelKey: 'categories.healthcare', emoji: '⚕️' },
   { value: 'other', labelKey: 'categories.other', emoji: '📝' },
-]
+];
 
 export interface ExpenseFormProps {
-  onSubmit: (data: ExpenseFormData) => Promise<void>
-  onCancel: () => void
-  initialData?: ExpenseEntry
+  onSubmit: (data: ExpenseFormData) => Promise<void>;
+  onCancel: () => void;
+  initialData?: ExpenseEntry;
 }
 
 export const ExpenseForm: Component<ExpenseFormProps> = (props) => {
-  const { members, activeGroup, identity } = useAppContext()
-  const { t } = useI18n()
+  const { members, activeGroup, identity } = useAppContext();
+  const { t } = useI18n();
 
   // Sorted active members: current user first, then others alphabetically (case-insensitive)
   const sortedActiveMembers = createMemo(() => {
-    const currentUserId = identity()?.publicKeyHash
-    const membersList = members().filter(m => m.status === 'active')
+    const currentUserId = identity()?.publicKeyHash;
+    const membersList = members().filter((m) => m.status === 'active');
 
-    const currentUser = membersList.filter(m => m.id === currentUserId)
+    const currentUser = membersList.filter((m) => m.id === currentUserId);
     const others = membersList
-      .filter(m => m.id !== currentUserId)
-      .sort((a, b) => a.name.toLowerCase().localeCompare(b.name.toLowerCase()))
+      .filter((m) => m.id !== currentUserId)
+      .sort((a, b) => a.name.toLowerCase().localeCompare(b.name.toLowerCase()));
 
-    return [...currentUser, ...others]
-  })
+    return [...currentUser, ...others];
+  });
 
   // Sorted departed members (alphabetically)
   const sortedDepartedMembers = createMemo(() => {
     return members()
-      .filter(m => m.status === 'departed')
-      .sort((a, b) => a.name.toLowerCase().localeCompare(b.name.toLowerCase()))
-  })
+      .filter((m) => m.status === 'departed')
+      .sort((a, b) => a.name.toLowerCase().localeCompare(b.name.toLowerCase()));
+  });
 
-  const [showDepartedMembers, setShowDepartedMembers] = createSignal(false)
+  const [showDepartedMembers, setShowDepartedMembers] = createSignal(false);
 
   // Helper functions to extract initial data
   const getInitialBeneficiaries = (): Set<string> => {
     if (!props.initialData) {
-      return new Set([identity()?.publicKeyHash || ''])
+      return new Set([identity()?.publicKeyHash || '']);
     }
-    return new Set(props.initialData.beneficiaries.map(b => b.memberId))
-  }
+    return new Set(props.initialData.beneficiaries.map((b) => b.memberId));
+  };
 
   const getInitialSplitType = (): SplitType => {
     if (!props.initialData || props.initialData.beneficiaries.length === 0) {
-      return 'shares'
+      return 'shares';
     }
-    return props.initialData.beneficiaries[0]?.splitType || 'shares'
-  }
+    return props.initialData.beneficiaries[0]?.splitType || 'shares';
+  };
 
   const getInitialShares = (): Map<string, number> => {
-    const map = new Map<string, number>()
+    const map = new Map<string, number>();
     if (props.initialData) {
-      props.initialData.beneficiaries.forEach(b => {
+      props.initialData.beneficiaries.forEach((b) => {
         if (b.splitType === 'shares' && b.shares !== undefined) {
-          map.set(b.memberId, b.shares)
+          map.set(b.memberId, b.shares);
         }
-      })
+      });
     }
-    return map
-  }
+    return map;
+  };
 
   const getInitialAmounts = (): Map<string, number> => {
-    const map = new Map<string, number>()
+    const map = new Map<string, number>();
     if (props.initialData) {
-      props.initialData.beneficiaries.forEach(b => {
+      props.initialData.beneficiaries.forEach((b) => {
         if (b.splitType === 'exact' && b.amount !== undefined) {
-          map.set(b.memberId, b.amount)
+          map.set(b.memberId, b.amount);
         }
-      })
+      });
     }
-    return map
-  }
+    return map;
+  };
 
   const formatDateForInput = (timestamp: number): string => {
-    return new Date(timestamp).toISOString().split('T')[0] || ''
-  }
+    return new Date(timestamp).toISOString().split('T')[0] || '';
+  };
 
   // Basic fields - initialized from props.initialData if present
-  const [amount, setAmount] = createSignal(props.initialData?.amount.toString() || '')
-  const [description, setDescription] = createSignal(props.initialData?.description || '')
-  const [currency, setCurrency] = createSignal(props.initialData?.currency || activeGroup()?.defaultCurrency || 'USD')
+  const [amount, setAmount] = createSignal(props.initialData?.amount.toString() || '');
+  const [description, setDescription] = createSignal(props.initialData?.description || '');
+  const [currency, setCurrency] = createSignal(
+    props.initialData?.currency || activeGroup()?.defaultCurrency || 'USD'
+  );
   const [defaultCurrencyAmount, setDefaultCurrencyAmount] = createSignal(
     props.initialData?.defaultCurrencyAmount?.toString() || ''
-  )
+  );
   const [date, setDate] = createSignal(
-    props.initialData ? formatDateForInput(props.initialData.date) : new Date().toISOString().split('T')[0]
-  )
-  const [category, setCategory] = createSignal<ExpenseCategory | ''>(props.initialData?.category || '')
-  const [location, setLocation] = createSignal(props.initialData?.location || '')
-  const [notes, setNotes] = createSignal(props.initialData?.notes || '')
+    props.initialData
+      ? formatDateForInput(props.initialData.date)
+      : new Date().toISOString().split('T')[0]
+  );
+  const [category, setCategory] = createSignal<ExpenseCategory | ''>(
+    props.initialData?.category || ''
+  );
+  const [location, setLocation] = createSignal(props.initialData?.location || '');
+  const [notes, setNotes] = createSignal(props.initialData?.notes || '');
   const [showAdvanced, setShowAdvanced] = createSignal(
     !!(props.initialData?.category || props.initialData?.location || props.initialData?.notes)
-  )
+  );
 
   // Payers: Single payer mode (default) and multiple payers mode
   const [multiplePayers, setMultiplePayers] = createSignal(
     props.initialData ? props.initialData.payers.length > 1 : false
-  )
+  );
 
   // Single payer mode
   const [payerId, setPayerId] = createSignal(
     props.initialData?.payers[0]?.memberId || identity()?.publicKeyHash || ''
-  )
+  );
 
   // Multiple payers mode
   const getInitialPayers = (): Set<string> => {
     if (!props.initialData) {
-      return new Set([identity()?.publicKeyHash || ''])
+      return new Set([identity()?.publicKeyHash || '']);
     }
-    return new Set(props.initialData.payers.map(p => p.memberId))
-  }
+    return new Set(props.initialData.payers.map((p) => p.memberId));
+  };
 
   const getInitialPayerAmounts = (): Map<string, number> => {
-    const map = new Map<string, number>()
+    const map = new Map<string, number>();
     if (props.initialData) {
-      props.initialData.payers.forEach(p => {
-        map.set(p.memberId, p.amount)
-      })
+      props.initialData.payers.forEach((p) => {
+        map.set(p.memberId, p.amount);
+      });
     }
-    return map
-  }
+    return map;
+  };
 
-  const [selectedPayers, setSelectedPayers] = createSignal<Set<string>>(getInitialPayers())
-  const [payerAmounts, setPayerAmounts] = createSignal<Map<string, number>>(getInitialPayerAmounts())
+  const [selectedPayers, setSelectedPayers] = createSignal<Set<string>>(getInitialPayers());
+  const [payerAmounts, setPayerAmounts] =
+    createSignal<Map<string, number>>(getInitialPayerAmounts());
 
   // Beneficiaries: Track selected members and their shares/amounts
-  const [selectedBeneficiaries, setSelectedBeneficiaries] = createSignal<Set<string>>(getInitialBeneficiaries())
-  const [splitType, setSplitType] = createSignal<SplitType>(getInitialSplitType())
-  const [beneficiaryShares, setBeneficiaryShares] = createSignal<Map<string, number>>(getInitialShares())
-  const [beneficiaryAmounts, setBeneficiaryAmounts] = createSignal<Map<string, number>>(getInitialAmounts())
+  const [selectedBeneficiaries, setSelectedBeneficiaries] =
+    createSignal<Set<string>>(getInitialBeneficiaries());
+  const [splitType, setSplitType] = createSignal<SplitType>(getInitialSplitType());
+  const [beneficiaryShares, setBeneficiaryShares] =
+    createSignal<Map<string, number>>(getInitialShares());
+  const [beneficiaryAmounts, setBeneficiaryAmounts] =
+    createSignal<Map<string, number>>(getInitialAmounts());
 
   // Check if we're in edit mode
-  const isEditMode = () => !!props.initialData
+  const isEditMode = () => !!props.initialData;
 
-  const [errors, setErrors] = createSignal<FormErrors>({})
-  const [isSubmitting, setIsSubmitting] = createSignal(false)
+  const [errors, setErrors] = createSignal<FormErrors>({});
+  const [isSubmitting, setIsSubmitting] = createSignal(false);
 
   // Check if currency is different from default
   const isNonDefaultCurrency = createMemo(() => {
-    const defaultCurrency = activeGroup()?.defaultCurrency || 'USD'
-    return currency() !== defaultCurrency
-  })
+    const defaultCurrency = activeGroup()?.defaultCurrency || 'USD';
+    return currency() !== defaultCurrency;
+  });
 
   // Get default currency
   const getDefaultCurrency = () => {
-    return activeGroup()?.defaultCurrency || 'USD'
-  }
+    return activeGroup()?.defaultCurrency || 'USD';
+  };
 
   // Calculate exchange rate (original to default)
   const exchangeRate = createMemo(() => {
-    const amountNum = parseFloat(amount())
-    const defaultAmountNum = parseFloat(defaultCurrencyAmount())
+    const amountNum = parseFloat(amount());
+    const defaultAmountNum = parseFloat(defaultCurrencyAmount());
 
     if (isNaN(amountNum) || isNaN(defaultAmountNum) || amountNum === 0) {
-      return null
+      return null;
     }
 
-    return defaultAmountNum / amountNum
-  })
+    return defaultAmountNum / amountNum;
+  });
 
   // Calculate inverse exchange rate (default to original)
   const inverseExchangeRate = createMemo(() => {
-    const rate = exchangeRate()
-    if (!rate || rate === 0) return null
-    return 1 / rate
-  })
+    const rate = exchangeRate();
+    if (!rate || rate === 0) return null;
+    return 1 / rate;
+  });
 
   // Format exchange rate display
   const formatExchangeRate = (rate: number | null): string => {
-    if (!rate) return ''
-    return rate.toFixed(3)
-  }
+    if (!rate) return '';
+    return rate.toFixed(3);
+  };
 
   // Calculate shares for display
   const calculatedShares = createMemo(() => {
-    const amountNum = parseFloat(amount())
-    if (isNaN(amountNum) || amountNum <= 0) return new Map<string, number>()
+    const amountNum = parseFloat(amount());
+    if (isNaN(amountNum) || amountNum <= 0) return new Map<string, number>();
 
     if (splitType() === 'exact') {
-      return beneficiaryAmounts()
+      return beneficiaryAmounts();
     }
 
     // Calculate from shares
-    const shares = beneficiaryShares()
-    const selectedIds = Array.from(selectedBeneficiaries())
-    const totalShares = selectedIds.reduce((sum, id) => sum + (shares.get(id) || 1), 0)
+    const shares = beneficiaryShares();
+    const selectedIds = Array.from(selectedBeneficiaries());
+    const totalShares = selectedIds.reduce((sum, id) => sum + (shares.get(id) || 1), 0);
 
-    const result = new Map<string, number>()
+    const result = new Map<string, number>();
     selectedIds.forEach((id) => {
-      const memberShares = shares.get(id) || 1
-      result.set(id, (amountNum * memberShares) / totalShares)
-    })
-    return result
-  })
+      const memberShares = shares.get(id) || 1;
+      result.set(id, (amountNum * memberShares) / totalShares);
+    });
+    return result;
+  });
 
   const togglePayer = (memberId: string) => {
-    const newSet = new Set(selectedPayers())
+    const newSet = new Set(selectedPayers());
     if (newSet.has(memberId)) {
-      newSet.delete(memberId)
+      newSet.delete(memberId);
     } else {
-      newSet.add(memberId)
+      newSet.add(memberId);
     }
-    setSelectedPayers(newSet)
-  }
+    setSelectedPayers(newSet);
+  };
 
   const updatePayerAmount = (memberId: string, value: string) => {
-    const newAmounts = new Map(payerAmounts())
-    const numValue = parseFloat(value)
+    const newAmounts = new Map(payerAmounts());
+    const numValue = parseFloat(value);
     if (!isNaN(numValue) && numValue >= 0) {
-      newAmounts.set(memberId, numValue)
+      newAmounts.set(memberId, numValue);
     } else {
-      newAmounts.delete(memberId)
+      newAmounts.delete(memberId);
     }
-    setPayerAmounts(newAmounts)
-  }
+    setPayerAmounts(newAmounts);
+  };
 
   const toggleBeneficiary = (memberId: string) => {
-    const newSet = new Set(selectedBeneficiaries())
+    const newSet = new Set(selectedBeneficiaries());
     if (newSet.has(memberId)) {
-      newSet.delete(memberId)
+      newSet.delete(memberId);
     } else {
-      newSet.add(memberId)
+      newSet.add(memberId);
     }
-    setSelectedBeneficiaries(newSet)
-  }
+    setSelectedBeneficiaries(newSet);
+  };
 
   const updateBeneficiaryShares = (memberId: string, delta: number) => {
-    const newShares = new Map(beneficiaryShares())
-    const current = newShares.get(memberId) || 1
-    const newValue = Math.max(1, current + delta)
-    newShares.set(memberId, newValue)
-    setBeneficiaryShares(newShares)
-  }
+    const newShares = new Map(beneficiaryShares());
+    const current = newShares.get(memberId) || 1;
+    const newValue = Math.max(1, current + delta);
+    newShares.set(memberId, newValue);
+    setBeneficiaryShares(newShares);
+  };
 
   const updateBeneficiaryAmount = (memberId: string, value: string) => {
-    const newAmounts = new Map(beneficiaryAmounts())
-    const numValue = parseFloat(value)
+    const newAmounts = new Map(beneficiaryAmounts());
+    const numValue = parseFloat(value);
     if (!isNaN(numValue) && numValue >= 0) {
-      newAmounts.set(memberId, numValue)
+      newAmounts.set(memberId, numValue);
     } else {
-      newAmounts.delete(memberId)
+      newAmounts.delete(memberId);
     }
-    setBeneficiaryAmounts(newAmounts)
-  }
+    setBeneficiaryAmounts(newAmounts);
+  };
 
   const validateForm = (): boolean => {
-    const newErrors: FormErrors = {}
+    const newErrors: FormErrors = {};
 
     if (!description().trim()) {
-      newErrors.description = t('expenseForm.descriptionRequired')
+      newErrors.description = t('expenseForm.descriptionRequired');
     }
 
-    const amountNum = parseFloat(amount())
+    const amountNum = parseFloat(amount());
     if (!amount() || isNaN(amountNum) || amountNum <= 0) {
-      newErrors.amount = t('expenseForm.amountRequired')
+      newErrors.amount = t('expenseForm.amountRequired');
     }
 
     // Validate default currency amount for non-default currencies
     if (isNonDefaultCurrency()) {
-      const defaultAmountNum = parseFloat(defaultCurrencyAmount())
+      const defaultAmountNum = parseFloat(defaultCurrencyAmount());
       if (!defaultCurrencyAmount() || isNaN(defaultAmountNum) || defaultAmountNum <= 0) {
-        newErrors.defaultCurrencyAmount = t('expenseForm.defaultCurrencyRequired')
+        newErrors.defaultCurrencyAmount = t('expenseForm.defaultCurrencyRequired');
       }
     }
 
@@ -286,72 +296,78 @@ export const ExpenseForm: Component<ExpenseFormProps> = (props) => {
     if (multiplePayers()) {
       // Multiple payers mode
       if (selectedPayers().size === 0) {
-        newErrors.payers = t('expenseForm.selectPayer')
+        newErrors.payers = t('expenseForm.selectPayer');
       } else {
-        const selectedPayerIds = Array.from(selectedPayers())
+        const selectedPayerIds = Array.from(selectedPayers());
 
         // Check all payers have amounts
         for (const id of selectedPayerIds) {
-          const amt = payerAmounts().get(id)
+          const amt = payerAmounts().get(id);
           if (amt === undefined || amt <= 0) {
-            newErrors.payers = t('expenseForm.payerAmountRequired')
-            break
+            newErrors.payers = t('expenseForm.payerAmountRequired');
+            break;
           }
         }
 
         // Validate payer amounts sum to total
         if (!newErrors.payers) {
           const totalPaid = selectedPayerIds.reduce((sum, id) => {
-            return sum + (payerAmounts().get(id) || 0)
-          }, 0)
+            return sum + (payerAmounts().get(id) || 0);
+          }, 0);
 
           if (Math.abs(totalPaid - amountNum) > 0.01) {
-            newErrors.payers = t('expenseForm.payerTotalMismatch', { paid: totalPaid.toFixed(2), amount: amountNum.toFixed(2) })
+            newErrors.payers = t('expenseForm.payerTotalMismatch', {
+              paid: totalPaid.toFixed(2),
+              amount: amountNum.toFixed(2),
+            });
           }
         }
       }
     } else {
       // Single payer mode
       if (!payerId()) {
-        newErrors.payer = t('expenseForm.selectPayer')
+        newErrors.payer = t('expenseForm.selectPayer');
       }
     }
 
     if (selectedBeneficiaries().size === 0) {
-      newErrors.beneficiaries = t('expenseForm.selectBeneficiary')
+      newErrors.beneficiaries = t('expenseForm.selectBeneficiary');
     }
 
     // Validate exact amounts sum to total
     if (splitType() === 'exact') {
-      const selectedIds = Array.from(selectedBeneficiaries())
+      const selectedIds = Array.from(selectedBeneficiaries());
       const totalAssigned = selectedIds.reduce((sum, id) => {
-        return sum + (beneficiaryAmounts().get(id) || 0)
-      }, 0)
+        return sum + (beneficiaryAmounts().get(id) || 0);
+      }, 0);
 
       if (Math.abs(totalAssigned - amountNum) > 0.01) {
-        newErrors.beneficiaries = t('expenseForm.beneficiaryTotalMismatch', { assigned: totalAssigned.toFixed(2), amount: amountNum.toFixed(2) })
+        newErrors.beneficiaries = t('expenseForm.beneficiaryTotalMismatch', {
+          assigned: totalAssigned.toFixed(2),
+          amount: amountNum.toFixed(2),
+        });
       }
 
       // Check all beneficiaries have amounts
       for (const id of selectedIds) {
-        const amt = beneficiaryAmounts().get(id)
+        const amt = beneficiaryAmounts().get(id);
         if (!amt || amt <= 0) {
-          newErrors.beneficiaries = t('expenseForm.beneficiaryAmountRequired')
-          break
+          newErrors.beneficiaries = t('expenseForm.beneficiaryAmountRequired');
+          break;
         }
       }
     }
 
-    setErrors(newErrors)
-    return Object.keys(newErrors).length === 0
-  }
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
 
   const handleSubmit = async (e: Event) => {
-    e.preventDefault()
+    e.preventDefault();
 
-    if (!validateForm()) return
+    if (!validateForm()) return;
 
-    setIsSubmitting(true)
+    setIsSubmitting(true);
 
     try {
       const payers: Payer[] = multiplePayers()
@@ -364,7 +380,7 @@ export const ExpenseForm: Component<ExpenseFormProps> = (props) => {
               memberId: payerId(),
               amount: parseFloat(amount()),
             },
-          ]
+          ];
 
       const beneficiaries: Beneficiary[] = Array.from(selectedBeneficiaries()).map((memberId) => {
         if (splitType() === 'exact') {
@@ -372,15 +388,15 @@ export const ExpenseForm: Component<ExpenseFormProps> = (props) => {
             memberId,
             splitType: 'exact' as SplitType,
             amount: beneficiaryAmounts().get(memberId) || 0,
-          }
+          };
         } else {
           return {
             memberId,
             splitType: 'shares' as SplitType,
             shares: beneficiaryShares().get(memberId) || 1,
-          }
+          };
         }
-      })
+      });
 
       const formData: ExpenseFormData = {
         amount: parseFloat(amount()),
@@ -395,17 +411,22 @@ export const ExpenseForm: Component<ExpenseFormProps> = (props) => {
         defaultCurrencyAmount: isNonDefaultCurrency()
           ? parseFloat(defaultCurrencyAmount())
           : undefined,
-      }
+      };
 
-      await props.onSubmit(formData)
-      props.onCancel() // Close modal on success
+      await props.onSubmit(formData);
+      props.onCancel(); // Close modal on success
     } catch (error) {
-      console.error(isEditMode() ? 'Failed to update expense:' : 'Failed to create expense:', error)
-      setErrors({ submit: isEditMode() ? t('expenseForm.updateFailed') : t('expenseForm.createFailed') })
+      console.error(
+        isEditMode() ? 'Failed to update expense:' : 'Failed to create expense:',
+        error
+      );
+      setErrors({
+        submit: isEditMode() ? t('expenseForm.updateFailed') : t('expenseForm.createFailed'),
+      });
     } finally {
-      setIsSubmitting(false)
+      setIsSubmitting(false);
     }
-  }
+  };
 
   return (
     <form class="expense-form" onSubmit={handleSubmit}>
@@ -445,7 +466,30 @@ export const ExpenseForm: Component<ExpenseFormProps> = (props) => {
               disabled={isSubmitting()}
               onChange={(e) => setCurrency(e.currentTarget.value)}
             >
-              <For each={['USD', 'EUR', 'GBP', 'JPY', 'AUD', 'CAD', 'CHF', 'CNY', 'SEK', 'NZD', 'MXN', 'SGD', 'HKD', 'NOK', 'KRW', 'TRY', 'INR', 'RUB', 'BRL', 'ZAR']}>
+              <For
+                each={[
+                  'USD',
+                  'EUR',
+                  'GBP',
+                  'JPY',
+                  'AUD',
+                  'CAD',
+                  'CHF',
+                  'CNY',
+                  'SEK',
+                  'NZD',
+                  'MXN',
+                  'SGD',
+                  'HKD',
+                  'NOK',
+                  'KRW',
+                  'TRY',
+                  'INR',
+                  'RUB',
+                  'BRL',
+                  'ZAR',
+                ]}
+              >
                 {(curr) => <option value={curr}>{curr}</option>}
               </For>
             </Select>
@@ -480,7 +524,8 @@ export const ExpenseForm: Component<ExpenseFormProps> = (props) => {
                 </span>
                 <span class="exchange-rate-separator">•</span>
                 <span class="exchange-rate-value">
-                  1 {getDefaultCurrency()} = {formatExchangeRate(inverseExchangeRate())} {currency()}
+                  1 {getDefaultCurrency()} = {formatExchangeRate(inverseExchangeRate())}{' '}
+                  {currency()}
                 </span>
               </div>
             </div>
@@ -532,11 +577,7 @@ export const ExpenseForm: Component<ExpenseFormProps> = (props) => {
             <Show when={sortedDepartedMembers().length > 0}>
               <optgroup label={t('expenseForm.pastMembers')}>
                 <For each={sortedDepartedMembers()}>
-                  {(member) => (
-                    <option value={member.id}>
-                      {member.name}
-                    </option>
-                  )}
+                  {(member) => <option value={member.id}>{member.name}</option>}
                 </For>
               </optgroup>
             </Show>
@@ -548,8 +589,9 @@ export const ExpenseForm: Component<ExpenseFormProps> = (props) => {
           <div class="beneficiaries-list">
             <For each={sortedActiveMembers()}>
               {(member) => {
-                const isSelected = () => selectedPayers().has(member.id)
-                const memberName = () => member.id === identity()?.publicKeyHash ? t('common.you') : member.name
+                const isSelected = () => selectedPayers().has(member.id);
+                const memberName = () =>
+                  member.id === identity()?.publicKeyHash ? t('common.you') : member.name;
 
                 return (
                   <div class={`beneficiary-item ${isSelected() ? 'selected' : ''}`}>
@@ -577,7 +619,7 @@ export const ExpenseForm: Component<ExpenseFormProps> = (props) => {
                       </div>
                     </Show>
                   </div>
-                )
+                );
               }}
             </For>
 
@@ -590,13 +632,14 @@ export const ExpenseForm: Component<ExpenseFormProps> = (props) => {
                   onClick={() => setShowDepartedMembers(!showDepartedMembers())}
                   style="width: 100%; text-align: left; padding: var(--space-sm); background: var(--color-bg-secondary); border: none; border-radius: var(--border-radius); cursor: pointer; font-size: var(--font-size-sm); color: var(--color-text-light);"
                 >
-                  {showDepartedMembers() ? '▼' : '▶'} {t('expenseForm.pastMembers')} ({sortedDepartedMembers().length})
+                  {showDepartedMembers() ? '▼' : '▶'} {t('expenseForm.pastMembers')} (
+                  {sortedDepartedMembers().length})
                 </button>
                 <Show when={showDepartedMembers()}>
                   <div style="margin-top: var(--space-sm);">
                     <For each={sortedDepartedMembers()}>
                       {(member) => {
-                        const isSelected = () => selectedPayers().has(member.id)
+                        const isSelected = () => selectedPayers().has(member.id);
 
                         return (
                           <div class={`beneficiary-item ${isSelected() ? 'selected' : ''}`}>
@@ -619,12 +662,14 @@ export const ExpenseForm: Component<ExpenseFormProps> = (props) => {
                                   step={0.01}
                                   min={0}
                                   disabled={isSubmitting()}
-                                  onInput={(e) => updatePayerAmount(member.id, e.currentTarget.value)}
+                                  onInput={(e) =>
+                                    updatePayerAmount(member.id, e.currentTarget.value)
+                                  }
                                 />
                               </div>
                             </Show>
                           </div>
-                        )
+                        );
                       }}
                     </For>
                   </div>
@@ -633,9 +678,7 @@ export const ExpenseForm: Component<ExpenseFormProps> = (props) => {
             </Show>
           </div>
 
-          {errors().payers && (
-            <div class="form-field-error">{errors().payers}</div>
-          )}
+          {errors().payers && <div class="form-field-error">{errors().payers}</div>}
         </Show>
       </div>
 
@@ -666,8 +709,9 @@ export const ExpenseForm: Component<ExpenseFormProps> = (props) => {
         <div class="beneficiaries-list">
           <For each={sortedActiveMembers()}>
             {(member) => {
-              const isSelected = () => selectedBeneficiaries().has(member.id)
-              const memberName = () => member.id === identity()?.publicKeyHash ? t('common.you') : member.name
+              const isSelected = () => selectedBeneficiaries().has(member.id);
+              const memberName = () =>
+                member.id === identity()?.publicKeyHash ? t('common.you') : member.name;
 
               return (
                 <div class={`beneficiary-item ${isSelected() ? 'selected' : ''}`}>
@@ -693,7 +737,13 @@ export const ExpenseForm: Component<ExpenseFormProps> = (props) => {
                           −
                         </button>
                         <span class="control-value">
-                          {beneficiaryShares().get(member.id) || 1}<span class="control-value-label"> {(beneficiaryShares().get(member.id) || 1) > 1 ? t('expenseForm.sharesLabel') : t('expenseForm.shareLabel')}</span>
+                          {beneficiaryShares().get(member.id) || 1}
+                          <span class="control-value-label">
+                            {' '}
+                            {(beneficiaryShares().get(member.id) || 1) > 1
+                              ? t('expenseForm.sharesLabel')
+                              : t('expenseForm.shareLabel')}
+                          </span>
                         </span>
                         <button
                           type="button"
@@ -724,7 +774,7 @@ export const ExpenseForm: Component<ExpenseFormProps> = (props) => {
                     </Show>
                   </Show>
                 </div>
-              )
+              );
             }}
           </For>
 
@@ -737,13 +787,14 @@ export const ExpenseForm: Component<ExpenseFormProps> = (props) => {
                 onClick={() => setShowDepartedMembers(!showDepartedMembers())}
                 style="width: 100%; text-align: left; padding: var(--space-sm); background: var(--color-bg-secondary); border: none; border-radius: var(--border-radius); cursor: pointer; font-size: var(--font-size-sm); color: var(--color-text-light);"
               >
-                {showDepartedMembers() ? '▼' : '▶'} {t('expenseForm.pastMembers')} ({sortedDepartedMembers().length})
+                {showDepartedMembers() ? '▼' : '▶'} {t('expenseForm.pastMembers')} (
+                {sortedDepartedMembers().length})
               </button>
               <Show when={showDepartedMembers()}>
                 <div style="margin-top: var(--space-sm);">
                   <For each={sortedDepartedMembers()}>
                     {(member) => {
-                      const isSelected = () => selectedBeneficiaries().has(member.id)
+                      const isSelected = () => selectedBeneficiaries().has(member.id);
 
                       return (
                         <div class={`beneficiary-item ${isSelected() ? 'selected' : ''}`}>
@@ -790,13 +841,15 @@ export const ExpenseForm: Component<ExpenseFormProps> = (props) => {
                                   step={0.01}
                                   min={0}
                                   disabled={isSubmitting()}
-                                  onInput={(e) => updateBeneficiaryAmount(member.id, e.currentTarget.value)}
+                                  onInput={(e) =>
+                                    updateBeneficiaryAmount(member.id, e.currentTarget.value)
+                                  }
                                 />
                               </div>
                             </Show>
                           </Show>
                         </div>
-                      )
+                      );
                     }}
                   </For>
                 </div>
@@ -805,9 +858,7 @@ export const ExpenseForm: Component<ExpenseFormProps> = (props) => {
           </Show>
         </div>
 
-        {errors().beneficiaries && (
-          <div class="form-field-error">{errors().beneficiaries}</div>
-        )}
+        {errors().beneficiaries && <div class="form-field-error">{errors().beneficiaries}</div>}
       </div>
 
       {/* Advanced Section */}
@@ -864,21 +915,27 @@ export const ExpenseForm: Component<ExpenseFormProps> = (props) => {
         </Show>
       </div>
 
-      {errors().submit && (
-        <div class="form-error">{errors().submit}</div>
-      )}
+      {errors().submit && <div class="form-error">{errors().submit}</div>}
 
       <div class="form-actions">
-        <Button type="button" variant="secondary" onClick={props.onCancel} disabled={isSubmitting()}>
+        <Button
+          type="button"
+          variant="secondary"
+          onClick={props.onCancel}
+          disabled={isSubmitting()}
+        >
           {t('common.cancel')}
         </Button>
         <Button type="submit" variant="primary" disabled={isSubmitting()}>
           {isSubmitting()
-            ? (isEditMode() ? t('expenseForm.saving') : t('expenseForm.creating'))
-            : (isEditMode() ? t('expenseForm.saveButton') : t('expenseForm.createButton'))
-          }
+            ? isEditMode()
+              ? t('expenseForm.saving')
+              : t('expenseForm.creating')
+            : isEditMode()
+              ? t('expenseForm.saveButton')
+              : t('expenseForm.createButton')}
         </Button>
       </div>
     </form>
-  )
-}
+  );
+};

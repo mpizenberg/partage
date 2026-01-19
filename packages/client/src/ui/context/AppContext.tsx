@@ -622,7 +622,10 @@ export const AppProvider: Component<{ children: JSX.Element }> = (props) => {
         try {
           await pbClient.authenticateAsGroup(groupId, groupKeyBase64);
         } catch (authErr) {
-          console.warn('[AppContext] Failed to authenticate as group, some features may not work:', authErr);
+          console.warn(
+            '[AppContext] Failed to authenticate as group, some features may not work:',
+            authErr
+          );
         }
       }
 

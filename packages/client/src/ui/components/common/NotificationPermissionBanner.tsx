@@ -1,6 +1,6 @@
-import { Component, createSignal, onMount, Show } from 'solid-js'
-import { useI18n } from '../../../i18n'
-import { getPushManager } from '../../../domain/notifications/push-manager'
+import { Component, createSignal, onMount, Show } from 'solid-js';
+import { useI18n } from '../../../i18n';
+import { getPushManager } from '../../../domain/notifications/push-manager';
 
 /**
  * Banner that prompts user to enable push notifications
@@ -10,26 +10,27 @@ import { getPushManager } from '../../../domain/notifications/push-manager'
  * - User hasn't dismissed it in this session
  */
 export const NotificationPermissionBanner: Component = () => {
-  const { t } = useI18n()
-  const [show, setShow] = createSignal(false)
-  const [isRequesting, setIsRequesting] = createSignal(false)
+  const { t } = useI18n();
+  const [show, setShow] = createSignal(false);
+  const [isRequesting, setIsRequesting] = createSignal(false);
 
-  const pushManager = getPushManager()
+  const pushManager = getPushManager();
 
   onMount(async () => {
-    console.log('NotificationPermissionBanner mounted')
+    console.log('NotificationPermissionBanner mounted');
 
     // Check basic browser support first
-    const hasNotificationAPI = 'Notification' in window
-    const hasServiceWorker = 'serviceWorker' in navigator
+    const hasNotificationAPI = 'Notification' in window;
+    const hasServiceWorker = 'serviceWorker' in navigator;
 
     // Check if running as PWA (standalone mode)
-    const isStandalone = window.matchMedia('(display-mode: standalone)').matches ||
-                         (window.navigator as any).standalone ||
-                         document.referrer.includes('android-app://')
+    const isStandalone =
+      window.matchMedia('(display-mode: standalone)').matches ||
+      (window.navigator as any).standalone ||
+      document.referrer.includes('android-app://');
 
     // Detect iOS
-    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !(window as any).MSStream
+    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !(window as any).MSStream;
 
     console.log('Browser capabilities:', {
       hasNotificationAPI,
@@ -37,67 +38,69 @@ export const NotificationPermissionBanner: Component = () => {
       isStandalone,
       isIOS,
       userAgent: navigator.userAgent,
-      displayMode: window.matchMedia('(display-mode: standalone)').matches ? 'standalone' : 'browser',
-      currentPermission: hasNotificationAPI ? Notification.permission : 'not-supported'
-    })
+      displayMode: window.matchMedia('(display-mode: standalone)').matches
+        ? 'standalone'
+        : 'browser',
+      currentPermission: hasNotificationAPI ? Notification.permission : 'not-supported',
+    });
 
     if (!hasNotificationAPI || !hasServiceWorker) {
-      console.log('Notifications or Service Worker not supported in this browser')
-      return
+      console.log('Notifications or Service Worker not supported in this browser');
+      return;
     }
 
     // iOS requires PWA to be installed (standalone mode) for notifications
     if (isIOS && !isStandalone) {
-      console.log('iOS detected - PWA must be installed (added to home screen) for notifications')
-      return
+      console.log('iOS detected - PWA must be installed (added to home screen) for notifications');
+      return;
     }
 
     // Initialize the push manager (wait for service worker)
-    await pushManager.initialize()
+    await pushManager.initialize();
 
     // Check if we should show the banner
-    const permission = pushManager.getPermissionState()
-    console.log('Permission state:', permission)
+    const permission = pushManager.getPermissionState();
+    console.log('Permission state:', permission);
 
     if (permission.prompt) {
       // Check if user dismissed it in this session
-      const dismissed = sessionStorage.getItem('notification-permission-dismissed')
-      console.log('Banner dismissed in session?', dismissed)
+      const dismissed = sessionStorage.getItem('notification-permission-dismissed');
+      console.log('Banner dismissed in session?', dismissed);
 
       if (!dismissed) {
-        console.log('Showing notification permission banner')
-        setShow(true)
+        console.log('Showing notification permission banner');
+        setShow(true);
       }
     } else {
-      console.log('Not showing banner - permission is:', Notification.permission)
+      console.log('Not showing banner - permission is:', Notification.permission);
     }
-  })
+  });
 
   const handleEnable = async () => {
-    setIsRequesting(true)
+    setIsRequesting(true);
 
     try {
-      await pushManager.initialize()
-      const granted = await pushManager.requestPermission()
+      await pushManager.initialize();
+      const granted = await pushManager.requestPermission();
 
       if (granted) {
-        setShow(false)
+        setShow(false);
       } else {
         // Permission denied - hide banner
-        setShow(false)
+        setShow(false);
       }
     } catch (error) {
-      console.error('Failed to request notification permission:', error)
+      console.error('Failed to request notification permission:', error);
     } finally {
-      setIsRequesting(false)
+      setIsRequesting(false);
     }
-  }
+  };
 
   const handleDismiss = () => {
-    setShow(false)
+    setShow(false);
     // Remember dismissal for this session
-    sessionStorage.setItem('notification-permission-dismissed', 'true')
-  }
+    sessionStorage.setItem('notification-permission-dismissed', 'true');
+  };
 
   return (
     <Show when={show()}>
@@ -105,9 +108,7 @@ export const NotificationPermissionBanner: Component = () => {
         <div class="notification-permission-content">
           <div class="notification-permission-icon">🔔</div>
           <div class="notification-permission-text">
-            <div class="notification-permission-title">
-              {t('notifications.enableTitle')}
-            </div>
+            <div class="notification-permission-title">{t('notifications.enableTitle')}</div>
             <div class="notification-permission-description">
               {t('notifications.enableDescription')}
             </div>
@@ -131,5 +132,5 @@ export const NotificationPermissionBanner: Component = () => {
         </div>
       </div>
     </Show>
-  )
-}
+  );
+};

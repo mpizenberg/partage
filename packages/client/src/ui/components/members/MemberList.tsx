@@ -31,8 +31,8 @@ export const MemberList: Component<MemberListProps> = (props) => {
   const sortedMembers = createMemo(() => {
     // Filter by status first
     let membersList = showDeparted()
-      ? props.members.filter(m => m.status === 'departed')
-      : props.members.filter(m => m.status === 'active');
+      ? props.members.filter((m) => m.status === 'departed')
+      : props.members.filter((m) => m.status === 'active');
 
     // Then sort
     if (sortMode() === 'name') {
@@ -59,7 +59,7 @@ export const MemberList: Component<MemberListProps> = (props) => {
 
   const getAddedByName = (addedById: string | undefined): string => {
     if (!addedById) return t('common.unknown');
-    const member = props.members.find(m => m.id === addedById);
+    const member = props.members.find((m) => m.id === addedById);
     return member?.name || t('common.unknown');
   };
 
@@ -131,7 +131,9 @@ export const MemberList: Component<MemberListProps> = (props) => {
       <div class="member-list-controls" style="margin-bottom: var(--space-md);">
         {/* Sorting buttons */}
         <div style="display: flex; align-items: center; gap: var(--space-xs); margin-bottom: var(--space-sm);">
-          <span class="sort-icon" style="font-size: var(--font-size-lg);">⇅</span>
+          <span class="sort-icon" style="font-size: var(--font-size-lg);">
+            ⇅
+          </span>
           <div class="sort-toggle">
             <button
               class={`sort-toggle-btn ${sortMode() === 'name' ? 'active' : ''}`}
@@ -191,7 +193,8 @@ export const MemberList: Component<MemberListProps> = (props) => {
                           when={!member.isVirtual && member.id}
                           fallback={
                             <span class="member-id-text">
-                              {t('members.addedBy')}: {getAddedByName(member.addedBy)} ({member.addedBy ? truncateId(member.addedBy) : t('common.unknown')})
+                              {t('members.addedBy')}: {getAddedByName(member.addedBy)} (
+                              {member.addedBy ? truncateId(member.addedBy) : t('common.unknown')})
                             </span>
                           }
                         >
@@ -200,8 +203,16 @@ export const MemberList: Component<MemberListProps> = (props) => {
                       </div>
 
                       {/* Action buttons - only show for active members when handlers are provided */}
-                      <Show when={member.status === 'active' && (props.onRenameMember || props.onRemoveMember)}>
-                        <div class="member-actions" style="margin-top: var(--space-sm); display: flex; gap: var(--space-sm);">
+                      <Show
+                        when={
+                          member.status === 'active' &&
+                          (props.onRenameMember || props.onRemoveMember)
+                        }
+                      >
+                        <div
+                          class="member-actions"
+                          style="margin-top: var(--space-sm); display: flex; gap: var(--space-sm);"
+                        >
                           <Show when={props.onRenameMember}>
                             <button
                               class="btn btn-sm btn-secondary"
@@ -273,10 +284,18 @@ export const MemberList: Component<MemberListProps> = (props) => {
                 {t('members.removeConfirm', { name: memberToRemove()?.name || '' })}
               </p>
               <div class="modal-actions">
-                <button class="btn btn-secondary" onClick={cancelRemove} style="padding: var(--space-sm) var(--space-md);">
+                <button
+                  class="btn btn-secondary"
+                  onClick={cancelRemove}
+                  style="padding: var(--space-sm) var(--space-md);"
+                >
                   {t('common.cancel')}
                 </button>
-                <button class="btn btn-danger" onClick={confirmRemove} style="padding: var(--space-sm) var(--space-md);">
+                <button
+                  class="btn btn-danger"
+                  onClick={confirmRemove}
+                  style="padding: var(--space-sm) var(--space-md);"
+                >
                   {t('members.removeMember')}
                 </button>
               </div>

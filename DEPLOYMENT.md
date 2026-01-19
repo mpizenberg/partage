@@ -24,7 +24,7 @@ The project includes a custom PocketBase Docker image with hooks for anti-spam P
 **Docker Compose:**
 
 ```yaml
-version: "3.8"
+version: '3.8'
 
 services:
   pocketbase:
@@ -44,7 +44,7 @@ services:
       - POCKETBASE_WORKDIR=/pocketbase-data
       - POCKETBASE_HOOK_DIR=/pocketbase/pb_hooks
     healthcheck:
-      test: ["CMD", "wget", "-qO-", "http://localhost:8090/_/"]
+      test: ['CMD', 'wget', '-qO-', 'http://localhost:8090/_/']
       interval: 30s
       timeout: 10s
       retries: 3
@@ -55,11 +55,11 @@ volumes:
 
 **Environment Variables:**
 
-| Variable | Required | Description |
-|----------|----------|-------------|
-| `ADMIN_EMAIL` | Yes | Admin email for PocketBase |
-| `ADMIN_PASSWORD` | Yes | Admin password for PocketBase |
-| `POW_SECRET` | Yes | Secret for signing PoW challenges (generate with `openssl rand -hex 32`) |
+| Variable         | Required | Description                                                              |
+| ---------------- | -------- | ------------------------------------------------------------------------ |
+| `ADMIN_EMAIL`    | Yes      | Admin email for PocketBase                                               |
+| `ADMIN_PASSWORD` | Yes      | Admin password for PocketBase                                            |
+| `POW_SECRET`     | Yes      | Secret for signing PoW challenges (generate with `openssl rand -hex 32`) |
 
 **Important:** The volume mounts at `/pocketbase-data` (not `/pocketbase`) to preserve the hooks directory from the Docker image. The `POCKETBASE_WORKDIR` environment variable redirects PocketBase to use the mounted volume.
 
@@ -75,6 +75,7 @@ curl https://your-pocketbase-url/api/pow/challenge
 The custom PocketBase image is built automatically via GitHub Actions when files in `packages/server/bin/pb_hooks/` or `packages/server/Dockerfile` change.
 
 To manually trigger a build:
+
 1. Go to GitHub Actions → "Build PocketBase Image"
 2. Click "Run workflow"
 
@@ -107,6 +108,7 @@ pnpm build
 ```
 
 This creates optimized static files in `packages/client/dist/`:
+
 - `index.html` - Entry point
 - `assets/` - JavaScript, CSS, and assets
 - `manifest.webmanifest` - PWA manifest
@@ -133,6 +135,7 @@ RAILPACK_SPA_OUTPUT_DIR=packages/client/dist
 5. Deploy
 
 Railpack will automatically:
+
 - Detect Node.js with pnpm
 - Install dependencies with `pnpm install`
 - Run build with `pnpm build`
@@ -141,6 +144,7 @@ Railpack will automatically:
 - Configure for SPA routing (all routes → index.html)
 
 **Important Notes:**
+
 - The `VITE_POCKETBASE_URL` environment variable is baked into the JavaScript bundle at build time
 - If you change the PocketBase URL, you must rebuild and redeploy the client
 - Ensure your `package.json` specifies `"pnpm": ">=9.0.0"` to match the lockfile version
@@ -157,23 +161,24 @@ vercel --prod
 ```
 
 **Environment Variables:**
+
 - `VITE_POCKETBASE_URL` - Your PocketBase URL
 
 **Configuration (`vercel.json`):**
+
 ```json
 {
   "buildCommand": "cd ../.. && pnpm build",
   "outputDirectory": "dist",
   "framework": "vite",
-  "rewrites": [
-    { "source": "/(.*)", "destination": "/index.html" }
-  ]
+  "rewrites": [{ "source": "/(.*)", "destination": "/index.html" }]
 }
 ```
 
 ### Option 3: Netlify
 
 **Configuration (`netlify.toml`):**
+
 ```toml
 [build]
   command = "pnpm build"
@@ -201,6 +206,7 @@ scp -r packages/client/dist/* user@server:/var/www/partage/
 ```
 
 **nginx Configuration:**
+
 ```nginx
 server {
     listen 80;
@@ -222,6 +228,7 @@ server {
 ```
 
 **Caddyfile Configuration:**
+
 ```
 partage.yourhost.com {
     root * /var/www/partage
@@ -237,27 +244,27 @@ partage.yourhost.com {
 
 These must be set **before** building the client:
 
-| Variable | Required | Description | Example |
-|----------|----------|-------------|---------|
-| `VITE_POCKETBASE_URL` | Yes | PocketBase server URL | `https://partage-pocketbase.yourhost.com` |
+| Variable              | Required | Description           | Example                                   |
+| --------------------- | -------- | --------------------- | ----------------------------------------- |
+| `VITE_POCKETBASE_URL` | Yes      | PocketBase server URL | `https://partage-pocketbase.yourhost.com` |
 
 ### Runtime (PocketBase)
 
-| Variable | Required | Description |
-|----------|----------|-------------|
-| `PB_ADMIN_EMAIL` | Yes | Admin email for PocketBase |
-| `PB_ADMIN_PASSWORD` | Yes | Admin password for PocketBase |
-| `POW_SECRET` | Yes | Secret for signing PoW challenges |
-| `POCKETBASE_WORKDIR` | Yes* | Work directory path |
-| `POCKETBASE_HOOK_DIR` | Yes* | Hooks directory path |
+| Variable              | Required | Description                       |
+| --------------------- | -------- | --------------------------------- |
+| `PB_ADMIN_EMAIL`      | Yes      | Admin email for PocketBase        |
+| `PB_ADMIN_PASSWORD`   | Yes      | Admin password for PocketBase     |
+| `POW_SECRET`          | Yes      | Secret for signing PoW challenges |
+| `POCKETBASE_WORKDIR`  | Yes\*    | Work directory path               |
+| `POCKETBASE_HOOK_DIR` | Yes\*    | Hooks directory path              |
 
-*Required when using the custom Docker image with Dokploy to separate data from hooks.
+\*Required when using the custom Docker image with Dokploy to separate data from hooks.
 
 ### Deployment (Dokploy/Railpack)
 
-| Variable | Required | Description |
-|----------|----------|-------------|
-| `RAILPACK_SPA_OUTPUT_DIR` | Yes | Path to built static files | `packages/client/dist` |
+| Variable                  | Required | Description                |
+| ------------------------- | -------- | -------------------------- | ---------------------- |
+| `RAILPACK_SPA_OUTPUT_DIR` | Yes      | Path to built static files | `packages/client/dist` |
 
 ## Post-Deployment Verification
 
@@ -294,11 +301,13 @@ curl https://partage-pocketbase.yourhost.com/api/collections/groups/records
 **Symptom:** Client shows "Bad Gateway" error
 
 **Causes:**
+
 - Web server not configured correctly
 - `RAILPACK_SPA_OUTPUT_DIR` not set or wrong path
 - Build failed but deployment continued
 
 **Solution:**
+
 1. Check deployment logs for build errors
 2. Verify `RAILPACK_SPA_OUTPUT_DIR=packages/client/dist` is set
 3. Verify static files exist in `packages/client/dist/`
@@ -308,11 +317,13 @@ curl https://partage-pocketbase.yourhost.com/api/collections/groups/records
 **Symptom:** Client loads but shows connection errors
 
 **Causes:**
+
 - `VITE_POCKETBASE_URL` not set or incorrect
 - PocketBase server not running
 - CORS issues
 
 **Solution:**
+
 1. Check browser console for `POCKETBASE_URL` value
 2. Verify PocketBase is accessible: `curl https://your-pocketbase-url/api/health`
 3. Rebuild client with correct `VITE_POCKETBASE_URL`
@@ -322,11 +333,13 @@ curl https://partage-pocketbase.yourhost.com/api/collections/groups/records
 **Symptom:** Browser shows "Connection is not secure"
 
 **Causes:**
+
 - Domain misconfigured (trailing slash, typo)
 - Let's Encrypt ACME challenge failed
 - Traefik serving default self-signed cert
 
 **Solution:**
+
 1. Verify domain configuration (no trailing slash!)
 2. Check Traefik logs for ACME errors
 3. Ensure port 80 is accessible for HTTP-01 challenge
@@ -336,10 +349,12 @@ curl https://partage-pocketbase.yourhost.com/api/collections/groups/records
 **Symptom:** Build fails with lockfile compatibility error
 
 **Causes:**
+
 - pnpm version mismatch between lockfile and builder
 - Lockfile generated with pnpm 9.x but builder uses 8.x
 
 **Solution:**
+
 1. Update `package.json` engines: `"pnpm": ">=9.0.0"`
 2. Commit and redeploy
 

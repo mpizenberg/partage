@@ -24,7 +24,7 @@
  * Generate a PoW challenge
  * GET /api/pow/challenge
  */
-routerAdd('GET', '/api/pow/challenge', function(e) {
+routerAdd('GET', '/api/pow/challenge', function (e) {
   var secret = $os.getenv('POW_SECRET') || 'partage-pow-secret-change-in-production';
   var difficulty = 18;
   var timestamp = Math.floor(Date.now() / 1000);
@@ -37,7 +37,7 @@ routerAdd('GET', '/api/pow/challenge', function(e) {
     challenge: challenge,
     timestamp: timestamp,
     difficulty: difficulty,
-    signature: signature
+    signature: signature,
   });
 });
 
@@ -48,7 +48,7 @@ routerAdd('GET', '/api/pow/challenge', function(e) {
  * 1. Validate PoW (anti-spam)
  * 2. Store powChallenge in record (unique constraint prevents reuse)
  */
-onRecordCreateRequest(function(e) {
+onRecordCreateRequest(function (e) {
   var secret = $os.getenv('POW_SECRET') || 'partage-pow-secret-change-in-production';
   var challengeTTL = 600;
   var body = e.requestInfo().body || {};
@@ -117,7 +117,7 @@ onRecordCreateRequest(function(e) {
  * Handle user creation:
  * Validate that the groupId references an existing group
  */
-onRecordCreateRequest(function(e) {
+onRecordCreateRequest(function (e) {
   var groupId = e.record.get('groupId');
 
   if (!groupId) {

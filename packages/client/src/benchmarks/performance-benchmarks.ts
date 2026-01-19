@@ -17,7 +17,10 @@
  */
 
 import { generateSymmetricKey, encryptJSON, decryptJSON } from '../core/crypto/symmetric.js';
-import { calculateBalances, generateSettlementPlan } from '../domain/calculations/balance-calculator.js';
+import {
+  calculateBalances,
+  generateSettlementPlan,
+} from '../domain/calculations/balance-calculator.js';
 import type { ExpenseEntry, Member } from '@partage/shared';
 
 // ==================== Types ====================
@@ -380,11 +383,7 @@ export async function benchmarkBalanceCalculation(): Promise<BenchmarkResult[]> 
   );
 
   results.push(
-    await measure(
-      'balance-5members-20entries',
-      () => calculateBalances(smallEntries),
-      500
-    )
+    await measure('balance-5members-20entries', () => calculateBalances(smallEntries), 500)
   );
   logResult(results[results.length - 1]!);
 
@@ -396,11 +395,7 @@ export async function benchmarkBalanceCalculation(): Promise<BenchmarkResult[]> 
   );
 
   results.push(
-    await measure(
-      'balance-10members-100entries',
-      () => calculateBalances(mediumEntries),
-      100
-    )
+    await measure('balance-10members-100entries', () => calculateBalances(mediumEntries), 100)
   );
   logResult(results[results.length - 1]!);
 
@@ -412,11 +407,7 @@ export async function benchmarkBalanceCalculation(): Promise<BenchmarkResult[]> 
   );
 
   results.push(
-    await measure(
-      'balance-20members-500entries',
-      () => calculateBalances(largeEntries),
-      50
-    )
+    await measure('balance-20members-500entries', () => calculateBalances(largeEntries), 50)
   );
   logResult(results[results.length - 1]!);
 
@@ -428,11 +419,7 @@ export async function benchmarkBalanceCalculation(): Promise<BenchmarkResult[]> 
   );
 
   results.push(
-    await measure(
-      'balance-50members-2000entries',
-      () => calculateBalances(veryLargeEntries),
-      10
-    )
+    await measure('balance-50members-2000entries', () => calculateBalances(veryLargeEntries), 10)
   );
   logResult(results[results.length - 1]!);
 

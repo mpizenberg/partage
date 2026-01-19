@@ -1,65 +1,65 @@
-import { Component, Show, For, createSignal, createMemo } from 'solid-js'
-import { useI18n, formatCurrency } from '../../../i18n'
-import { useAppContext } from '../../context/AppContext'
-import { Button } from '../common/Button'
-import type { SettlementPlan as SettlementPlanType, Member } from '@partage/shared'
+import { Component, Show, For, createSignal, createMemo } from 'solid-js';
+import { useI18n, formatCurrency } from '../../../i18n';
+import { useAppContext } from '../../context/AppContext';
+import { Button } from '../common/Button';
+import type { SettlementPlan as SettlementPlanType, Member } from '@partage/shared';
 
 export interface SettlementPlanProps {
-  plan: SettlementPlanType
-  currency: string
-  members: Member[]
-  disabled?: boolean
+  plan: SettlementPlanType;
+  currency: string;
+  members: Member[];
+  disabled?: boolean;
 }
 
 export const SettlementPlan: Component<SettlementPlanProps> = (props) => {
-  const { t, locale } = useI18n()
-  const { addTransfer, identity, loroStore } = useAppContext()
-  const [isSettling, setIsSettling] = createSignal<string | null>(null)
+  const { t, locale } = useI18n();
+  const { addTransfer, identity, loroStore } = useAppContext();
+  const [isSettling, setIsSettling] = createSignal<string | null>(null);
 
   // Memoize the canonical user ID to avoid repeated resolution
   const canonicalUserId = createMemo(() => {
-    const userId = identity()?.publicKeyHash
-    if (!userId) return ''
-    const store = loroStore()
-    if (!store) return userId
-    return store.resolveCanonicalMemberId(userId)
-  })
+    const userId = identity()?.publicKeyHash;
+    if (!userId) return '';
+    const store = loroStore();
+    if (!store) return userId;
+    return store.resolveCanonicalMemberId(userId);
+  });
 
   // Memoized member name lookup map - uses canonical ID resolution
   const memberNameMap = createMemo(() => {
-    const nameMap = new Map<string, string>()
-    const store = loroStore()
+    const nameMap = new Map<string, string>();
+    const store = loroStore();
 
     if (!store) {
       // Fallback to props.members
       for (const member of props.members) {
-        nameMap.set(member.id, member.name)
+        nameMap.set(member.id, member.name);
       }
-      return nameMap
+      return nameMap;
     }
 
     // Use event-based system: resolve each member to their canonical name
-    const canonicalIdMap = store.getCanonicalIdMap()
-    const allStates = store.getAllMemberStates()
+    const canonicalIdMap = store.getCanonicalIdMap();
+    const allStates = store.getAllMemberStates();
 
     for (const [memberId, state] of allStates) {
-      const canonicalId = canonicalIdMap.get(memberId) ?? memberId
-      const canonicalState = allStates.get(canonicalId)
-      nameMap.set(memberId, canonicalState?.name ?? state.name)
+      const canonicalId = canonicalIdMap.get(memberId) ?? memberId;
+      const canonicalState = allStates.get(canonicalId);
+      nameMap.set(memberId, canonicalState?.name ?? state.name);
     }
 
-    return nameMap
-  })
+    return nameMap;
+  });
 
   // O(1) member name lookup using memoized map
   const getMemberName = (memberId: string): string => {
-    return memberNameMap().get(memberId) || t('common.unknown')
-  }
+    return memberNameMap().get(memberId) || t('common.unknown');
+  };
 
   const handleSettle = async (fromId: string, toId: string, amount: number) => {
-    const settlementKey = `${fromId}-${toId}`
+    const settlementKey = `${fromId}-${toId}`;
     try {
-      setIsSettling(settlementKey)
+      setIsSettling(settlementKey);
 
       await addTransfer({
         amount,
@@ -68,27 +68,26 @@ export const SettlementPlan: Component<SettlementPlanProps> = (props) => {
         to: toId,
         date: Date.now(),
         notes: t('settle.settlementPayment'),
-      })
+      });
 
       // Success - balance will update automatically via context
     } catch (err) {
-      console.error('Failed to record settlement:', err)
+      console.error('Failed to record settlement:', err);
       // Error is handled by context
     } finally {
-      setIsSettling(null)
+      setIsSettling(null);
     }
-  }
+  };
 
   // Check if current user is involved in a transaction (using memoized canonical ID)
   const isUserInvolved = (fromId: string, toId: string): boolean => {
-    const userId = identity()?.publicKeyHash
-    if (!userId) return false
+    const userId = identity()?.publicKeyHash;
+    if (!userId) return false;
 
     // Check direct match or canonical ID match
-    const canonical = canonicalUserId()
-    return userId === fromId || userId === toId ||
-           canonical === fromId || canonical === toId
-  }
+    const canonical = canonicalUserId();
+    return userId === fromId || userId === toId || canonical === fromId || canonical === toId;
+  };
 
   return (
     <Show
@@ -116,9 +115,9 @@ export const SettlementPlan: Component<SettlementPlanProps> = (props) => {
         <div class="settlement-list">
           <For each={props.plan.transactions}>
             {(transaction) => {
-              const settlementKey = `${transaction.from}-${transaction.to}`
-              const loading = isSettling() === settlementKey
-              const involved = isUserInvolved(transaction.from, transaction.to)
+              const settlementKey = `${transaction.from}-${transaction.to}`;
+              const loading = isSettling() === settlementKey;
+              const involved = isUserInvolved(transaction.from, transaction.to);
 
               return (
                 <div class={`settlement-item ${involved ? 'settlement-item-involved' : ''}`}>
@@ -137,24 +136,24 @@ export const SettlementPlan: Component<SettlementPlanProps> = (props) => {
                     <Button
                       variant="primary"
                       size="small"
-                      onClick={() => handleSettle(transaction.from, transaction.to, transaction.amount)}
+                      onClick={() =>
+                        handleSettle(transaction.from, transaction.to, transaction.amount)
+                      }
                       disabled={loading}
                     >
                       {loading ? t('settle.recording') : t('settle.markAsPaid')}
                     </Button>
                   </Show>
                 </div>
-              )
+              );
             }}
           </For>
         </div>
 
         <div class="settlement-note">
-          <p class="text-xs text-muted">
-            💡 {t('settle.tip')}
-          </p>
+          <p class="text-xs text-muted">💡 {t('settle.tip')}</p>
         </div>
       </div>
     </Show>
-  )
-}
+  );
+};

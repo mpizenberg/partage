@@ -1,91 +1,92 @@
-import { Component, Show, For, createMemo } from 'solid-js'
-import { useI18n } from '../../../i18n'
-import { useAppContext } from '../../context/AppContext'
-import { BalanceCard } from './BalanceCard'
-import { SettlementPlan } from './SettlementPlan'
+import { Component, Show, For, createMemo } from 'solid-js';
+import { useI18n } from '../../../i18n';
+import { useAppContext } from '../../context/AppContext';
+import { BalanceCard } from './BalanceCard';
+import { SettlementPlan } from './SettlementPlan';
 
 export interface BalanceTabProps {
-  onPayMember?: (memberId: string, memberName: string, amount: number) => void
-  disabled?: boolean
+  onPayMember?: (memberId: string, memberName: string, amount: number) => void;
+  disabled?: boolean;
 }
 
 export const BalanceTab: Component<BalanceTabProps> = (props) => {
-  const { t } = useI18n()
-  const { balances, settlementPlan, activeGroup, members, identity, entries, loroStore } = useAppContext()
+  const { t } = useI18n();
+  const { balances, settlementPlan, activeGroup, members, identity, entries, loroStore } =
+    useAppContext();
 
   // Memoize the canonical user ID to avoid repeated resolution
   const myUserId = createMemo(() => {
-    const userId = identity()?.publicKeyHash
-    if (!userId) return ''
+    const userId = identity()?.publicKeyHash;
+    if (!userId) return '';
 
     // Resolve to canonical ID (if user claimed a virtual member)
-    const store = loroStore()
-    if (!store) return userId
+    const store = loroStore();
+    if (!store) return userId;
 
-    return store.resolveCanonicalMemberId(userId)
-  })
+    return store.resolveCanonicalMemberId(userId);
+  });
 
   // Memoized member name lookup map - O(1) lookups instead of O(n) finds
   // Uses event-based system with canonical ID resolution
   const memberNameMap = createMemo(() => {
-    const nameMap = new Map<string, string>()
-    const store = loroStore()
+    const nameMap = new Map<string, string>();
+    const store = loroStore();
     if (!store) {
       // Fallback to basic members list when store not loaded
       for (const member of members()) {
-        nameMap.set(member.id, member.name)
+        nameMap.set(member.id, member.name);
       }
-      return nameMap
+      return nameMap;
     }
 
     // Use event-based system: resolve each member to their canonical name
-    const canonicalIdMap = store.getCanonicalIdMap()
-    const allStates = store.getAllMemberStates()
+    const canonicalIdMap = store.getCanonicalIdMap();
+    const allStates = store.getAllMemberStates();
 
     for (const [memberId, state] of allStates) {
       // For each member, look up the canonical ID's name
-      const canonicalId = canonicalIdMap.get(memberId) ?? memberId
-      const canonicalState = allStates.get(canonicalId)
-      nameMap.set(memberId, canonicalState?.name ?? state.name)
+      const canonicalId = canonicalIdMap.get(memberId) ?? memberId;
+      const canonicalState = allStates.get(canonicalId);
+      nameMap.set(memberId, canonicalState?.name ?? state.name);
     }
-    return nameMap
-  })
+    return nameMap;
+  });
 
   // Check if a member ID represents the current user (using memoized canonical ID)
   const isCurrentUserMember = (memberId: string): boolean => {
-    const canonicalUserId = myUserId()
-    if (!canonicalUserId) return false
-    return memberId === canonicalUserId || memberId === identity()?.publicKeyHash
-  }
+    const canonicalUserId = myUserId();
+    if (!canonicalUserId) return false;
+    return memberId === canonicalUserId || memberId === identity()?.publicKeyHash;
+  };
 
   // O(1) member name lookup using memoized map
   const getMemberName = (memberId: string): string => {
-    return memberNameMap().get(memberId) || t('common.unknown')
-  }
+    return memberNameMap().get(memberId) || t('common.unknown');
+  };
 
   const allBalances = createMemo(() => {
-    const canonicalUserId = myUserId()
-    if (!canonicalUserId) return []
+    const canonicalUserId = myUserId();
+    if (!canonicalUserId) return [];
 
     // Put current user first, then others sorted alphabetically (case insensitive)
-    const userBalance = balances().get(canonicalUserId)
+    const userBalance = balances().get(canonicalUserId);
     const otherBalances = Array.from(balances().entries())
       .filter(([memberId]) => memberId !== canonicalUserId)
       .sort((a, b) => {
-        const nameA = getMemberName(a[0]).toLowerCase()
-        const nameB = getMemberName(b[0]).toLowerCase()
-        return nameA.localeCompare(nameB)
-      })
+        const nameA = getMemberName(a[0]).toLowerCase();
+        const nameB = getMemberName(b[0]).toLowerCase();
+        return nameA.localeCompare(nameB);
+      });
 
     if (userBalance) {
-      return [[canonicalUserId, userBalance] as [string, typeof userBalance], ...otherBalances]
+      return [[canonicalUserId, userBalance] as [string, typeof userBalance], ...otherBalances];
     }
-    return otherBalances
-  })
+    return otherBalances;
+  });
 
-  const currency = () => activeGroup()?.defaultCurrency || 'USD'
+  const currency = () => activeGroup()?.defaultCurrency || 'USD';
 
-  const hasEntries = () => entries().length > 0
+  const hasEntries = () => entries().length > 0;
 
   return (
     <div class="balance-tab">
@@ -95,9 +96,7 @@ export const BalanceTab: Component<BalanceTabProps> = (props) => {
           <div class="empty-state">
             <div class="empty-state-icon">💰</div>
             <h2 class="empty-state-title">{t('balance.noBalances')}</h2>
-            <p class="empty-state-message">
-              {t('balance.noBalancesMessage')}
-            </p>
+            <p class="empty-state-message">{t('balance.noBalancesMessage')}</p>
           </div>
         }
       >
@@ -130,5 +129,5 @@ export const BalanceTab: Component<BalanceTabProps> = (props) => {
         </div>
       </Show>
     </div>
-  )
-}
+  );
+};

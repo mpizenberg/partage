@@ -106,9 +106,7 @@ export const MemberManager: Component<MemberManagerProps> = (props) => {
         <Show when={error()}>
           <p class="form-error">{error()}</p>
         </Show>
-        <p class="form-hint">
-          {t('members.virtualMemberDescription')}
-        </p>
+        <p class="form-hint">{t('members.virtualMemberDescription')}</p>
       </div>
     </div>
   );

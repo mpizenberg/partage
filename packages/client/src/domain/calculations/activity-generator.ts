@@ -300,7 +300,10 @@ export function generateActivitiesFromMemberEvents(
 
   // Helper to get current name, returns undefined if same as historical
   // Resolves to canonical ID first to handle replaced members
-  const getCurrentNameIfDifferent = (memberId: string, historicalName: string): string | undefined => {
+  const getCurrentNameIfDifferent = (
+    memberId: string,
+    historicalName: string
+  ): string | undefined => {
     const canonicalId = canonicalIdMap?.get(memberId) ?? memberId;
     const current = currentNameMap.get(canonicalId) || currentNameMap.get(memberId);
     return current && current !== historicalName ? current : undefined;
@@ -439,7 +442,11 @@ export function generateAllActivities(
   canonicalIdMap?: Map<string, string>
 ): Activity[] {
   const entryActivities = generateActivitiesFromEntries(entries, members, canonicalIdMap);
-  const memberActivities = generateActivitiesFromMemberEvents(memberEvents, members, canonicalIdMap);
+  const memberActivities = generateActivitiesFromMemberEvents(
+    memberEvents,
+    members,
+    canonicalIdMap
+  );
 
   // Set groupId for member activities
   memberActivities.forEach((activity) => {

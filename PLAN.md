@@ -1,9 +1,11 @@
 # Implementation Plan: Partage Bill-Splitting Application
 
 ## Overview
+
 Set up a monorepo structure for a fully encrypted, local-first bill-splitting PWA using SolidJS, Loro CRDTs, and PocketBase.
 
 ## User Preferences
+
 - **Monorepo**: pnpm workspaces with both client and server
 - **UI**: Minimalist raw CSS (no component library), mobile-first
 - **Testing**: Vitest for unit tests
@@ -15,6 +17,7 @@ Set up a monorepo structure for a fully encrypted, local-first bill-splitting PW
 **Last Updated**: January 18, 2026
 
 ### Completed
+
 - ✅ **Phase 8 (Partial)**: Security & UI/UX Improvements
   - **Anti-spam protection** (Proof-of-Work):
     - Server-side PoW challenge/response with HMAC-signed challenges
@@ -94,9 +97,11 @@ Set up a monorepo structure for a fully encrypted, local-first bill-splitting PW
   - All dependencies updated to latest versions
 
 ### In Progress
+
 - 🔄 **Phase 8**: Polish & Production
 
 ### Upcoming
+
 - ⏳ Phase 9: Future enhancements (subgroup encryption, etc.)
 
 ## Project Structure
@@ -149,11 +154,13 @@ Set up a monorepo structure for a fully encrypted, local-first bill-splitting PW
 ## Implementation Phases
 
 ### Phase 1: Foundation ✅ COMPLETED
+
 **Goal**: Core cryptography and storage infrastructure
 
 **Status**: ✅ **100% Complete** (January 4, 2026)
 
 **Completed Tasks**:
+
 1. ✅ Set up pnpm monorepo structure with workspaces
 2. ✅ Configure TypeScript (v5.7.3), Vitest (v2.1.8), ESLint (v9)
 3. ✅ Install and update all dependencies to latest versions
@@ -176,12 +183,14 @@ Set up a monorepo structure for a fully encrypted, local-first bill-splitting PW
    - ✅ `balance.ts`: Balance calculation types
 
 **Test Results**:
+
 - ✅ All tests passing
 - ✅ 100% type safety (0 TypeScript errors)
 - ✅ Crypto module comprehensive test coverage
 - ✅ Storage module comprehensive test coverage
 
 **Critical Files Implemented**:
+
 - ✅ `/packages/client/src/core/crypto/symmetric.ts`
 - ✅ `/packages/client/src/core/crypto/keypair.ts`
 - ✅ `/packages/client/src/core/crypto/signatures.ts`
@@ -189,6 +198,7 @@ Set up a monorepo structure for a fully encrypted, local-first bill-splitting PW
 - ✅ `/packages/shared/src/types/*.ts` (all type definitions)
 
 **Deliverables Achieved**:
+
 - ✅ Can generate user keypairs automatically
 - ✅ Can encrypt/decrypt sensitive data with AES-256-GCM
 - ✅ Can sign and verify operations with ECDSA
@@ -198,11 +208,13 @@ Set up a monorepo structure for a fully encrypted, local-first bill-splitting PW
 - ✅ Production-ready cryptography foundation
 
 ### Phase 2: Local CRDT & Data Models ✅ COMPLETED
+
 **Goal**: Loro integration and local data operations
 
 **Status**: ✅ **100% Complete** (January 4, 2026)
 
 **Completed Tasks**:
+
 1. ✅ Shared types already defined in Phase 1 (`/packages/shared/src/types/`):
    - `group.ts`, `member.ts`, `entry.ts`, `balance.ts`
 2. ✅ Implemented Loro wrapper (`/packages/client/src/core/crdt/loro-wrapper.ts`):
@@ -221,18 +233,21 @@ Set up a monorepo structure for a fully encrypted, local-first bill-splitting PW
    - Balance calculator tests (splits, debt graphs, settlements)
 
 **Test Results**:
+
 - ✅ All tests passing
 - ✅ 100% type safety (0 TypeScript errors)
 - ✅ CRDT module comprehensive coverage
 - ✅ Balance calculations comprehensive coverage
 
 **Critical Files Implemented**:
+
 - ✅ `/packages/client/src/core/crdt/loro-wrapper.ts`
 - ✅ `/packages/client/src/core/crdt/loro-wrapper.test.ts`
 - ✅ `/packages/client/src/domain/calculations/balance-calculator.ts`
 - ✅ `/packages/client/src/domain/calculations/balance-calculator.test.ts`
 
 **Deliverables Achieved**:
+
 - ✅ Can create encrypted entries in Loro with two-layer encryption
 - ✅ Can modify entries with version tracking
 - ✅ Can soft delete entries with optional reasons
@@ -242,11 +257,13 @@ Set up a monorepo structure for a fully encrypted, local-first bill-splitting PW
 - ✅ Full snapshot and incremental sync capabilities
 
 ### Phase 3: Basic UI ✅ COMPLETED
+
 **Goal**: Local-only MVP with working UI
 
 **Status**: ✅ **100% Complete** (January 5, 2026)
 
 **Completed Tasks**:
+
 1. ✅ Set up SolidJS PWA with Vite and VitePWA plugin
 2. ✅ Created comprehensive CSS design system:
    - `reset.css`: Browser normalization
@@ -286,11 +303,13 @@ Set up a monorepo structure for a fully encrypted, local-first bill-splitting PW
 10. ✅ PWA configuration with 5 MB cache limit for Loro WASM
 
 **Test Results**:
+
 - ✅ 0 TypeScript errors
 - ✅ Production build successful
 - ✅ Bundle sizes: 73.82 KB JS, 23.82 KB CSS (gzipped)
 
 **Critical Files Implemented**:
+
 - ✅ `/packages/client/src/main.tsx`
 - ✅ `/packages/client/src/App.tsx`
 - ✅ `/packages/client/src/ui/context/AppContext.tsx`
@@ -303,6 +322,7 @@ Set up a monorepo structure for a fully encrypted, local-first bill-splitting PW
 - ✅ `/packages/client/vite.config.ts` (updated for WASM)
 
 **Deliverables Achieved**:
+
 - ✅ Working MVP for single user, local-only
 - ✅ Can generate keypair on first launch
 - ✅ Can create groups with virtual members
@@ -316,11 +336,13 @@ Set up a monorepo structure for a fully encrypted, local-first bill-splitting PW
 - ✅ Full type safety across UI layer
 
 ### Phase 4: Server & Sync ✅ COMPLETED
+
 **Goal**: Multi-device synchronization
 
 **Status**: ✅ **100% Complete** (January 6, 2026)
 
 **Completed Tasks**:
+
 1. ✅ Set up PocketBase server (`/packages/server/`):
    - Collections schema for encrypted operations
    - Real-time subscriptions
@@ -334,17 +356,20 @@ Set up a monorepo structure for a fully encrypted, local-first bill-splitting PW
 4. ✅ Tested multi-client sync (multiple browser tabs)
 
 **Critical Files Implemented**:
+
 - ✅ `/packages/client/src/core/sync/sync-manager.ts`
 - ✅ `/packages/client/src/api/pocketbase-client.ts`
 
 **Deliverable Achieved**: Two browser tabs can sync changes in real-time
 
 ### Phase 5: Multi-User Features
+
 **Goal**: Enable group collaboration
 
 **Status**: ✅ **100% Complete** (January 7, 2026)
 
 **Completed Tasks**:
+
 1. ✅ Invite link generation and joining flow
 2. ✅ Member identification (new vs existing)
 3. ✅ Public key exchange protocol (ECDH + ECDSA)
@@ -357,6 +382,7 @@ Set up a monorepo structure for a fully encrypted, local-first bill-splitting PW
 10. ✅ Key exchange tests (9/9 passing)
 
 **Integration Complete**:
+
 - ✅ Added @solidjs/router for invite URLs
 - ✅ Integrated invite manager with AppContext
 - ✅ Wired up UI components to context methods
@@ -365,11 +391,13 @@ Set up a monorepo structure for a fully encrypted, local-first bill-splitting PW
 - ✅ Build successful (0 TypeScript errors)
 
 **Optional Enhancements** (before production):
+
 - Add Members tab to GroupViewScreen
 - Add Invite button to header
 - Multi-device testing (2+ devices)
 
 **Critical Files Implemented**:
+
 - ✅ `/packages/client/src/core/crypto/key-exchange.ts` (with tests)
 - ✅ `/packages/client/src/domain/invitations/invite-manager.ts`
 - ✅ `/packages/client/src/domain/invitations/key-sharing.ts`
@@ -382,11 +410,13 @@ Set up a monorepo structure for a fully encrypted, local-first bill-splitting PW
 **Deliverable Achieved**: Users can create invitations, join groups via links, and collaborate with encrypted group keys - fully integrated and working!
 
 ### Phase 6: Advanced Features ✅ COMPLETED
+
 **Goal**: Complete feature set
 
 **Status**: ✅ **100% Complete** (January 7, 2026)
 
 **Completed Tasks**:
+
 1. ✅ Entry modification with versioning
 2. ✅ Entry soft deletion with undo
 3. ✅ Activity feed showing recent changes
@@ -399,11 +429,13 @@ Set up a monorepo structure for a fully encrypted, local-first bill-splitting PW
 **Deliverable**: Full-featured application with complete entry lifecycle and performance optimizations
 
 ### Phase 7: Simplified Trusted Group Join ✅ COMPLETED
+
 **Goal**: Streamlined joining experience for trusted groups
 
 **Status**: ✅ **100% Complete** (January 12, 2026)
 
 **Completed Tasks**:
+
 1. ✅ Single group key (no rotation) embedded in URL fragment
 2. ✅ Member alias system for claiming virtual member identities
 3. ✅ Balance calculations with alias resolution across all components
@@ -414,6 +446,7 @@ Set up a monorepo structure for a fully encrypted, local-first bill-splitting PW
 8. ✅ Fixed remove button state based on aliased balance lookup
 
 **Key Changes**:
+
 - Removed complex key exchange protocol (ECDH, key packages, join approvals)
 - Simplified from versioned group keys to single group key
 - Added member alias system to link new members to existing virtual members
@@ -423,9 +456,11 @@ Set up a monorepo structure for a fully encrypted, local-first bill-splitting PW
 **Deliverable**: Simple, frictionless group joining experience suitable for trusted groups
 
 ### Phase 8: Polish & Production
+
 **Goal**: Production readiness
 
 **Tasks**:
+
 1. ✅ PWA service worker for full offline support
 2. Able to link new members to existing real members (not only virtual members), and able to link recursively (useful for member changing device multiple times)
 3. Error handling and loading states
@@ -439,42 +474,54 @@ Set up a monorepo structure for a fully encrypted, local-first bill-splitting PW
 ## Critical Technical Decisions
 
 ### 1. Encrypted Data in Loro
+
 **Approach**: Two-layer structure
+
 - Loro stores metadata (id, timestamp, actor, version) - unencrypted
 - Sensitive data stored as encrypted payload (Base64 string) - encrypted with AES-256-GCM
 - Signatures verify authenticity
 - Server relays Loro updates without seeing content
 
 ### 2. Versioning System
+
 **Pattern**: Immutable entries with version references
+
 - Each modification creates new version
 - `previousVersionId` links to prior version
 - All versions retained for audit trail
 - UI shows latest version, can view history
 
 ### 3. Currency Handling
+
 **Strategy**: Store both original and converted amounts
+
 - Capture exchange rate at transaction time
 - Store: `amount` (original), `currency`, `defaultCurrencyAmount`, `exchangeRate`
 - Balance calculations use `defaultCurrencyAmount`
 - Historical accuracy preserved
 
 ### 4. Key Management
+
 **Flow**:
+
 - User keypair: Generated on first launch, stored in IndexedDB
 - Group keys: Versioned, rotated on member join/leave
 - Historical keys: Retained for decrypting old data
 - Key sharing: Encrypted with recipient's public key
 
 ### 5. Sync Protocol
+
 **Design**:
+
 - Server: Append-only log of encrypted operations
 - Client: Subscribe to real-time updates via PocketBase
 - Offline: Queue operations locally, sync on reconnect
 - Conflicts: Loro CRDT handles automatically
 
 ### 6. Snapshot Storage Strategy
+
 **Design**: Incremental updates with periodic consolidation
+
 - **Base snapshots**: Full Loro CRDT state stored in IndexedDB per group
 - **Incremental updates**: After each mutation, store only the delta (1-10 KB) instead of full snapshot (10 MB)
 - **Consolidation triggers**:
@@ -485,24 +532,28 @@ Set up a monorepo structure for a fully encrypted, local-first bill-splitting PW
 - **Rationale**: Encrypted data is incompressible, so delta updates are the only way to reduce writes
 
 **Why not server-side snapshots yet?**
+
 - Phase 6 focuses on local performance optimization
 - Server-side snapshots planned for future (reduces initial sync time for large groups)
 
 ## Testing Strategy
 
 ### Unit Tests (Vitest)
+
 - **Crypto**: 100% coverage, test vectors, tampering detection
 - **Storage**: IndexedDB operations, key persistence
 - **CRDT**: Concurrent operations, convergence
 - **Calculations**: Balance computation, edge cases
 
 ### Integration Tests
+
 - Entry creation flow (UI → crypto → CRDT → storage)
 - Multi-client sync scenarios
 - Offline/online transitions
 - Key rotation flows
 
 ### Mock Strategy
+
 - Mock PocketBase for sync testing
 - Mock IndexedDB for storage testing
 - Test data generators for large datasets
@@ -510,24 +561,31 @@ Set up a monorepo structure for a fully encrypted, local-first bill-splitting PW
 ## Development Sequence
 
 **Week 1-2**: Foundation ✅
+
 - Monorepo setup, crypto module, storage module, tests
 
 **Week 3-4**: Local CRDT ✅
+
 - Data models, Loro wrapper, balance calculations, tests
 
 **Week 5-6**: Basic UI ✅
+
 - SolidJS app, CSS, screens, local-only MVP
 
 **Week 7-10**: Server & Sync ✅
+
 - PocketBase setup, API client, sync manager, multi-client testing
 
 **Week 11-12**: Multi-User ✅
+
 - Invite/join flows, key exchange, member management, multi-device sync
 
 **Week 13-16**: Advanced Features
+
 - Entry lifecycle, activity feed, multi-currency, settlement, PWA
 
 **Week 17-20**: Polish & Launch
+
 - Error handling, UX refinement, security audit, deployment
 
 ## Critical Files to Implement First
@@ -554,4 +612,5 @@ Set up a monorepo structure for a fully encrypted, local-first bill-splitting PW
 **Goal**: Production-ready application with polished UX, robust error handling, and seamless offline support
 
 **Deployment Status**: ✅ App successfully deployed to production
+
 - Documentation: See [DEPLOYMENT.md](./DEPLOYMENT.md) for full guide

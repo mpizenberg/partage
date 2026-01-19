@@ -138,7 +138,9 @@ describe('Performance Benchmarks', () => {
 
       for (let i = 0; i < iterations; i++) {
         const entry = generateExpenseEntry(i, groupId, memberIds, 'member-1');
-        const { durationMs } = await timeAsync(() => store.createEntry(entry, groupKey, 'member-1'));
+        const { durationMs } = await timeAsync(() =>
+          store.createEntry(entry, groupKey, 'member-1')
+        );
         times.push(durationMs);
       }
 
@@ -204,7 +206,9 @@ describe('Performance Benchmarks', () => {
           }
 
           const avgMs = times.reduce((a, b) => a + b, 0) / times.length;
-          console.log(`  Balance calc (${memberCount} members, ${entryCount} entries): avg=${formatMs(avgMs)}`);
+          console.log(
+            `  Balance calc (${memberCount} members, ${entryCount} entries): avg=${formatMs(avgMs)}`
+          );
 
           // Should be fast even at scale
           expect(avgMs).toBeLessThan(100);
@@ -269,7 +273,9 @@ describe('Performance Benchmarks', () => {
       console.log(`  ${operations} encrypt operations:`);
       console.log(`    Without key caching: ${formatMs(withoutCacheMs)}`);
       console.log(`    With key caching:    ${formatMs(withCacheMs)}`);
-      console.log(`    Savings:             ${formatMs(withoutCacheMs - withCacheMs)} (${((withoutCacheMs - withCacheMs) / withoutCacheMs * 100).toFixed(1)}%)`);
+      console.log(
+        `    Savings:             ${formatMs(withoutCacheMs - withCacheMs)} (${(((withoutCacheMs - withCacheMs) / withoutCacheMs) * 100).toFixed(1)}%)`
+      );
     });
   });
 

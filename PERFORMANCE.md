@@ -20,20 +20,20 @@ Analysis of the Partage codebase identified several performance patterns that co
 
 Run benchmarks with: `pnpm test:bench`
 
-| Operation | Measured | Notes |
-|-----------|----------|-------|
-| Single encryption | ~20µs | Fast, not a bottleneck |
-| Batch encrypt (50 sequential) | ~840µs | |
-| Batch encrypt (50 parallel) | ~410µs | **2x speedup with parallelization** |
-| `createEntry` | ~100µs | Fast |
-| `getAllEntries` (10 entries) | ~750µs | Improved with parallel decryption |
-| `getAllEntries` (50 entries) | ~2.1ms | Improved with parallel decryption |
-| `getAllEntries` (100 entries) | ~3.6ms | ~36µs/entry (was ~50µs) |
-| Balance calc (20 members, 500 entries) | ~1.5ms | Acceptable |
-| Key caching benefit | 62% savings | **Implemented** |
-| Alias lookup (Map-based) | ~35µs vs 129µs linear | **3.6x speedup - Implemented** |
-| Snapshot save (100 entries) | ~150µs | Fast |
-| Snapshot load (100 entries) | ~220µs | Fast |
+| Operation                              | Measured              | Notes                               |
+| -------------------------------------- | --------------------- | ----------------------------------- |
+| Single encryption                      | ~20µs                 | Fast, not a bottleneck              |
+| Batch encrypt (50 sequential)          | ~840µs                |                                     |
+| Batch encrypt (50 parallel)            | ~410µs                | **2x speedup with parallelization** |
+| `createEntry`                          | ~100µs                | Fast                                |
+| `getAllEntries` (10 entries)           | ~750µs                | Improved with parallel decryption   |
+| `getAllEntries` (50 entries)           | ~2.1ms                | Improved with parallel decryption   |
+| `getAllEntries` (100 entries)          | ~3.6ms                | ~36µs/entry (was ~50µs)             |
+| Balance calc (20 members, 500 entries) | ~1.5ms                | Acceptable                          |
+| Key caching benefit                    | 62% savings           | **Implemented**                     |
+| Alias lookup (Map-based)               | ~35µs vs 129µs linear | **3.6x speedup - Implemented**      |
+| Snapshot save (100 entries)            | ~150µs                | Fast                                |
+| Snapshot load (100 entries)            | ~220µs                | Fast                                |
 
 ## Issues by Priority
 
@@ -77,7 +77,7 @@ private async getCachedKey(groupId: string, version: number): Promise<CryptoKey>
 ```typescript
 // Current: Sequential decryption
 for (const entryId of entryIds) {
-  const entry = await this.getEntry(entryId, groupKey);  // ← Awaited in loop
+  const entry = await this.getEntry(entryId, groupKey); // ← Awaited in loop
   if (entry) allEntries.push(entry);
 }
 ```
@@ -87,7 +87,7 @@ for (const entryId of entryIds) {
 
 ```typescript
 // Optimized: Parallel decryption
-const entryPromises = entryIds.map(entryId => this.getEntry(entryId, groupKey));
+const entryPromises = entryIds.map((entryId) => this.getEntry(entryId, groupKey));
 const entries = await Promise.all(entryPromises);
 return entries.filter((e): e is Entry => e !== null && e.groupId === groupId);
 ```
@@ -117,7 +117,7 @@ const memberNameMap = createMemo(() => {
   if (!store) return new Map<string, string>();
 
   const aliases = store.getMemberAliases();
-  const aliasMap = new Map(aliases.map(a => [a.existingMemberId, a.newMemberId]));
+  const aliasMap = new Map(aliases.map((a) => [a.existingMemberId, a.newMemberId]));
   const members = store.getMembers();
   const nameMap = new Map<string, string>();
 
@@ -127,7 +127,7 @@ const memberNameMap = createMemo(() => {
     while (aliasMap.has(displayId)) {
       displayId = aliasMap.get(displayId)!;
     }
-    const displayMember = members.find(m => m.id === displayId);
+    const displayMember = members.find((m) => m.id === displayId);
     nameMap.set(member.id, displayMember?.name || member.name);
   }
   return nameMap;
@@ -145,7 +145,7 @@ const getMemberName = (memberId: string) => memberNameMap().get(memberId) || 'Un
 
 ```typescript
 for (const [groupId, actorId] of this.subscribedGroups) {
-  await this.incrementalSync(groupId, actorId);  // ← Sequential
+  await this.incrementalSync(groupId, actorId); // ← Sequential
 }
 ```
 
@@ -180,7 +180,7 @@ for (const operation of this.offlineQueue) {
 
 ```typescript
 for (const preferredId of preferredRecipients) {
-  const creditor = creditors.find(c => c.memberId === preferredId);  // ← O(n)
+  const creditor = creditors.find((c) => c.memberId === preferredId); // ← O(n)
 }
 ```
 
@@ -188,7 +188,7 @@ for (const preferredId of preferredRecipients) {
 **Fix**: Use Map for O(1) creditor lookup
 
 ```typescript
-const creditorMap = new Map(creditors.map(c => [c.memberId, c]));
+const creditorMap = new Map(creditors.map((c) => [c.memberId, c]));
 // ...
 const creditor = creditorMap.get(preferredId);
 ```
@@ -208,6 +208,7 @@ const creditor = creditorMap.get(preferredId);
 **Fix**: Implemented incremental activity generation (O(log n) binary search + O(n) array copy)
 
 **Implementation**:
+
 - Added `generateActivityForNewEntry()` for add operations
 - Added `generateActivityForModifiedEntry()` for modify operations
 - Added `generateActivityForDeletedEntry()` for delete operations
@@ -227,6 +228,7 @@ Located in `/packages/client/src/benchmarks/`:
 - `performance-benchmarks.test.ts` - Vitest benchmark tests
 
 Run with:
+
 ```bash
 pnpm test:bench
 ```
@@ -266,16 +268,16 @@ All HIGH and MEDIUM priority optimizations have been implemented, plus one impor
 
 ## Files Modified
 
-| File | Changes |
-|------|---------|
-| `loro-wrapper.ts` | Added key cache, parallel decryption, `clearKeyCache()` |
-| `BalanceTab.tsx` | Added memoized `memberNameMap`, optimized `isCurrentUserMember` |
-| `SettlementPlan.tsx` | Added memoized `memberNameMap`, `canonicalUserId` |
-| `sync-manager.ts` | Parallel health check, batch offline queue via `replaceQueuedOperations` |
-| `balance-calculator.ts` | Added `creditorMap` for O(1) creditor lookup |
-| `indexeddb.ts` | Added `replaceQueuedOperations()` for atomic batch writes |
-| `activity-generator.ts` | Added incremental generation functions and `insertActivitySorted()` |
-| `AppContext.tsx` | Added `refreshEntriesIncremental()`, updated all entry operations |
+| File                    | Changes                                                                  |
+| ----------------------- | ------------------------------------------------------------------------ |
+| `loro-wrapper.ts`       | Added key cache, parallel decryption, `clearKeyCache()`                  |
+| `BalanceTab.tsx`        | Added memoized `memberNameMap`, optimized `isCurrentUserMember`          |
+| `SettlementPlan.tsx`    | Added memoized `memberNameMap`, `canonicalUserId`                        |
+| `sync-manager.ts`       | Parallel health check, batch offline queue via `replaceQueuedOperations` |
+| `balance-calculator.ts` | Added `creditorMap` for O(1) creditor lookup                             |
+| `indexeddb.ts`          | Added `replaceQueuedOperations()` for atomic batch writes                |
+| `activity-generator.ts` | Added incremental generation functions and `insertActivitySorted()`      |
+| `AppContext.tsx`        | Added `refreshEntriesIncremental()`, updated all entry operations        |
 
 ## Validation
 

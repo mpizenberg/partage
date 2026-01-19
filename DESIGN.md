@@ -3,6 +3,7 @@
 ## 1. Product Vision
 
 A fully encrypted, local-first bill-splitting application for trusted groups that provides:
+
 - Complete privacy through end-to-end encryption
 - Conflict-free synchronization using CRDTs (Loro)
 - Immutable audit trail
@@ -12,18 +13,22 @@ A fully encrypted, local-first bill-splitting application for trusted groups tha
 ## 2. Architecture Overview
 
 ### 2.1 Client-Server Model
+
 - **Client**: All encryption, decryption, balance calculation, UI
 - **Server**: Encrypted data relay, no access to plaintext
 - **Storage**: Client-side encrypted database, server stores encrypted CRDT operations
 
 ### 2.2 Data Encryption
+
 **Fully Encrypted**:
+
 - All expense data (amounts, descriptions, everything)
 - All member information (names, emails)
 - All settings and metadata
 - All attachments (future)
 
 **Unencrypted** (sync metadata only):
+
 - Operation IDs
 - Timestamps (for causal ordering)
 - Actor IDs (anonymous identifiers)
@@ -31,6 +36,7 @@ A fully encrypted, local-first bill-splitting application for trusted groups tha
 - Cryptographic signatures
 
 ### 2.3 Technology Stack
+
 - **CRDT**: Loro (Replayable Event Graph)
 - **Encryption**: AES-256-GCM (symmetric), RSA-4096 or ECDH (asymmetric)
 - **Platform**: Web (PWA)
@@ -41,6 +47,7 @@ A fully encrypted, local-first bill-splitting application for trusted groups tha
 ### 3.1 Group Management
 
 #### Create Group
+
 - User creates group with:
   - Group name
   - Default currency (ISO 4217 code)
@@ -48,6 +55,7 @@ A fully encrypted, local-first bill-splitting application for trusted groups tha
 - Encryption keys generated automatically
 
 #### Join Group
+
 - Click invite link / scan QR code (link contains encrypted group key in URL fragment)
 - Automatically fetch and decrypt group data
 - Pick existing virtual member to claim identity or enter new member name
@@ -55,6 +63,7 @@ A fully encrypted, local-first bill-splitting application for trusted groups tha
 - Access all historical data instantly
 
 #### Member Management
+
 - View all members (active and departed)
 - See join dates
 - Invite new members (any member can invite)
@@ -69,6 +78,7 @@ A fully encrypted, local-first bill-splitting application for trusted groups tha
 All member operations use an immutable event-sourced system. Member states are derived from processing all events in order.
 
 **Event Types**:
+
 - `member_created`: Creates a new member (virtual or real)
 - `member_renamed`: Changes member display name
 - `member_retired`: Marks member as retired (soft delete)
@@ -76,11 +86,13 @@ All member operations use an immutable event-sourced system. Member states are d
 - `member_replaced`: Links member to another (for identity claims)
 
 **Member States (derived from events)**:
+
 - **Active**: Not retired AND not replaced (visible in most UIs)
 - **Retired**: Retired but not replaced (hidden by default, can be shown)
 - **Replaced**: Has been claimed/linked to another member (hidden everywhere)
 
 **Canonical ID Resolution**:
+
 - When member A claims member B's identity, B is "replaced" by A
 - All operations use canonical ID resolution: `B → A`
 - Resolution is recursive: if A later replaced by C, then `B → A → C`
@@ -88,6 +100,7 @@ All member operations use an immutable event-sourced system. Member states are d
 - The canonical member's current name is displayed for all historical entries
 
 **Member Display Rules by Screen**:
+
 - **Group Selection**: Active members only (count and list)
 - **Members Tab**: Active by default, checkbox to show retired
 - **Balance Tab**: Canonical members only (resolved from entries)
@@ -97,6 +110,7 @@ All member operations use an immutable event-sourced system. Member states are d
 - **New Entry Modal**: Active first (with "you" at top), retired collapsed
 
 **Name Uniqueness**:
+
 - All active member names must be unique (case-insensitive)
 - Adding a virtual member checks against existing active names
 - Retired or replaced members don't block name reuse
@@ -106,7 +120,9 @@ All member operations use an immutable event-sourced system. Member states are d
 Two types of entries:
 
 #### 3.2.1 Expense Entry
+
 **Required Fields**:
+
 - Amount (positive number, 2 decimal places)
 - Currency (ISO 4217 code)
 - Description (text)
@@ -115,6 +131,7 @@ Two types of entries:
 - Beneficiaries (one or more, with split method)
 
 **Optional Fields**:
+
 - Category (food, transport, accommodation, entertainment, shopping, groceries, utilities, healthcare, other)
 - Notes (longer description)
 - Location (text)
@@ -134,9 +151,11 @@ Two types of entries:
    - Example: Alice: $40.00, Bob: $35.50, Carol: $24.50
 
 #### 3.2.2 Money Transfer Entry
+
 Direct transfer between two members (not an expense).
 
 **Required Fields**:
+
 - Amount (positive number, 2 decimal places)
 - Currency
 - From member
@@ -144,11 +163,13 @@ Direct transfer between two members (not an expense).
 - Date (defaults to now)
 
 **Optional Fields**:
+
 - Notes
 
 ### 3.3 Entry Lifecycle
 
 #### Create Entry
+
 - User fills form
 - Client encrypts all fields
 - Client signs with private key
@@ -158,6 +179,7 @@ Direct transfer between two members (not an expense).
 - Other clients decrypt and update
 
 #### Modify Entry
+
 - Cannot modify original (immutability)
 - Create new version that supersedes original
 - New version references original ID
@@ -166,6 +188,7 @@ Direct transfer between two members (not an expense).
 - Any member can modify any entry (configurable per group)
 
 #### Delete Entry
+
 - Cannot truly delete (immutability)
 - Mark as deleted with optional reason
 - Original remains in audit trail
@@ -176,6 +199,7 @@ Direct transfer between two members (not an expense).
 ### 3.4 Currency Handling
 
 #### Currency Conversion
+
 - Each entry can use any currency
 - For entries in non-default currency:
   - User must provide exchange rate at transaction time
@@ -184,11 +208,13 @@ Direct transfer between two members (not an expense).
   - Both the default currency amount and the original amount in the currency of the entry are stored with entry (immutable)
 
 #### Display
+
 - All amounts displayed in group's default currency
 - Original currency shown as secondary info
 - Conversion rate from transaction time is the ratio of values in default / original currency
 
 #### Rounding
+
 - Round to cents (2 decimals)
 - Total always sums correctly
 
@@ -197,6 +223,7 @@ Direct transfer between two members (not an expense).
 **Computed locally from encrypted ledger**:
 
 For each member:
+
 - **Total Paid**: Sum of all payer amounts
 - **Total Owed**: Sum of all beneficiary shares
 - **Net Balance**: Total Paid - Total Owed
@@ -204,28 +231,33 @@ For each member:
   - Negative: owes money (you owe others)
 
 **Who Owes Whom**:
+
 - Simplified debt graph
 - Minimize number of transactions
 - Show optimal settlement plan
 - Example: A→B: $10, B→C: $10 simplifies to A→C: $10
 
 We may also add constraints (and validate solutions exist) such as:
-  - only Alice can transfer money to Bob (hard constraint)
-  - Bob can only transfer money to Carol (hard constraint)
-  - Alice and Bob can easily transfer money to each other (prioritization)
+
+- only Alice can transfer money to Bob (hard constraint)
+- Bob can only transfer money to Carol (hard constraint)
+- Alice and Bob can easily transfer money to each other (prioritization)
 
 ### 3.6 Settlement
 
 #### Settlement UI
+
 **Two modes**:
 
 **Mode 1: Settle Your Own Debt**
+
 - "I owe Bob $45.00"
 - Click "Settle with Bob"
 - Creates transfer entry: You → Bob, $45.00
 - Balance updates automatically
 
 **Mode 2: Settle Another Member's Credit**
+
 - "Bob is owed $30.00"
 - "I'll pay Bob to settle his balance"
 - Click "Pay Bob to settle their balance"
@@ -234,6 +266,7 @@ We may also add constraints (and validate solutions exist) such as:
 - You are now owed $30.00 more
 
 #### Settlement Actions
+
 - Record transfer (creates transfer entry)
 - Optional: Add payment method (cash, Venmo, etc.)
 - Optional: Add confirmation/reference number
@@ -241,7 +274,9 @@ We may also add constraints (and validate solutions exist) such as:
 ### 3.7 Viewing & Filtering
 
 #### Expense List
+
 Default summary view:
+
 - All entries (expenses + transfers) chronological, grouped by date
 - For each entry show:
   - Description
@@ -250,6 +285,7 @@ Default summary view:
   - Indicator if you are concerned by entry
 
 Personal view:
+
 - Entries where I’m concerned (expenses + transfers) chronological, grouped by date
 - For each entry show:
   - Description
@@ -263,9 +299,11 @@ Personal view:
 Personal view as if someone else is also possible. This is convenient for quick overview of another member’s transactions, especially if that other member has not personally joined the group. Their name is used for tracking purposes. Convenient for example for couples where only 1 has joined the group, and manages their finances together. Or when the application has issues for someone, who cannot formally join.
 
 #### Filters
+
 All filters combinable:
 
 **By Person**:
+
 - "Entries involving Alice"
   - Where Alice paid
   - OR where Alice owes
@@ -273,24 +311,29 @@ All filters combinable:
 - "Entries where Alice owes"
 
 **By Category**:
+
 - Transfer or one of the expenses categories
 - Select one or multiple
 - Applies to expenses only
 
 **By Date**:
+
 - Last 7 days
 - Last 30 days
 - This month
 - Custom range (start/end date)
 
 **By Currency**:
+
 - Original currency ("Show only USD entries")
 
 #### Search
+
 - Search by description, notes or location
 - Search by amount (exact or range)
 
 #### Sorting
+
 - Date (newest/oldest)
 - Amount (highest/lowest)
 - Category
@@ -300,6 +343,7 @@ All filters combinable:
 Track and display all group actions:
 
 **Activity Types**:
+
 - Entry added (expense or transfer)
 - Entry modified
 - Entry deleted
@@ -309,6 +353,7 @@ Track and display all group actions:
 - Group settings changed
 
 **Display Format**:
+
 - Timestamp (relative or absolute)
 - Actor (who did it)
 - Action (what happened)
@@ -316,6 +361,7 @@ Track and display all group actions:
 - Link to entry
 
 **Examples**:
+
 - "Alice added 'Dinner at Mario's' - €45.00 - 2 hours ago"
 - "Bob modified 'Taxi' (amount: $30 → $35) - Yesterday"
 - "Carol joined the group - 2 days ago"
@@ -323,12 +369,14 @@ Track and display all group actions:
 - "Eve joined as new member - 4 days ago"
 
 **Filtering**:
+
 - By activity type
 - By actor
 - By date range
 - By entry
 
 **Notifications**:
+
 - Push notifications enabled by default
 - Notify on:
   - New entry added where you are involved
@@ -339,6 +387,7 @@ Track and display all group actions:
 ### 3.9 Audit Trail
 
 **Complete History**:
+
 - Every operation recorded permanently
 - Cryptographically signed
 - Cannot be deleted or modified
@@ -350,6 +399,7 @@ Track and display all group actions:
 
 **Entry History View**:
 For any entry:
+
 - Original version
 - All modifications (versions)
 - Who modified when
@@ -357,12 +407,14 @@ For any entry:
 - Deletion reason (if deleted)
 
 **Member Action Log**:
+
 - View all actions by specific member
 - Useful for verification/disputes
 
 ### 3.10 Export
 
 **JSON Export**:
+
 - Export entire group ledger
 - Includes:
   - All entries (decrypted)
@@ -375,6 +427,7 @@ For any entry:
 - Includes metadata (export date, group info)
 
 **Export Scope**:
+
 - All entries
 - Filtered entries (current filters applied)
 - Date range
@@ -385,12 +438,14 @@ For any entry:
 ### 4.1 Authentication & Identity
 
 **No Traditional Authentication**:
+
 - No username/password
 - No server-side accounts
 - User identity = cryptographic keypair
 - User generates keypair on first use (in browser/app)
 
 **Anti-Spam Protection** (Proof-of-Work):
+
 - Group creation requires solving a PoW challenge
 - Challenge: Find nonce where SHA256(challenge + nonce) has N leading zero bits
 - Difficulty: 18 bits (~2-4 seconds to solve on modern hardware)
@@ -399,11 +454,13 @@ For any entry:
 - Group users created automatically after group exists
 
 **User Identity Persistence**:
+
 - Private key stored in browser/app secure storage
 - Same identity can be used across multiple groups
 - Identity is anonymous to server (just public key hash)
 
 **Multi-Device**:
+
 - User exports private key from device A
 - Imports to device B (via QR code or file)
 - Both devices have same identity
@@ -440,22 +497,26 @@ For any entry:
 ### 4.3 Key Management
 
 **Trusted Group Model**:
+
 - Single group key created at group creation
 - No key rotation (simplifies flow for trusted groups)
 - Key embedded in URL fragment (never sent to server)
 - Anyone with link can join and access all data
 
 **Security Trade-offs**:
+
 - **Acceptable for trusted groups**: Friends, family, roommates who share links via secure channels
 - **Simplicity benefit**: No approval workflow, instant join, no key versioning complexity
 - **Risk**: If link leaks, group data is accessible to anyone with the link
 
 **Key Sharing**:
+
 - Join link contains the group key in URL fragment
 - Server never sees plaintext keys
 - All members have same level of access to historical data
 
 **Key Storage**:
+
 - Client: single group key per group
 - Server: no key storage (only encrypted CRDT operations)
 
@@ -470,6 +531,7 @@ For any entry:
 5. All historical data immediately accessible
 
 **Alternative: Multi-Device Export**:
+
 - Export private key from device A (QR code or file)
 - Import to device B
 - Both devices have same identity
@@ -478,6 +540,7 @@ For any entry:
 ### 4.5 Privacy Guarantees
 
 **Server Cannot See**:
+
 - Entry amounts
 - Entry descriptions
 - Member names
@@ -485,6 +548,7 @@ For any entry:
 - Any business data whatsoever
 
 **Server Can See**:
+
 - Number of operations
 - Approximate group size (from encrypted key count)
 - Sync timing patterns
@@ -493,6 +557,7 @@ For any entry:
 ### 4.6 Access Control
 
 **Group-Level Permissions** (configurable):
+
 - Anyone can add entries (default: yes)
 - Anyone can modify entries (default: yes)
 - Anyone can delete entries (default: yes)
@@ -500,12 +565,14 @@ For any entry:
 - Anyone can share historical keys (default: yes)
 
 **Per-Entry Permissions**:
+
 - Creator can always modify/delete
 - Others depend on group settings
 
 ### 4.7 Audit & Verification
 
 **Signatures**:
+
 - Every operation signed by creator
 - Signature proves:
   - Who created it
@@ -513,6 +580,7 @@ For any entry:
   - Entry is part of valid chain
 
 **Verification**:
+
 - Clients verify all signatures on receipt
 - Invalid signatures rejected
 - Prevents:
@@ -521,6 +589,7 @@ For any entry:
   - Repudiation (denying you created something)
 
 **Audit Trail**:
+
 - Complete operation log
 - Locally verifiable
 - Cannot be retroactively modified
@@ -531,11 +600,13 @@ For any entry:
 ### 5.1 First Use
 
 **New User Flow**:
+
 1. Opens app → Keypair generated automatically (2 seconds)
 2. "Create a group" or "Join a group" (paste invite link)
 3. No account creation needed
 
 **Joining First Group**:
+
 1. Click invite link (contains group key in URL fragment)
 2. Automatically decrypt and view existing members
 3. Choose: "I'm a new member" or claim existing virtual member identity
@@ -546,6 +617,7 @@ For any entry:
 ### 5.2 Adding Entry
 
 **Quick Expense** (< 10 seconds):
+
 1. Tap "+" button
 2. Enter amount
 3. Enter description
@@ -554,6 +626,7 @@ For any entry:
 6. Tap "Save"
 
 **Detailed Expense** (< 30 seconds):
+
 - Change currency
 - Change date
 - Multiple payers
@@ -561,6 +634,7 @@ For any entry:
 - Add category, notes, location
 
 **Quick Transfer** (< 10 seconds):
+
 1. Tap "Transfer" tab
 2. Enter amount
 3. Select from/to members
@@ -569,6 +643,7 @@ For any entry:
 ### 5.3 Viewing Balance
 
 **Overview Screen**:
+
 - Your net balance: large, prominent
   - "You owe $45.00" (red)
   - "You're owed $30.00" (green)
@@ -579,21 +654,25 @@ For any entry:
 ### 5.4 Internationalization (i18n)
 
 **Supported Languages**:
+
 - English (en) - Default
 - French (fr)
 
 **Language Detection**:
+
 - Auto-detect browser locale on first launch via `navigator.language`
 - Fall back to English if locale not supported
 - Persist user preference in `localStorage` (key: `partage-locale`)
 
 **Language Switching**:
+
 - Language selector available in:
   - Setup screen (before identity generation)
   - Group settings (header dropdown menu)
 - Switching language updates UI immediately without page reload
 
 **Implementation**:
+
 - Library: `@solid-primitives/i18n` (~2KB, SolidJS-native)
 - Locale files: JSON format with dot-notation keys (e.g., `"setup.title"`, `"balance.youOwe"`)
 - Dynamic imports: Only active language loaded (lazy-load locale files)
@@ -601,11 +680,13 @@ For any entry:
 - Pluralization: Separate keys for singular/plural forms to handle language-specific rules
 
 **Formatting**:
+
 - Currency: Locale-aware via `Intl.NumberFormat` (e.g., €1,234.56 vs €1 234,56)
 - Dates: Locale-aware via `Intl.DateTimeFormat` (e.g., Jan 15, 2024 vs 15 janv. 2024)
 - Relative time: Locale-aware (e.g., "5 minutes ago" vs "il y a 5 minutes")
 
 **Key Namespaces**:
+
 - `common`: Shared UI strings (Cancel, Save, Delete, etc.)
 - `setup`: Onboarding flow
 - `groups`: Group management
@@ -617,23 +698,28 @@ For any entry:
 ## 6. Miscellaneous
 
 ### Currency exchange rates
+
 For currency exchange rates, enter both currencies amounts manually for now.
 In the future, we can use freecurrencyapi.com with an API key to help with settlement amounts in secondary currency.
 
 ### Member Identification
+
 When user joins, for now assume they are good actors and trust them.
 The new joiner must be online, and not use a duplicated name.
 
 ### Concurrent Modifications
+
 When two people modify the same entry offline simultaneously, use the CRDT conflict resolution. All modifications kept for audit trail. Notify members involved by the conflict and its resolution.
 
 ### Settlement Deep Links
+
 If an app is detected (is that possible in a PWA?) suggest using it with a deep link if supported.
 Especially if the beneficiary of a transfer has provided information making it easy.
 
 ## 6. Out of Scope (Future)
 
 **Current Limitations**:
+
 - Receipt attachments / photos
 - Receipt OCR
 - Recurring expenses
@@ -653,6 +739,7 @@ Especially if the beneficiary of a transfer has provided information making it e
 
 **Future: Less-Trusted Groups**:
 For groups with less trust (larger groups, semi-public):
+
 - Key rotation on member join/leave
 - Approval workflow for join requests
 - Subgroup encryption (different keys for different member subsets)
@@ -662,17 +749,21 @@ For groups with less trust (larger groups, semi-public):
 ## 7. Technical Constraints
 
 ### CRDT (Loro)
+
 - Use Loro for all replicated data structures
 - Map Loro types to our data model
 - Leverage Replayable Event Graph for audit trail
+
 Loro information: https://loro.dev/llms.txt
 
 ### Encryption
+
 - AES-256-GCM for symmetric encryption
 - ECDH P-256 for asymmetric
 - WebCrypto API
 
 ### Storage
+
 - Client: Persistent encrypted storage (IndexedDB)
   - **Base snapshots**: Full Loro CRDT state per group
   - **Incremental updates**: Delta updates between mutations (write optimization)
@@ -682,15 +773,18 @@ Loro information: https://loro.dev/llms.txt
 - No database queries on server (just store & relay)
 
 ### Platform
+
 Progressive Web App (PWA) for modern browsers (Chrome, Firefox, Safari, Edge).
 
 ### Web App Tech Choices
+
 Using SolidJS, with Vite, making the app mobile first.
 Using Pnpm for package management.
 
 ## Appendix: Example Use Cases
 
 ### Use Case 1: Weekend Trip
+
 - 4 friends, 3 days, ~20 entries
 - Alice creates group "Beach Weekend"
 - Invites Bob, Carol, Dan via link
@@ -700,6 +794,7 @@ Using Pnpm for package management.
 - All settled ✓
 
 ### Use Case 2: Roommates
+
 - 3 people sharing apartment
 - Carol creates group "Apartment 42"
 - Invites Alice and Bob
@@ -708,7 +803,8 @@ Using Pnpm for package management.
 - End of month: check balance, settle
 - Pattern repeats
 
-### Use Case 3: Group Vacation  
+### Use Case 3: Group Vacation
+
 - 6 people, international, 2 weeks
 - Mix of currencies (USD, EUR, JPY)
 - Large shared expenses (hotel: 6-way split)

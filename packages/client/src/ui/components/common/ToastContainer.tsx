@@ -1,10 +1,10 @@
-import { Component, For } from 'solid-js'
-import { Toast } from './Toast'
-import type { ToastData } from '../../context/ToastContext'
+import { Component, For } from 'solid-js';
+import { Toast } from './Toast';
+import type { ToastData } from '../../context/ToastContext';
 
 export interface ToastContainerProps {
-  toasts: ToastData[]
-  onDismiss: (id: string) => void
+  toasts: ToastData[];
+  onDismiss: (id: string) => void;
 }
 
 export const ToastContainer: Component<ToastContainerProps> = (props) => {
@@ -22,5 +22,5 @@ export const ToastContainer: Component<ToastContainerProps> = (props) => {
         )}
       </For>
     </div>
-  )
-}
+  );
+};

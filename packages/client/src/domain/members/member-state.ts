@@ -55,10 +55,7 @@ interface ProcessingState {
  * @param events All events (will be filtered to this member)
  * @returns The computed member state, or null if member doesn't exist
  */
-export function computeMemberState(
-  memberId: string,
-  events: MemberEvent[]
-): MemberState | null {
+export function computeMemberState(memberId: string, events: MemberEvent[]): MemberState | null {
   // Filter events for this member and sort by timestamp
   const memberEvents = events
     .filter((e) => e.memberId === memberId)
@@ -71,9 +68,7 @@ export function computeMemberState(
   // First event must be a creation event
   const firstEvent = memberEvents[0];
   if (!firstEvent || firstEvent.type !== 'member_created') {
-    console.warn(
-      `[member-state] First event for member ${memberId} is not member_created`
-    );
+    console.warn(`[member-state] First event for member ${memberId} is not member_created`);
     return null;
   }
 
@@ -112,9 +107,7 @@ export function computeMemberState(
  * @param events All member events
  * @returns Map of member ID to computed state
  */
-export function computeAllMemberStates(
-  events: MemberEvent[]
-): Map<string, MemberState> {
+export function computeAllMemberStates(events: MemberEvent[]): Map<string, MemberState> {
   // Get unique member IDs from creation events
   const memberIds = new Set<string>();
   for (const event of events) {
@@ -185,9 +178,7 @@ export function resolveCanonicalMemberId(
   maxDepth: number = 10
 ): string {
   if (maxDepth <= 0) {
-    console.warn(
-      `[member-state] Max recursion depth reached resolving ${memberId}`
-    );
+    console.warn(`[member-state] Max recursion depth reached resolving ${memberId}`);
     return memberId;
   }
 
@@ -233,10 +224,7 @@ export function buildCanonicalIdMap(events: MemberEvent[]): Map<string, string> 
  * @param events All member events
  * @returns Array of member IDs that resolve to canonicalId
  */
-export function findAllAliasesFor(
-  canonicalId: string,
-  events: MemberEvent[]
-): string[] {
+export function findAllAliasesFor(canonicalId: string, events: MemberEvent[]): string[] {
   const canonicalMap = buildCanonicalIdMap(events);
   const aliases: string[] = [];
 
@@ -259,10 +247,7 @@ export function findAllAliasesFor(
  * @param events All member events
  * @returns The display name, or undefined if member not found
  */
-export function getMemberDisplayName(
-  memberId: string,
-  events: MemberEvent[]
-): string | undefined {
+export function getMemberDisplayName(memberId: string, events: MemberEvent[]): string | undefined {
   const canonicalId = resolveCanonicalMemberId(memberId, events);
   const state = computeMemberState(canonicalId, events);
   return state?.name;
@@ -425,10 +410,7 @@ export function createMemberRenamedEvent(
 /**
  * Create a member retired event
  */
-export function createMemberRetiredEvent(
-  memberId: string,
-  actorId: string
-): MemberRetiredEvent {
+export function createMemberRetiredEvent(memberId: string, actorId: string): MemberRetiredEvent {
   return {
     id: crypto.randomUUID(),
     type: 'member_retired',
@@ -514,9 +496,7 @@ function applyEvent(state: ProcessingState, event: MemberEvent): void {
 
     case 'member_created':
       // Ignore duplicate creation events
-      console.warn(
-        `[member-state] Ignoring duplicate member_created event for ${event.memberId}`
-      );
+      console.warn(`[member-state] Ignoring duplicate member_created event for ${event.memberId}`);
       break;
 
     default:

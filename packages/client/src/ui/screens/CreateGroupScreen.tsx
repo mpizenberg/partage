@@ -274,7 +274,10 @@ export const CreateGroupScreen: Component<CreateGroupScreenProps> = (props) => {
 
           {/* Subtle background PoW indicator - shown while filling form */}
           <Show when={!isWaitingForPoW() && isPowComputing()}>
-            <div class="text-sm text-muted mb-md" style="display: flex; align-items: center; gap: var(--space-xs);">
+            <div
+              class="text-sm text-muted mb-md"
+              style="display: flex; align-items: center; gap: var(--space-xs);"
+            >
               <LoadingSpinner size="small" />
               <span>{t('createGroup.preparingInBackground')}</span>
             </div>

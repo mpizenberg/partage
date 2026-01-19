@@ -63,7 +63,10 @@ export const ActivityCard: Component<ActivityCardProps> = (props) => {
     });
   };
 
-  const formatParticipants = (memberIds: string[] | undefined, nameMap?: Record<string, string>): string => {
+  const formatParticipants = (
+    memberIds: string[] | undefined,
+    nameMap?: Record<string, string>
+  ): string => {
     if (!memberIds || memberIds.length === 0) return '';
     const validIds = memberIds.filter((id): id is string => id != null);
     if (validIds.length === 0) return '';
@@ -76,7 +79,12 @@ export const ActivityCard: Component<ActivityCardProps> = (props) => {
     return `${getName(validIds[0]!)} ${t('common.and')} ${validIds.length - 1} ${t('common.others')}`;
   };
 
-  const formatChangeValue = (value: any, field: string, currency?: string, defaultCurrency?: string): string => {
+  const formatChangeValue = (
+    value: any,
+    field: string,
+    currency?: string,
+    defaultCurrency?: string
+  ): string => {
     // Handle null/undefined
     if (value == null) return t('activity.none');
 
@@ -178,12 +186,21 @@ export const ActivityCard: Component<ActivityCardProps> = (props) => {
   };
 
   // Helper to format amount with optional default currency in parenthesis
-  const showAmount = (amount: number, defaultCurrencyAmount: number | undefined, currency: string): string => {
+  const showAmount = (
+    amount: number,
+    defaultCurrencyAmount: number | undefined,
+    currency: string
+  ): string => {
     const defCurrency = defaultCurrency();
     let result = formatAmount(amount, currency);
 
     // If currency is different from default and we have a defaultCurrencyAmount, show it in parenthesis
-    if (defCurrency && currency !== defCurrency && defaultCurrencyAmount !== undefined && defaultCurrencyAmount !== amount) {
+    if (
+      defCurrency &&
+      currency !== defCurrency &&
+      defaultCurrencyAmount !== undefined &&
+      defaultCurrencyAmount !== amount
+    ) {
       result += ` (${formatAmount(defaultCurrencyAmount, defCurrency)})`;
     }
 
@@ -259,8 +276,12 @@ export const ActivityCard: Component<ActivityCardProps> = (props) => {
     const activity = props.activity;
 
     // For entry activities, check if user is in payers or beneficiaries
-    if (activity.type === 'entry_added' || activity.type === 'entry_modified' ||
-        activity.type === 'entry_deleted' || activity.type === 'entry_undeleted') {
+    if (
+      activity.type === 'entry_added' ||
+      activity.type === 'entry_modified' ||
+      activity.type === 'entry_deleted' ||
+      activity.type === 'entry_undeleted'
+    ) {
       const entryActivity = activity as any;
 
       // Get canonical user ID
@@ -325,340 +346,392 @@ export const ActivityCard: Component<ActivityCardProps> = (props) => {
 
   return (
     <>
-    <div
-      class="activity-card card"
-      classList={{
-        'activity-card-involved': isUserInvolved(),
-      }}
-      onClick={handleActivityClick}
-      style={{
-        cursor: isEntryActivity() ? 'pointer' : 'default',
-        opacity: isLoadingEntry() ? 0.6 : 1,
-      }}
-    >
-      <div class="activity-header">
-        <div class="activity-icon" style={{ color: getActivityColor() }}>
-          {getActivityIcon()}
-        </div>
-        <div class="activity-main">
-          <Switch>
-            {/* Entry Added */}
-            <Match when={props.activity.type === 'entry_added'}>
-              {(() => {
-                const activity = props.activity as EntryAddedActivity;
-                return (
-                  <>
-                    <div class="activity-description">
-                      <strong>{activity.actorName}</strong> {t('activity.added')}{' '}
-                      <span class="activity-highlight">"{activity.description}"</span>
-                    </div>
-                    <div class="activity-details">
-                      <div>
-                        {formatAmount(activity.amount, activity.currency)}
-                        {' • '}
-                        {formatDate(activity.entryDate)}
+      <div
+        class="activity-card card"
+        classList={{
+          'activity-card-involved': isUserInvolved(),
+        }}
+        onClick={handleActivityClick}
+        style={{
+          cursor: isEntryActivity() ? 'pointer' : 'default',
+          opacity: isLoadingEntry() ? 0.6 : 1,
+        }}
+      >
+        <div class="activity-header">
+          <div class="activity-icon" style={{ color: getActivityColor() }}>
+            {getActivityIcon()}
+          </div>
+          <div class="activity-main">
+            <Switch>
+              {/* Entry Added */}
+              <Match when={props.activity.type === 'entry_added'}>
+                {(() => {
+                  const activity = props.activity as EntryAddedActivity;
+                  return (
+                    <>
+                      <div class="activity-description">
+                        <strong>{activity.actorName}</strong> {t('activity.added')}{' '}
+                        <span class="activity-highlight">"{activity.description}"</span>
                       </div>
-                      <Show when={activity.payers}>
-                        <div
-                          class="activity-participants"
-                          style="font-size: var(--font-size-sm); color: var(--color-text-light); margin-top: var(--space-xs);"
-                        >
-                          {t('activity.paidBy')} {formatParticipants(activity.payers, activity.payerNames)} • {t('activity.for')}{' '}
-                          {formatParticipants(activity.beneficiaries, activity.beneficiaryNames)}
+                      <div class="activity-details">
+                        <div>
+                          {formatAmount(activity.amount, activity.currency)}
+                          {' • '}
+                          {formatDate(activity.entryDate)}
                         </div>
-                      </Show>
-                      <Show when={activity.from}>
-                        <div
-                          class="activity-participants"
-                          style="font-size: var(--font-size-sm); color: var(--color-text-light); margin-top: var(--space-xs);"
-                        >
-                          {activity.fromName || getMemberName(activity.from!)} → {activity.toName || getMemberName(activity.to!)}
-                        </div>
-                      </Show>
-                    </div>
-                  </>
-                );
-              })()}
-            </Match>
-
-            {/* Entry Modified */}
-            <Match when={props.activity.type === 'entry_modified'}>
-              {(() => {
-                const activity = props.activity as EntryModifiedActivity;
-                return (
-                  <>
-                    <div class="activity-description">
-                      <strong>{activity.actorName}</strong> {t('activity.modified')}{' '}
-                      <span class="activity-highlight">"{activity.description}"</span>
-                    </div>
-                    <div class="activity-details">
-                      <div>
-                        {formatAmount(activity.amount, activity.currency)}
-                        {' • '}
-                        {formatDate(activity.entryDate)}
-                      </div>
-                      <Show when={activity.payers}>
-                        <div
-                          class="activity-participants"
-                          style="font-size: var(--font-size-sm); color: var(--color-text-light); margin-top: var(--space-xs);"
-                        >
-                          {t('activity.paidBy')} {formatParticipants(activity.payers, activity.payerNames)} • {t('activity.for')}{' '}
-                          {formatParticipants(activity.beneficiaries, activity.beneficiaryNames)}
-                        </div>
-                      </Show>
-                      <Show when={activity.from}>
-                        <div
-                          class="activity-participants"
-                          style="font-size: var(--font-size-sm); color: var(--color-text-light); margin-top: var(--space-xs);"
-                        >
-                          {activity.fromName || getMemberName(activity.from!)} → {activity.toName || getMemberName(activity.to!)}
-                        </div>
-                      </Show>
-                      <Show when={activity.changes && Object.keys(activity.changes).length > 0}>
-                        <div
-                          class="activity-changes"
-                          style="margin-top: var(--space-sm); padding: var(--space-sm); background: var(--color-bg-secondary); border-radius: var(--border-radius); font-size: var(--font-size-sm);"
-                        >
-                          <div style="font-weight: var(--font-weight-semibold); margin-bottom: var(--space-xs); color: var(--color-text-light);">
-                            {t('activity.changes')}
+                        <Show when={activity.payers}>
+                          <div
+                            class="activity-participants"
+                            style="font-size: var(--font-size-sm); color: var(--color-text-light); margin-top: var(--space-xs);"
+                          >
+                            {t('activity.paidBy')}{' '}
+                            {formatParticipants(activity.payers, activity.payerNames)} •{' '}
+                            {t('activity.for')}{' '}
+                            {formatParticipants(activity.beneficiaries, activity.beneficiaryNames)}
                           </div>
+                        </Show>
+                        <Show when={activity.from}>
+                          <div
+                            class="activity-participants"
+                            style="font-size: var(--font-size-sm); color: var(--color-text-light); margin-top: var(--space-xs);"
+                          >
+                            {activity.fromName || getMemberName(activity.from!)} →{' '}
+                            {activity.toName || getMemberName(activity.to!)}
+                          </div>
+                        </Show>
+                      </div>
+                    </>
+                  );
+                })()}
+              </Match>
 
-                          {/* Multi-currency amount display (if needed) */}
-                          <Show when={shouldShowMultiCurrencyAmount()}>
-                            <div style="margin-bottom: var(--space-xs);">
-                              <span style="color: var(--color-text-light);">amount:</span>{' '}
-                              <span style="text-decoration: line-through; color: var(--color-danger);">
-                                {showAmount(
-                                  activity.changes!.amount?.from ?? activity.amount,
-                                  activity.changes!.defaultCurrencyAmount?.from ?? (getOldCurrency() === defaultCurrency() ? (activity.changes!.amount?.from ?? activity.amount) : activity.defaultCurrencyAmount),
-                                  getOldCurrency()
-                                )}
-                              </span>
-                              {' → '}
-                              <span style="color: var(--color-success);">
-                                {showAmount(
-                                  activity.changes!.amount?.to ?? activity.amount,
-                                  activity.changes!.defaultCurrencyAmount?.to ?? (getNewCurrency() === defaultCurrency() ? (activity.changes!.amount?.to ?? activity.amount) : activity.defaultCurrencyAmount),
-                                  getNewCurrency()
-                                )}
-                              </span>
+              {/* Entry Modified */}
+              <Match when={props.activity.type === 'entry_modified'}>
+                {(() => {
+                  const activity = props.activity as EntryModifiedActivity;
+                  return (
+                    <>
+                      <div class="activity-description">
+                        <strong>{activity.actorName}</strong> {t('activity.modified')}{' '}
+                        <span class="activity-highlight">"{activity.description}"</span>
+                      </div>
+                      <div class="activity-details">
+                        <div>
+                          {formatAmount(activity.amount, activity.currency)}
+                          {' • '}
+                          {formatDate(activity.entryDate)}
+                        </div>
+                        <Show when={activity.payers}>
+                          <div
+                            class="activity-participants"
+                            style="font-size: var(--font-size-sm); color: var(--color-text-light); margin-top: var(--space-xs);"
+                          >
+                            {t('activity.paidBy')}{' '}
+                            {formatParticipants(activity.payers, activity.payerNames)} •{' '}
+                            {t('activity.for')}{' '}
+                            {formatParticipants(activity.beneficiaries, activity.beneficiaryNames)}
+                          </div>
+                        </Show>
+                        <Show when={activity.from}>
+                          <div
+                            class="activity-participants"
+                            style="font-size: var(--font-size-sm); color: var(--color-text-light); margin-top: var(--space-xs);"
+                          >
+                            {activity.fromName || getMemberName(activity.from!)} →{' '}
+                            {activity.toName || getMemberName(activity.to!)}
+                          </div>
+                        </Show>
+                        <Show when={activity.changes && Object.keys(activity.changes).length > 0}>
+                          <div
+                            class="activity-changes"
+                            style="margin-top: var(--space-sm); padding: var(--space-sm); background: var(--color-bg-secondary); border-radius: var(--border-radius); font-size: var(--font-size-sm);"
+                          >
+                            <div style="font-weight: var(--font-weight-semibold); margin-bottom: var(--space-xs); color: var(--color-text-light);">
+                              {t('activity.changes')}
                             </div>
-                          </Show>
 
-                          {/* Other changes (excluding amount/defaultCurrencyAmount/currency when multi-currency display is shown) */}
-                          <For each={Object.entries(activity.changes || {}).filter(([field]) => {
-                            if (field === 'notes') return false;
-                            if (field === 'currency') return false;
-                            // If showing multi-currency display, skip amount and defaultCurrencyAmount
-                            if (shouldShowMultiCurrencyAmount() && (field === 'amount' || field === 'defaultCurrencyAmount')) return false;
-                            // If NOT showing multi-currency display, skip defaultCurrencyAmount (but keep amount)
-                            if (!shouldShowMultiCurrencyAmount() && field === 'defaultCurrencyAmount') return false;
-                            return true;
-                          })}>
-                            {([field, change]) => (
+                            {/* Multi-currency amount display (if needed) */}
+                            <Show when={shouldShowMultiCurrencyAmount()}>
                               <div style="margin-bottom: var(--space-xs);">
-                                <span style="color: var(--color-text-light);">{field}:</span>{' '}
+                                <span style="color: var(--color-text-light);">amount:</span>{' '}
                                 <span style="text-decoration: line-through; color: var(--color-danger);">
-                                  {formatChangeValue(change.from, field, activity.currency, defaultCurrency())}
+                                  {showAmount(
+                                    activity.changes!.amount?.from ?? activity.amount,
+                                    activity.changes!.defaultCurrencyAmount?.from ??
+                                      (getOldCurrency() === defaultCurrency()
+                                        ? (activity.changes!.amount?.from ?? activity.amount)
+                                        : activity.defaultCurrencyAmount),
+                                    getOldCurrency()
+                                  )}
                                 </span>
                                 {' → '}
                                 <span style="color: var(--color-success);">
-                                  {formatChangeValue(change.to, field, activity.currency, defaultCurrency())}
+                                  {showAmount(
+                                    activity.changes!.amount?.to ?? activity.amount,
+                                    activity.changes!.defaultCurrencyAmount?.to ??
+                                      (getNewCurrency() === defaultCurrency()
+                                        ? (activity.changes!.amount?.to ?? activity.amount)
+                                        : activity.defaultCurrencyAmount),
+                                    getNewCurrency()
+                                  )}
                                 </span>
                               </div>
-                            )}
-                          </For>
+                            </Show>
 
-                          {/* Show notes changed indicator */}
-                          <Show when={activity.changes && 'notes' in activity.changes}>
-                            <div style="margin-bottom: var(--space-xs); color: var(--color-text-light); font-style: italic;">
-                              • {t('activity.notesChanged')}
-                            </div>
-                          </Show>
+                            {/* Other changes (excluding amount/defaultCurrencyAmount/currency when multi-currency display is shown) */}
+                            <For
+                              each={Object.entries(activity.changes || {}).filter(([field]) => {
+                                if (field === 'notes') return false;
+                                if (field === 'currency') return false;
+                                // If showing multi-currency display, skip amount and defaultCurrencyAmount
+                                if (
+                                  shouldShowMultiCurrencyAmount() &&
+                                  (field === 'amount' || field === 'defaultCurrencyAmount')
+                                )
+                                  return false;
+                                // If NOT showing multi-currency display, skip defaultCurrencyAmount (but keep amount)
+                                if (
+                                  !shouldShowMultiCurrencyAmount() &&
+                                  field === 'defaultCurrencyAmount'
+                                )
+                                  return false;
+                                return true;
+                              })}
+                            >
+                              {([field, change]) => (
+                                <div style="margin-bottom: var(--space-xs);">
+                                  <span style="color: var(--color-text-light);">{field}:</span>{' '}
+                                  <span style="text-decoration: line-through; color: var(--color-danger);">
+                                    {formatChangeValue(
+                                      change.from,
+                                      field,
+                                      activity.currency,
+                                      defaultCurrency()
+                                    )}
+                                  </span>
+                                  {' → '}
+                                  <span style="color: var(--color-success);">
+                                    {formatChangeValue(
+                                      change.to,
+                                      field,
+                                      activity.currency,
+                                      defaultCurrency()
+                                    )}
+                                  </span>
+                                </div>
+                              )}
+                            </For>
+
+                            {/* Show notes changed indicator */}
+                            <Show when={activity.changes && 'notes' in activity.changes}>
+                              <div style="margin-bottom: var(--space-xs); color: var(--color-text-light); font-style: italic;">
+                                • {t('activity.notesChanged')}
+                              </div>
+                            </Show>
+                          </div>
+                        </Show>
+                      </div>
+                    </>
+                  );
+                })()}
+              </Match>
+
+              {/* Entry Deleted */}
+              <Match when={props.activity.type === 'entry_deleted'}>
+                {(() => {
+                  const activity = props.activity as EntryDeletedActivity;
+                  return (
+                    <>
+                      <div class="activity-description">
+                        <strong>{activity.actorName}</strong> {t('activity.deleted')}{' '}
+                        <span class="activity-highlight">"{activity.description}"</span>
+                      </div>
+                      <div class="activity-details">
+                        <div>
+                          {formatAmount(activity.amount, activity.currency)}
+                          {' • '}
+                          {formatDate(activity.entryDate)}
+                          {activity.reason && (
+                            <span class="activity-reason"> • {activity.reason}</span>
+                          )}
                         </div>
-                      </Show>
-                    </div>
-                  </>
-                );
-              })()}
-            </Match>
+                        <Show when={activity.payers}>
+                          <div
+                            class="activity-participants"
+                            style="font-size: var(--font-size-sm); color: var(--color-text-light); margin-top: var(--space-xs);"
+                          >
+                            {t('activity.paidBy')}{' '}
+                            {formatParticipants(activity.payers, activity.payerNames)} •{' '}
+                            {t('activity.for')}{' '}
+                            {formatParticipants(activity.beneficiaries, activity.beneficiaryNames)}
+                          </div>
+                        </Show>
+                        <Show when={activity.from}>
+                          <div
+                            class="activity-participants"
+                            style="font-size: var(--font-size-sm); color: var(--color-text-light); margin-top: var(--space-xs);"
+                          >
+                            {activity.fromName || getMemberName(activity.from!)} →{' '}
+                            {activity.toName || getMemberName(activity.to!)}
+                          </div>
+                        </Show>
+                      </div>
+                    </>
+                  );
+                })()}
+              </Match>
 
-            {/* Entry Deleted */}
-            <Match when={props.activity.type === 'entry_deleted'}>
-              {(() => {
-                const activity = props.activity as EntryDeletedActivity;
-                return (
-                  <>
+              {/* Entry Undeleted */}
+              <Match when={props.activity.type === 'entry_undeleted'}>
+                {(() => {
+                  const activity = props.activity as EntryUndeletedActivity;
+                  return (
+                    <>
+                      <div class="activity-description">
+                        <strong>{activity.actorName}</strong> {t('activity.restored')}{' '}
+                        <span class="activity-highlight">"{activity.description}"</span>
+                      </div>
+                      <div class="activity-details">
+                        <div>
+                          {formatAmount(activity.amount, activity.currency)}
+                          {' • '}
+                          {formatDate(activity.entryDate)}
+                        </div>
+                        <Show when={activity.payers}>
+                          <div
+                            class="activity-participants"
+                            style="font-size: var(--font-size-sm); color: var(--color-text-light); margin-top: var(--space-xs);"
+                          >
+                            {t('activity.paidBy')}{' '}
+                            {formatParticipants(activity.payers, activity.payerNames)} •{' '}
+                            {t('activity.for')}{' '}
+                            {formatParticipants(activity.beneficiaries, activity.beneficiaryNames)}
+                          </div>
+                        </Show>
+                        <Show when={activity.from}>
+                          <div
+                            class="activity-participants"
+                            style="font-size: var(--font-size-sm); color: var(--color-text-light); margin-top: var(--space-xs);"
+                          >
+                            {activity.fromName || getMemberName(activity.from!)} →{' '}
+                            {activity.toName || getMemberName(activity.to!)}
+                          </div>
+                        </Show>
+                      </div>
+                    </>
+                  );
+                })()}
+              </Match>
+
+              {/* Member Joined */}
+              <Match when={props.activity.type === 'member_joined'}>
+                {(() => {
+                  const activity = props.activity as any;
+                  return (
                     <div class="activity-description">
-                      <strong>{activity.actorName}</strong> {t('activity.deleted')}{' '}
-                      <span class="activity-highlight">"{activity.description}"</span>
-                    </div>
-                    <div class="activity-details">
-                      <div>
-                        {formatAmount(activity.amount, activity.currency)}
-                        {' • '}
-                        {formatDate(activity.entryDate)}
-                        {activity.reason && (
-                          <span class="activity-reason"> • {activity.reason}</span>
+                      <strong>
+                        {activity.memberName}
+                        {activity.currentName && (
+                          <span class="activity-current-name">
+                            {' '}
+                            ({t('activity.now')} {activity.currentName})
+                          </span>
                         )}
-                      </div>
-                      <Show when={activity.payers}>
-                        <div
-                          class="activity-participants"
-                          style="font-size: var(--font-size-sm); color: var(--color-text-light); margin-top: var(--space-xs);"
-                        >
-                          {t('activity.paidBy')} {formatParticipants(activity.payers, activity.payerNames)} • {t('activity.for')}{' '}
-                          {formatParticipants(activity.beneficiaries, activity.beneficiaryNames)}
-                        </div>
-                      </Show>
-                      <Show when={activity.from}>
-                        <div
-                          class="activity-participants"
-                          style="font-size: var(--font-size-sm); color: var(--color-text-light); margin-top: var(--space-xs);"
-                        >
-                          {activity.fromName || getMemberName(activity.from!)} → {activity.toName || getMemberName(activity.to!)}
-                        </div>
-                      </Show>
+                      </strong>{' '}
+                      {t('activity.joinedGroup')}
+                      {activity.isVirtual && (
+                        <span class="activity-virtual"> ({t('activity.virtualMember')})</span>
+                      )}
                     </div>
-                  </>
-                );
-              })()}
-            </Match>
+                  );
+                })()}
+              </Match>
 
-            {/* Entry Undeleted */}
-            <Match when={props.activity.type === 'entry_undeleted'}>
-              {(() => {
-                const activity = props.activity as EntryUndeletedActivity;
-                return (
-                  <>
+              {/* Member Linked (re-joined) */}
+              <Match when={props.activity.type === 'member_linked'}>
+                {(() => {
+                  const activity = props.activity as any;
+                  return (
                     <div class="activity-description">
-                      <strong>{activity.actorName}</strong> {t('activity.restored')}{' '}
-                      <span class="activity-highlight">"{activity.description}"</span>
+                      <strong>
+                        {activity.newMemberName}
+                        {activity.currentName && (
+                          <span class="activity-current-name">
+                            {' '}
+                            ({t('activity.now')} {activity.currentName})
+                          </span>
+                        )}
+                      </strong>{' '}
+                      {t('activity.reJoined')}
                     </div>
-                    <div class="activity-details">
-                      <div>
-                        {formatAmount(activity.amount, activity.currency)}
-                        {' • '}
-                        {formatDate(activity.entryDate)}
-                      </div>
-                      <Show when={activity.payers}>
-                        <div
-                          class="activity-participants"
-                          style="font-size: var(--font-size-sm); color: var(--color-text-light); margin-top: var(--space-xs);"
-                        >
-                          {t('activity.paidBy')} {formatParticipants(activity.payers, activity.payerNames)} • {t('activity.for')}{' '}
-                          {formatParticipants(activity.beneficiaries, activity.beneficiaryNames)}
-                        </div>
-                      </Show>
-                      <Show when={activity.from}>
-                        <div
-                          class="activity-participants"
-                          style="font-size: var(--font-size-sm); color: var(--color-text-light); margin-top: var(--space-xs);"
-                        >
-                          {activity.fromName || getMemberName(activity.from!)} → {activity.toName || getMemberName(activity.to!)}
-                        </div>
-                      </Show>
+                  );
+                })()}
+              </Match>
+
+              {/* Member Renamed */}
+              <Match when={props.activity.type === 'member_renamed'}>
+                {(() => {
+                  const activity = props.activity as any;
+                  return (
+                    <div class="activity-description">
+                      <strong>{activity.oldName}</strong> {t('activity.renamedTo')}{' '}
+                      <strong>
+                        {activity.newName}
+                        {activity.currentName && (
+                          <span class="activity-current-name">
+                            {' '}
+                            ({t('activity.now')} {activity.currentName})
+                          </span>
+                        )}
+                      </strong>
                     </div>
-                  </>
-                );
-              })()}
-            </Match>
+                  );
+                })()}
+              </Match>
 
-            {/* Member Joined */}
-            <Match when={props.activity.type === 'member_joined'}>
-              {(() => {
-                const activity = props.activity as any;
-                return (
-                  <div class="activity-description">
-                    <strong>
-                      {activity.memberName}
-                      {activity.currentName && (
-                        <span class="activity-current-name"> ({t('activity.now')} {activity.currentName})</span>
-                      )}
-                    </strong>{' '}
-                    {t('activity.joinedGroup')}
-                    {activity.isVirtual && (
-                      <span class="activity-virtual"> ({t('activity.virtualMember')})</span>
-                    )}
-                  </div>
-                );
-              })()}
-            </Match>
+              {/* Member Retired */}
+              <Match when={props.activity.type === 'member_retired'}>
+                {(() => {
+                  const activity = props.activity as any;
+                  return (
+                    <div class="activity-description">
+                      <strong>
+                        {activity.memberName}
+                        {activity.currentName && (
+                          <span class="activity-current-name">
+                            {' '}
+                            ({t('activity.now')} {activity.currentName})
+                          </span>
+                        )}
+                      </strong>{' '}
+                      {t('activity.wasRemovedFromGroup')}
+                    </div>
+                  );
+                })()}
+              </Match>
+            </Switch>
+          </div>
+        </div>
 
-            {/* Member Linked (re-joined) */}
-            <Match when={props.activity.type === 'member_linked'}>
-              {(() => {
-                const activity = props.activity as any;
-                return (
-                  <div class="activity-description">
-                    <strong>
-                      {activity.newMemberName}
-                      {activity.currentName && (
-                        <span class="activity-current-name"> ({t('activity.now')} {activity.currentName})</span>
-                      )}
-                    </strong>{' '}
-                    {t('activity.reJoined')}
-                  </div>
-                );
-              })()}
-            </Match>
-
-            {/* Member Renamed */}
-            <Match when={props.activity.type === 'member_renamed'}>
-              {(() => {
-                const activity = props.activity as any;
-                return (
-                  <div class="activity-description">
-                    <strong>{activity.oldName}</strong> {t('activity.renamedTo')}{' '}
-                    <strong>
-                      {activity.newName}
-                      {activity.currentName && (
-                        <span class="activity-current-name"> ({t('activity.now')} {activity.currentName})</span>
-                      )}
-                    </strong>
-                  </div>
-                );
-              })()}
-            </Match>
-
-            {/* Member Retired */}
-            <Match when={props.activity.type === 'member_retired'}>
-              {(() => {
-                const activity = props.activity as any;
-                return (
-                  <div class="activity-description">
-                    <strong>
-                      {activity.memberName}
-                      {activity.currentName && (
-                        <span class="activity-current-name"> ({t('activity.now')} {activity.currentName})</span>
-                      )}
-                    </strong>{' '}
-                    {t('activity.wasRemovedFromGroup')}
-                  </div>
-                );
-              })()}
-            </Match>
-          </Switch>
+        <div class="activity-footer">
+          <span class="activity-time">
+            {formatRelativeTime(props.activity.timestamp, locale(), t)}
+          </span>
         </div>
       </div>
 
-      <div class="activity-footer">
-        <span class="activity-time">{formatRelativeTime(props.activity.timestamp, locale(), t)}</span>
-      </div>
-    </div>
-
-    {/* Entry Details Modal */}
-    <EntryDetailsModal
-      isOpen={showModal()}
-      onClose={() => setShowModal(false)}
-      entry={selectedEntry()}
-      changes={getChanges()}
-      deletionReason={getDeletionReason()}
-      payerNames={getPayerNames()}
-      beneficiaryNames={getBeneficiaryNames()}
-      fromName={getFromName()}
-      toName={getToName()}
-    />
+      {/* Entry Details Modal */}
+      <EntryDetailsModal
+        isOpen={showModal()}
+        onClose={() => setShowModal(false)}
+        entry={selectedEntry()}
+        changes={getChanges()}
+        deletionReason={getDeletionReason()}
+        payerNames={getPayerNames()}
+        beneficiaryNames={getBeneficiaryNames()}
+        fromName={getFromName()}
+        toName={getToName()}
+      />
     </>
   );
 };

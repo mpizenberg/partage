@@ -10,7 +10,14 @@ export const OfflineBanner: Component = () => {
     <Show when={!syncState().isOnline}>
       <div class="offline-banner" role="alert" aria-live="polite">
         <span class="offline-banner-icon" aria-hidden="true">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <svg
+            width="16"
+            height="16"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+          >
             <line x1="1" y1="1" x2="23" y2="23" />
             <path d="M16.72 11.06A10.94 10.94 0 0 1 19 12.55" />
             <path d="M5 12.55a10.94 10.94 0 0 1 5.17-2.39" />
@@ -20,9 +27,7 @@ export const OfflineBanner: Component = () => {
             <line x1="12" y1="20" x2="12.01" y2="20" />
           </svg>
         </span>
-        <span class="offline-banner-text">
-          {t('common.offline')}
-        </span>
+        <span class="offline-banner-text">{t('common.offline')}</span>
       </div>
     </Show>
   );

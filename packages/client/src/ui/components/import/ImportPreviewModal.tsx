@@ -49,7 +49,10 @@ export const ImportPreviewModal: Component<ImportPreviewModalProps> = (props) =>
 
   const hasNewOrMergeable = () => {
     return props.analysis?.groups.some(
-      (g) => g.relationship === 'new' || g.relationship === 'local_subset' || g.relationship === 'diverged'
+      (g) =>
+        g.relationship === 'new' ||
+        g.relationship === 'local_subset' ||
+        g.relationship === 'diverged'
     );
   };
 
@@ -62,12 +65,8 @@ export const ImportPreviewModal: Component<ImportPreviewModalProps> = (props) =>
             <p class="text-sm text-muted">
               Export created: {formatDate(props.analysis!.exportData.exportedAt)}
             </p>
-            <p class="text-sm text-muted">
-              Version: {props.analysis!.exportData.version}
-            </p>
-            <p class="text-sm text-muted">
-              Groups: {props.analysis!.groups.length}
-            </p>
+            <p class="text-sm text-muted">Version: {props.analysis!.exportData.version}</p>
+            <p class="text-sm text-muted">Groups: {props.analysis!.groups.length}</p>
           </div>
 
           {/* Groups list */}
@@ -89,7 +88,8 @@ export const ImportPreviewModal: Component<ImportPreviewModalProps> = (props) =>
 
                     <Show when={item.exists}>
                       <p class="mt-sm">
-                        <strong>Status:</strong> {item.relationship === 'import_subset'
+                        <strong>Status:</strong>{' '}
+                        {item.relationship === 'import_subset'
                           ? 'No changes needed'
                           : 'Will be merged'}
                       </p>
@@ -106,10 +106,7 @@ export const ImportPreviewModal: Component<ImportPreviewModalProps> = (props) =>
               Cancel
             </Button>
             <Show when={hasNewOrMergeable()}>
-              <Button
-                variant="primary"
-                onClick={() => props.onConfirm(true)}
-              >
+              <Button variant="primary" onClick={() => props.onConfirm(true)}>
                 Import & Merge
               </Button>
             </Show>

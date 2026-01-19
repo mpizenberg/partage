@@ -66,11 +66,13 @@ This creates production-ready static files in `packages/client/dist/`.
 For production deployment instructions, see [DEPLOYMENT.md](./DEPLOYMENT.md).
 
 **Quick summary:**
+
 - Deploy PocketBase server separately (port 8090)
 - Build the client with `VITE_POCKETBASE_URL` environment variable
 - Deploy static files from `packages/client/dist/`
 
 **Dokploy/Railpack:** Set environment variables:
+
 ```bash
 VITE_POCKETBASE_URL=https://your-pocketbase-url
 RAILPACK_SPA_OUTPUT_DIR=packages/client/dist
@@ -79,6 +81,7 @@ RAILPACK_SPA_OUTPUT_DIR=packages/client/dist
 ## Architecture
 
 ### Security & Privacy
+
 - **End-to-end encryption**: All data encrypted with AES-256-GCM
 - **Zero-knowledge server**: Server only relays encrypted CRDT operations
 - **Local-first**: Offline-capable with IndexedDB storage
@@ -86,6 +89,7 @@ RAILPACK_SPA_OUTPUT_DIR=packages/client/dist
 - **Anti-spam protection**: Proof-of-Work challenge required for group creation
 
 ### Tech Stack
+
 - **Frontend**: SolidJS, Vite, TypeScript
 - **CRDT**: Loro for conflict-free sync (https://loro.dev/llms.txt)
 - **Storage**: IndexedDB (client), PocketBase (server)
@@ -99,6 +103,7 @@ See [PLAN.md](./PLAN.md) for the complete implementation roadmap.
 ### Current Phase: Phase 8 - Polish & Production 🔄
 
 **Recent Updates** (January 18, 2026):
+
 - ✅ Proof-of-Work anti-spam protection for group creation
   - Server-side challenge/response with HMAC-signed challenges
   - Client-side SHA-256 computation (~2-4 seconds to solve)
@@ -110,12 +115,14 @@ See [PLAN.md](./PLAN.md) for the complete implementation roadmap.
   - Password derived from group key for seamless authentication
 
 **Previous Updates** (January 13, 2026):
+
 - ✅ Spanish language support (full translation)
 - ✅ Language selector with flags
 - ✅ Global footer with GitHub repository link
 - ✅ Toast notifications for relevant activities
 
 **Phase 7 - Simplified Trusted Group Join: ✅ COMPLETED** (January 12, 2026)
+
 - ✅ Single group key (no rotation) embedded in URL fragment
 - ✅ Member alias system for claiming virtual member identities
 - ✅ Balance calculations with alias resolution
@@ -126,6 +133,7 @@ See [PLAN.md](./PLAN.md) for the complete implementation roadmap.
 - ✅ Fixed member display across all UI components
 
 **Phase 6 - Advanced Features: ✅ COMPLETED** (January 7, 2026)
+
 - ✅ Entry modification with versioning UI
 - ✅ Entry soft deletion with undo
 - ✅ Activity feed showing recent changes
@@ -136,6 +144,7 @@ See [PLAN.md](./PLAN.md) for the complete implementation roadmap.
 - ✅ Incremental snapshot storage (performance optimization)
 
 **Phase 5 - Multi-User Features: ✅ COMPLETED** (January 7, 2026)
+
 - ✅ Invitation link generation and sharing
 - ✅ Secure public key exchange (ECDH + ECDSA)
 - ✅ Join group via invite link flow
@@ -149,6 +158,7 @@ See [PLAN.md](./PLAN.md) for the complete implementation roadmap.
 - ✅ Build successful
 
 **Phase 4 - Server & Sync: ✅ COMPLETED** (January 6, 2026)
+
 - ✅ PocketBase server setup with encrypted operations collection
 - ✅ API client with real-time subscriptions
 - ✅ Sync manager with online/offline detection
@@ -158,6 +168,7 @@ See [PLAN.md](./PLAN.md) for the complete implementation roadmap.
 - ✅ Tested multi-client sync (multiple browser tabs)
 
 **Phase 3 - Basic UI: ✅ COMPLETED** (January 5, 2026)
+
 - ✅ SolidJS PWA with Vite and VitePWA plugin
 - ✅ Mobile-first CSS design system (variables, layout, components)
 - ✅ Application state management with SolidJS Context API
@@ -182,6 +193,7 @@ See [PLAN.md](./PLAN.md) for the complete implementation roadmap.
 - ✅ Internationalization: English, French, Spanish
 
 **Phase 2 - Local CRDT & Data Models: ✅ COMPLETED** (January 4, 2026)
+
 - ✅ Loro CRDT wrapper with two-layer encryption
   - Metadata stored in Loro (unencrypted): id, timestamp, actor, version, status
   - Sensitive data encrypted with AES-256-GCM: amounts, descriptions, member details
@@ -197,6 +209,7 @@ See [PLAN.md](./PLAN.md) for the complete implementation roadmap.
 - ✅ Full type safety
 
 **Phase 1 - Foundation: ✅ COMPLETED** (January 4, 2026)
+
 - ✅ Monorepo structure with pnpm workspaces
 - ✅ TypeScript (v5.7.3), Vitest (v2.1.8), ESLint (v9)
 - ✅ All dependencies updated to latest versions
@@ -212,6 +225,7 @@ See [PLAN.md](./PLAN.md) for the complete implementation roadmap.
 - ✅ Shared TypeScript types (crypto, group, member, entry, balance)
 
 **Next Steps (Phase 8)**:
+
 1. PWA push notifications for background activity alerts
 2. Recursive member linking (link real members, not only virtual)
 3. Error handling and loading states

@@ -1,157 +1,157 @@
-import { Component, createSignal, For, Show, createMemo } from 'solid-js'
-import { useAppContext } from '../../context/AppContext'
-import { useI18n } from '../../../i18n'
-import { Input } from '../common/Input'
-import { Select } from '../common/Select'
-import { Button } from '../common/Button'
-import type { TransferFormData, FormErrors } from './types'
-import type { TransferEntry } from '@partage/shared'
+import { Component, createSignal, For, Show, createMemo } from 'solid-js';
+import { useAppContext } from '../../context/AppContext';
+import { useI18n } from '../../../i18n';
+import { Input } from '../common/Input';
+import { Select } from '../common/Select';
+import { Button } from '../common/Button';
+import type { TransferFormData, FormErrors } from './types';
+import type { TransferEntry } from '@partage/shared';
 
 export interface TransferInitialData {
-  from?: string
-  to?: string
-  amount?: number
-  currency?: string
+  from?: string;
+  to?: string;
+  amount?: number;
+  currency?: string;
 }
 
 export interface TransferFormProps {
-  onSubmit: (data: TransferFormData) => Promise<void>
-  onCancel: () => void
-  initialData?: TransferEntry | TransferInitialData
+  onSubmit: (data: TransferFormData) => Promise<void>;
+  onCancel: () => void;
+  initialData?: TransferEntry | TransferInitialData;
 }
 
 export const TransferForm: Component<TransferFormProps> = (props) => {
-  const { members, activeGroup, identity } = useAppContext()
-  const { t } = useI18n()
+  const { members, activeGroup, identity } = useAppContext();
+  const { t } = useI18n();
 
   // Sorted active members: current user first, then others alphabetically (case-insensitive)
   const sortedActiveMembers = createMemo(() => {
-    const currentUserId = identity()?.publicKeyHash
-    const membersList = members().filter(m => m.status === 'active')
+    const currentUserId = identity()?.publicKeyHash;
+    const membersList = members().filter((m) => m.status === 'active');
 
-    const currentUser = membersList.filter(m => m.id === currentUserId)
+    const currentUser = membersList.filter((m) => m.id === currentUserId);
     const others = membersList
-      .filter(m => m.id !== currentUserId)
-      .sort((a, b) => a.name.toLowerCase().localeCompare(b.name.toLowerCase()))
+      .filter((m) => m.id !== currentUserId)
+      .sort((a, b) => a.name.toLowerCase().localeCompare(b.name.toLowerCase()));
 
-    return [...currentUser, ...others]
-  })
+    return [...currentUser, ...others];
+  });
 
   // Sorted departed members (alphabetically)
   const sortedDepartedMembers = createMemo(() => {
     return members()
-      .filter(m => m.status === 'departed')
-      .sort((a, b) => a.name.toLowerCase().localeCompare(b.name.toLowerCase()))
-  })
+      .filter((m) => m.status === 'departed')
+      .sort((a, b) => a.name.toLowerCase().localeCompare(b.name.toLowerCase()));
+  });
 
   const formatDateForInput = (timestamp: number): string => {
-    return new Date(timestamp).toISOString().split('T')[0] || ''
-  }
+    return new Date(timestamp).toISOString().split('T')[0] || '';
+  };
 
   // Check if we're in edit mode (initialData is a full TransferEntry with id)
-  const isEditMode = () => !!(props.initialData && 'id' in props.initialData)
+  const isEditMode = () => !!(props.initialData && 'id' in props.initialData);
 
   // Helper to check if initialData has a specific field
   const getInitialValue = <K extends keyof TransferEntry>(key: K, defaultValue: any): any => {
-    if (!props.initialData) return defaultValue
-    return (props.initialData as any)[key] ?? defaultValue
-  }
+    if (!props.initialData) return defaultValue;
+    return (props.initialData as any)[key] ?? defaultValue;
+  };
 
   // Initialize signals from initialData if present
   const [amount, setAmount] = createSignal(
     getInitialValue('amount', 0) ? getInitialValue('amount', '').toString() : ''
-  )
+  );
   const [currency, setCurrency] = createSignal(
     getInitialValue('currency', activeGroup()?.defaultCurrency || 'USD')
-  )
+  );
   const [defaultCurrencyAmount, setDefaultCurrencyAmount] = createSignal(
     getInitialValue('defaultCurrencyAmount', null)?.toString() || ''
-  )
-  const [from, setFrom] = createSignal(getInitialValue('from', ''))
-  const [to, setTo] = createSignal(getInitialValue('to', ''))
+  );
+  const [from, setFrom] = createSignal(getInitialValue('from', ''));
+  const [to, setTo] = createSignal(getInitialValue('to', ''));
   const [date, setDate] = createSignal(
     props.initialData && 'date' in props.initialData
       ? formatDateForInput(props.initialData.date)
       : new Date().toISOString().split('T')[0]
-  )
-  const [notes, setNotes] = createSignal(getInitialValue('notes', ''))
-  const [errors, setErrors] = createSignal<FormErrors>({})
-  const [isSubmitting, setIsSubmitting] = createSignal(false)
+  );
+  const [notes, setNotes] = createSignal(getInitialValue('notes', ''));
+  const [errors, setErrors] = createSignal<FormErrors>({});
+  const [isSubmitting, setIsSubmitting] = createSignal(false);
 
   // Check if currency is different from default
   const isNonDefaultCurrency = createMemo(() => {
-    const defaultCurrency = activeGroup()?.defaultCurrency || 'USD'
-    return currency() !== defaultCurrency
-  })
+    const defaultCurrency = activeGroup()?.defaultCurrency || 'USD';
+    return currency() !== defaultCurrency;
+  });
 
   // Get default currency
   const getDefaultCurrency = () => {
-    return activeGroup()?.defaultCurrency || 'USD'
-  }
+    return activeGroup()?.defaultCurrency || 'USD';
+  };
 
   // Calculate exchange rate (original to default)
   const exchangeRate = createMemo(() => {
-    const amountNum = parseFloat(amount())
-    const defaultAmountNum = parseFloat(defaultCurrencyAmount())
+    const amountNum = parseFloat(amount());
+    const defaultAmountNum = parseFloat(defaultCurrencyAmount());
 
     if (isNaN(amountNum) || isNaN(defaultAmountNum) || amountNum === 0) {
-      return null
+      return null;
     }
 
-    return defaultAmountNum / amountNum
-  })
+    return defaultAmountNum / amountNum;
+  });
 
   // Calculate inverse exchange rate (default to original)
   const inverseExchangeRate = createMemo(() => {
-    const rate = exchangeRate()
-    if (!rate || rate === 0) return null
-    return 1 / rate
-  })
+    const rate = exchangeRate();
+    if (!rate || rate === 0) return null;
+    return 1 / rate;
+  });
 
   // Format exchange rate display
   const formatExchangeRate = (rate: number | null): string => {
-    if (!rate) return ''
-    return rate.toFixed(3)
-  }
+    if (!rate) return '';
+    return rate.toFixed(3);
+  };
 
   const validateForm = (): boolean => {
-    const newErrors: FormErrors = {}
+    const newErrors: FormErrors = {};
 
-    const amountNum = parseFloat(amount())
+    const amountNum = parseFloat(amount());
     if (!amount() || isNaN(amountNum) || amountNum <= 0) {
-      newErrors.amount = t('transferForm.amountRequired')
+      newErrors.amount = t('transferForm.amountRequired');
     }
 
     // Validate default currency amount for non-default currencies
     if (isNonDefaultCurrency()) {
-      const defaultAmountNum = parseFloat(defaultCurrencyAmount())
+      const defaultAmountNum = parseFloat(defaultCurrencyAmount());
       if (!defaultCurrencyAmount() || isNaN(defaultAmountNum) || defaultAmountNum <= 0) {
-        newErrors.defaultCurrencyAmount = t('expenseForm.defaultCurrencyRequired')
+        newErrors.defaultCurrencyAmount = t('expenseForm.defaultCurrencyRequired');
       }
     }
 
     if (!from()) {
-      newErrors.from = t('transferForm.fromRequired')
+      newErrors.from = t('transferForm.fromRequired');
     }
 
     if (!to()) {
-      newErrors.to = t('transferForm.toRequired')
+      newErrors.to = t('transferForm.toRequired');
     }
 
     if (from() && to() && from() === to()) {
-      newErrors.to = t('transferForm.sameFromTo')
+      newErrors.to = t('transferForm.sameFromTo');
     }
 
-    setErrors(newErrors)
-    return Object.keys(newErrors).length === 0
-  }
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
 
   const handleSubmit = async (e: Event) => {
-    e.preventDefault()
+    e.preventDefault();
 
-    if (!validateForm()) return
+    if (!validateForm()) return;
 
-    setIsSubmitting(true)
+    setIsSubmitting(true);
 
     try {
       const formData: TransferFormData = {
@@ -164,17 +164,22 @@ export const TransferForm: Component<TransferFormProps> = (props) => {
         defaultCurrencyAmount: isNonDefaultCurrency()
           ? parseFloat(defaultCurrencyAmount())
           : undefined,
-      }
+      };
 
-      await props.onSubmit(formData)
-      props.onCancel() // Close modal on success
+      await props.onSubmit(formData);
+      props.onCancel(); // Close modal on success
     } catch (error) {
-      console.error(isEditMode() ? 'Failed to update transfer:' : 'Failed to create transfer:', error)
-      setErrors({ submit: isEditMode() ? t('transferForm.updateFailed') : t('transferForm.createFailed') })
+      console.error(
+        isEditMode() ? 'Failed to update transfer:' : 'Failed to create transfer:',
+        error
+      );
+      setErrors({
+        submit: isEditMode() ? t('transferForm.updateFailed') : t('transferForm.createFailed'),
+      });
     } finally {
-      setIsSubmitting(false)
+      setIsSubmitting(false);
     }
-  }
+  };
 
   return (
     <form class="transfer-form" onSubmit={handleSubmit}>
@@ -201,7 +206,30 @@ export const TransferForm: Component<TransferFormProps> = (props) => {
               disabled={isSubmitting()}
               onChange={(e) => setCurrency(e.currentTarget.value)}
             >
-              <For each={['USD', 'EUR', 'GBP', 'JPY', 'AUD', 'CAD', 'CHF', 'CNY', 'SEK', 'NZD', 'MXN', 'SGD', 'HKD', 'NOK', 'KRW', 'TRY', 'INR', 'RUB', 'BRL', 'ZAR']}>
+              <For
+                each={[
+                  'USD',
+                  'EUR',
+                  'GBP',
+                  'JPY',
+                  'AUD',
+                  'CAD',
+                  'CHF',
+                  'CNY',
+                  'SEK',
+                  'NZD',
+                  'MXN',
+                  'SGD',
+                  'HKD',
+                  'NOK',
+                  'KRW',
+                  'TRY',
+                  'INR',
+                  'RUB',
+                  'BRL',
+                  'ZAR',
+                ]}
+              >
                 {(curr) => <option value={curr}>{curr}</option>}
               </For>
             </Select>
@@ -236,7 +264,8 @@ export const TransferForm: Component<TransferFormProps> = (props) => {
                 </span>
                 <span class="exchange-rate-separator">•</span>
                 <span class="exchange-rate-value">
-                  1 {getDefaultCurrency()} = {formatExchangeRate(inverseExchangeRate())} {currency()}
+                  1 {getDefaultCurrency()} = {formatExchangeRate(inverseExchangeRate())}{' '}
+                  {currency()}
                 </span>
               </div>
             </div>
@@ -263,11 +292,7 @@ export const TransferForm: Component<TransferFormProps> = (props) => {
               <Show when={sortedDepartedMembers().length > 0}>
                 <optgroup label={t('expenseForm.pastMembers')}>
                   <For each={sortedDepartedMembers()}>
-                    {(member) => (
-                      <option value={member.id}>
-                        {member.name}
-                      </option>
-                    )}
+                    {(member) => <option value={member.id}>{member.name}</option>}
                   </For>
                 </optgroup>
               </Show>
@@ -293,11 +318,7 @@ export const TransferForm: Component<TransferFormProps> = (props) => {
               <Show when={sortedDepartedMembers().length > 0}>
                 <optgroup label={t('expenseForm.pastMembers')}>
                   <For each={sortedDepartedMembers()}>
-                    {(member) => (
-                      <option value={member.id}>
-                        {member.name}
-                      </option>
-                    )}
+                    {(member) => <option value={member.id}>{member.name}</option>}
                   </For>
                 </optgroup>
               </Show>
@@ -328,21 +349,27 @@ export const TransferForm: Component<TransferFormProps> = (props) => {
         </div>
       </div>
 
-      {errors().submit && (
-        <div class="form-error">{errors().submit}</div>
-      )}
+      {errors().submit && <div class="form-error">{errors().submit}</div>}
 
       <div class="form-actions">
-        <Button type="button" variant="secondary" onClick={props.onCancel} disabled={isSubmitting()}>
+        <Button
+          type="button"
+          variant="secondary"
+          onClick={props.onCancel}
+          disabled={isSubmitting()}
+        >
           {t('common.cancel')}
         </Button>
         <Button type="submit" variant="primary" disabled={isSubmitting()}>
           {isSubmitting()
-            ? (isEditMode() ? t('transferForm.saving') : t('transferForm.creating'))
-            : (isEditMode() ? t('transferForm.saveButton') : t('transferForm.createButton'))
-          }
+            ? isEditMode()
+              ? t('transferForm.saving')
+              : t('transferForm.creating')
+            : isEditMode()
+              ? t('transferForm.saveButton')
+              : t('transferForm.createButton')}
         </Button>
       </div>
     </form>
-  )
-}
+  );
+};

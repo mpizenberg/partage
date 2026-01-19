@@ -1,9 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import {
-  calculateBalances,
-  buildDebtGraph,
-  generateSettlementPlan,
-} from './balance-calculator';
+import { calculateBalances, buildDebtGraph, generateSettlementPlan } from './balance-calculator';
 import type { ExpenseEntry, TransferEntry, Entry } from '@partage/shared';
 
 describe('Balance Calculator', () => {
@@ -477,9 +473,18 @@ describe('Balance Calculator', () => {
 
     it('should round amounts to 2 decimals', () => {
       const balances = new Map([
-        ['member-1', { memberId: 'member-1', totalPaid: 100, totalOwed: 33.333, netBalance: 66.667 }],
-        ['member-2', { memberId: 'member-2', totalPaid: 0, totalOwed: 33.333, netBalance: -33.333 }],
-        ['member-3', { memberId: 'member-3', totalPaid: 0, totalOwed: 33.334, netBalance: -33.334 }],
+        [
+          'member-1',
+          { memberId: 'member-1', totalPaid: 100, totalOwed: 33.333, netBalance: 66.667 },
+        ],
+        [
+          'member-2',
+          { memberId: 'member-2', totalPaid: 0, totalOwed: 33.333, netBalance: -33.333 },
+        ],
+        [
+          'member-3',
+          { memberId: 'member-3', totalPaid: 0, totalOwed: 33.334, netBalance: -33.334 },
+        ],
       ]);
 
       const debtGraph = buildDebtGraph(balances);
@@ -507,6 +512,5 @@ describe('Balance Calculator', () => {
         amount: 50,
       });
     });
-
   });
 });

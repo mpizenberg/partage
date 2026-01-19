@@ -24,18 +24,23 @@ export const InviteModal: Component<InviteModalProps> = (props) => {
   const generateQRCode = (canvas: HTMLCanvasElement) => {
     const link = props.inviteLink;
     if (link && canvas) {
-      QRCode.toCanvas(canvas, link, {
-        width: 256,
-        margin: 2,
-        color: {
-          dark: '#000000',
-          light: '#FFFFFF'
+      QRCode.toCanvas(
+        canvas,
+        link,
+        {
+          width: 256,
+          margin: 2,
+          color: {
+            dark: '#000000',
+            light: '#FFFFFF',
+          },
+        },
+        (error) => {
+          if (error) {
+            console.error('QR Code generation failed:', error);
+          }
         }
-      }, (error) => {
-        if (error) {
-          console.error('QR Code generation failed:', error);
-        }
-      });
+      );
     }
   };
 

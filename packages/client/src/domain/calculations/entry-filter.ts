@@ -134,9 +134,7 @@ export function filterEntries(entries: Entry[], filter: EntryFilter): Entry[] {
 
     // Filter by date ranges (OR logic - entry must fall within ANY specified range)
     if (filter.dateRanges && filter.dateRanges.length > 0) {
-      const matchesDateRange = filter.dateRanges.some((range) =>
-        isInDateRange(entry.date, range)
-      );
+      const matchesDateRange = filter.dateRanges.some((range) => isInDateRange(entry.date, range));
       if (!matchesDateRange) {
         return false;
       }

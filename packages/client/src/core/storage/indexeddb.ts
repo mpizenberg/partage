@@ -121,9 +121,13 @@ export class PartageDB {
 
         // Loro incremental updates store (NEW - for performance optimization)
         if (!db.objectStoreNames.contains('loroIncrementalUpdates')) {
-          const incrementalStore = db.createObjectStore('loroIncrementalUpdates', { keyPath: 'id' });
+          const incrementalStore = db.createObjectStore('loroIncrementalUpdates', {
+            keyPath: 'id',
+          });
           incrementalStore.createIndex('groupId', 'groupId', { unique: false });
-          incrementalStore.createIndex('groupId_sequence', ['groupId', 'sequence'], { unique: true });
+          incrementalStore.createIndex('groupId_sequence', ['groupId', 'sequence'], {
+            unique: true,
+          });
         }
 
         // Pending operations store
@@ -166,10 +170,13 @@ export class PartageDB {
   /**
    * Save user keypair to storage
    */
-  async saveUserKeypair(keypair: SerializedKeypair, signingKeypair?: {
-    publicKey: string;
-    privateKey: string;
-  }): Promise<void> {
+  async saveUserKeypair(
+    keypair: SerializedKeypair,
+    signingKeypair?: {
+      publicKey: string;
+      privateKey: string;
+    }
+  ): Promise<void> {
     await this.ensureOpen();
 
     const record: IdentityRecord = {
@@ -282,7 +289,13 @@ export class PartageDB {
     await this.ensureOpen();
 
     const transaction = this.db!.transaction(
-      [STORES.GROUPS, STORES.GROUP_KEYS, STORES.LORO_SNAPSHOTS, 'loroIncrementalUpdates', STORES.PENDING_OPS],
+      [
+        STORES.GROUPS,
+        STORES.GROUP_KEYS,
+        STORES.LORO_SNAPSHOTS,
+        'loroIncrementalUpdates',
+        STORES.PENDING_OPS,
+      ],
       'readwrite'
     );
 
@@ -403,7 +416,7 @@ export class PartageDB {
 
     if (records.length === 0) return 1;
 
-    const maxSequence = Math.max(...records.map(r => r.sequence));
+    const maxSequence = Math.max(...records.map((r) => r.sequence));
     return maxSequence + 1;
   }
 

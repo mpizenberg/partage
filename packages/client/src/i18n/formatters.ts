@@ -5,7 +5,7 @@
  * scattered across 5+ component files.
  */
 
-import type { Locale } from './context'
+import type { Locale } from './context';
 
 /**
  * Map our locale codes to Intl locale tags
@@ -13,11 +13,11 @@ import type { Locale } from './context'
 function getIntlLocale(locale: Locale): string {
   switch (locale) {
     case 'fr':
-      return 'fr-FR'
+      return 'fr-FR';
     case 'es':
-      return 'es-ES'
+      return 'es-ES';
     default:
-      return 'en-US'
+      return 'en-US';
   }
 }
 
@@ -29,16 +29,12 @@ function getIntlLocale(locale: Locale): string {
  * @param locale - The locale to use for formatting
  * @returns Formatted currency string (e.g., "$1,234.56" or "1 234,56 €")
  */
-export function formatCurrency(
-  amount: number,
-  currency: string,
-  locale: Locale
-): string {
-  const intlLocale = getIntlLocale(locale)
+export function formatCurrency(amount: number, currency: string, locale: Locale): string {
+  const intlLocale = getIntlLocale(locale);
   return new Intl.NumberFormat(intlLocale, {
     style: 'currency',
     currency: currency,
-  }).format(amount)
+  }).format(amount);
 }
 
 /**
@@ -54,15 +50,15 @@ export function formatDate(
   locale: Locale,
   format: 'short' | 'long' | 'monthYear' = 'short'
 ): string {
-  const intlLocale = getIntlLocale(locale)
-  const date = new Date(timestamp)
+  const intlLocale = getIntlLocale(locale);
+  const date = new Date(timestamp);
 
   if (format === 'short') {
     return date.toLocaleDateString(intlLocale, {
       month: 'short',
       day: 'numeric',
       year: 'numeric',
-    })
+    });
   }
 
   if (format === 'long') {
@@ -71,14 +67,14 @@ export function formatDate(
       month: 'long',
       day: 'numeric',
       year: 'numeric',
-    })
+    });
   }
 
   // monthYear
   return date.toLocaleDateString(intlLocale, {
     month: 'long',
     year: 'numeric',
-  })
+  });
 }
 
 /**
@@ -94,39 +90,37 @@ export function formatRelativeTime(
   locale: Locale,
   t: (key: string, params?: Record<string, string | number>) => string
 ): string {
-  const now = Date.now()
-  const diff = now - timestamp
-  const seconds = Math.floor(diff / 1000)
-  const minutes = Math.floor(seconds / 60)
-  const hours = Math.floor(minutes / 60)
-  const days = Math.floor(hours / 24)
+  const now = Date.now();
+  const diff = now - timestamp;
+  const seconds = Math.floor(diff / 1000);
+  const minutes = Math.floor(seconds / 60);
+  const hours = Math.floor(minutes / 60);
+  const days = Math.floor(hours / 24);
 
   if (seconds < 60) {
-    return t('time.justNow')
+    return t('time.justNow');
   }
 
   if (minutes < 60) {
     return minutes === 1
       ? t('time.minuteAgo', { count: minutes })
-      : t('time.minutesAgo', { count: minutes })
+      : t('time.minutesAgo', { count: minutes });
   }
 
   if (hours < 24) {
-    return hours === 1
-      ? t('time.hourAgo', { count: hours })
-      : t('time.hoursAgo', { count: hours })
+    return hours === 1 ? t('time.hourAgo', { count: hours }) : t('time.hoursAgo', { count: hours });
   }
 
   if (days === 1) {
-    return t('time.yesterday')
+    return t('time.yesterday');
   }
 
   if (days < 7) {
-    return t('time.daysAgo', { count: days })
+    return t('time.daysAgo', { count: days });
   }
 
   // Fall back to formatted date for older entries
-  return formatDate(timestamp, locale, 'short')
+  return formatDate(timestamp, locale, 'short');
 }
 
 /**
@@ -137,42 +131,39 @@ export function formatRelativeTime(
  * @param locale - The locale to use for formatting
  * @returns Formatted relative time string
  */
-export function formatRelativeTimeSimple(
-  timestamp: number,
-  locale: Locale
-): string {
-  const now = Date.now()
-  const diff = now - timestamp
-  const seconds = Math.floor(diff / 1000)
-  const minutes = Math.floor(seconds / 60)
-  const hours = Math.floor(minutes / 60)
-  const days = Math.floor(hours / 24)
+export function formatRelativeTimeSimple(timestamp: number, locale: Locale): string {
+  const now = Date.now();
+  const diff = now - timestamp;
+  const seconds = Math.floor(diff / 1000);
+  const minutes = Math.floor(seconds / 60);
+  const hours = Math.floor(minutes / 60);
+  const days = Math.floor(hours / 24);
 
   if (locale === 'fr') {
-    if (seconds < 60) return "À l'instant"
-    if (minutes < 60) return `Il y a ${minutes} minute${minutes > 1 ? 's' : ''}`
-    if (hours < 24) return `Il y a ${hours} heure${hours > 1 ? 's' : ''}`
-    if (days === 1) return 'Hier'
-    if (days < 7) return `Il y a ${days} jours`
-    return formatDate(timestamp, locale, 'short')
+    if (seconds < 60) return "À l'instant";
+    if (minutes < 60) return `Il y a ${minutes} minute${minutes > 1 ? 's' : ''}`;
+    if (hours < 24) return `Il y a ${hours} heure${hours > 1 ? 's' : ''}`;
+    if (days === 1) return 'Hier';
+    if (days < 7) return `Il y a ${days} jours`;
+    return formatDate(timestamp, locale, 'short');
   }
 
   if (locale === 'es') {
-    if (seconds < 60) return 'Justo ahora'
-    if (minutes < 60) return `Hace ${minutes} minuto${minutes > 1 ? 's' : ''}`
-    if (hours < 24) return `Hace ${hours} hora${hours > 1 ? 's' : ''}`
-    if (days === 1) return 'Ayer'
-    if (days < 7) return `Hace ${days} días`
-    return formatDate(timestamp, locale, 'short')
+    if (seconds < 60) return 'Justo ahora';
+    if (minutes < 60) return `Hace ${minutes} minuto${minutes > 1 ? 's' : ''}`;
+    if (hours < 24) return `Hace ${hours} hora${hours > 1 ? 's' : ''}`;
+    if (days === 1) return 'Ayer';
+    if (days < 7) return `Hace ${days} días`;
+    return formatDate(timestamp, locale, 'short');
   }
 
   // English
-  if (seconds < 60) return 'Just now'
-  if (minutes < 60) return `${minutes} minute${minutes > 1 ? 's' : ''} ago`
-  if (hours < 24) return `${hours} hour${hours > 1 ? 's' : ''} ago`
-  if (days === 1) return 'Yesterday'
-  if (days < 7) return `${days} days ago`
-  return formatDate(timestamp, locale, 'short')
+  if (seconds < 60) return 'Just now';
+  if (minutes < 60) return `${minutes} minute${minutes > 1 ? 's' : ''} ago`;
+  if (hours < 24) return `${hours} hour${hours > 1 ? 's' : ''} ago`;
+  if (days === 1) return 'Yesterday';
+  if (days < 7) return `${days} days ago`;
+  return formatDate(timestamp, locale, 'short');
 }
 
 /**
@@ -189,28 +180,28 @@ export function getDateGroupLabel(
   locale: Locale,
   t: (key: string, params?: Record<string, string | number>) => string
 ): string {
-  const now = new Date()
-  const date = new Date(timestamp)
+  const now = new Date();
+  const date = new Date(timestamp);
 
-  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate())
-  const yesterday = new Date(today.getTime() - 24 * 60 * 60 * 1000)
-  const weekAgo = new Date(today.getTime() - 7 * 24 * 60 * 60 * 1000)
-  const entryDate = new Date(date.getFullYear(), date.getMonth(), date.getDate())
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const yesterday = new Date(today.getTime() - 24 * 60 * 60 * 1000);
+  const weekAgo = new Date(today.getTime() - 7 * 24 * 60 * 60 * 1000);
+  const entryDate = new Date(date.getFullYear(), date.getMonth(), date.getDate());
 
   if (entryDate.getTime() === today.getTime()) {
-    return t('entries.today')
+    return t('entries.today');
   }
 
   if (entryDate.getTime() === yesterday.getTime()) {
-    return t('entries.yesterday')
+    return t('entries.yesterday');
   }
 
   if (entryDate.getTime() > weekAgo.getTime()) {
-    return t('entries.thisWeek')
+    return t('entries.thisWeek');
   }
 
   // Return month and year for older entries
-  return formatDate(timestamp, locale, 'monthYear')
+  return formatDate(timestamp, locale, 'monthYear');
 }
 
 /**
@@ -221,14 +212,10 @@ export function getDateGroupLabel(
  * @param decimals - Number of decimal places (default: 2)
  * @returns Formatted number string
  */
-export function formatNumber(
-  value: number,
-  locale: Locale,
-  decimals: number = 2
-): string {
-  const intlLocale = getIntlLocale(locale)
+export function formatNumber(value: number, locale: Locale, decimals: number = 2): string {
+  const intlLocale = getIntlLocale(locale);
   return new Intl.NumberFormat(intlLocale, {
     minimumFractionDigits: decimals,
     maximumFractionDigits: decimals,
-  }).format(value)
+  }).format(value);
 }

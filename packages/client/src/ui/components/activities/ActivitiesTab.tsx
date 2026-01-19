@@ -7,13 +7,14 @@ import type { ActivityType } from '@partage/shared';
 
 export const ActivitiesTab: Component = () => {
   const { t } = useI18n();
-  const { activities, activityFilter, setActivityFilter, activeGroup, getActiveGroupKey } = useAppContext();
+  const { activities, activityFilter, setActivityFilter, activeGroup, getActiveGroupKey } =
+    useAppContext();
   const [showFilters, setShowFilters] = createSignal(false);
 
   // Load group key for NTFY subscription
   const [groupKey] = createResource(activeGroup, async (group) => {
-    if (!group) return null
-    return getActiveGroupKey()
+    if (!group) return null;
+    return getActiveGroupKey();
   });
 
   const toggleActivityType = (type: ActivityType) => {

@@ -21,8 +21,8 @@
  *    setLocale('fr')
  */
 
-export { I18nProvider, useI18n } from './context'
-export type { Locale } from './context'
+export { I18nProvider, useI18n } from './context';
+export type { Locale } from './context';
 export {
   formatCurrency,
   formatDate,
@@ -30,4 +30,4 @@ export {
   formatRelativeTimeSimple,
   getDateGroupLabel,
   formatNumber,
-} from './formatters'
+} from './formatters';

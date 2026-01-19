@@ -70,10 +70,7 @@ function makeRenamedEvent(
   };
 }
 
-function makeRetiredEvent(
-  memberId: string,
-  timestamp?: number
-): MemberRetiredEvent {
+function makeRetiredEvent(memberId: string, timestamp?: number): MemberRetiredEvent {
   return {
     id: crypto.randomUUID(),
     type: 'member_retired',
@@ -83,10 +80,7 @@ function makeRetiredEvent(
   };
 }
 
-function makeUnretiredEvent(
-  memberId: string,
-  timestamp?: number
-): MemberUnretiredEvent {
+function makeUnretiredEvent(memberId: string, timestamp?: number): MemberUnretiredEvent {
   return {
     id: crypto.randomUUID(),
     type: 'member_unretired',
@@ -335,7 +329,7 @@ describe('getActiveMembers / getRetiredMembers / getReplacedMembers', () => {
     const replaced = getReplacedMembers(events);
 
     expect(active.length).toBe(2);
-    expect(active.map(m => m.id).sort()).toEqual(['member-1', 'member-4']);
+    expect(active.map((m) => m.id).sort()).toEqual(['member-1', 'member-4']);
 
     expect(retired.length).toBe(1);
     expect(retired[0]?.id).toBe('member-2');
@@ -347,9 +341,7 @@ describe('getActiveMembers / getRetiredMembers / getReplacedMembers', () => {
 
 describe('resolveCanonicalMemberId', () => {
   it('returns same ID for non-replaced member', () => {
-    const events: MemberEvent[] = [
-      makeCreatedEvent('member-1', 'Alice', { timestamp: 1000 }),
-    ];
+    const events: MemberEvent[] = [makeCreatedEvent('member-1', 'Alice', { timestamp: 1000 })];
 
     const canonical = resolveCanonicalMemberId('member-1', events);
     expect(canonical).toBe('member-1');
@@ -452,9 +444,7 @@ describe('getMemberDisplayName', () => {
 describe('Validation functions', () => {
   describe('canRenameMember', () => {
     it('allows rename on any existing member', () => {
-      const events: MemberEvent[] = [
-        makeCreatedEvent('member-1', 'Alice', { timestamp: 1000 }),
-      ];
+      const events: MemberEvent[] = [makeCreatedEvent('member-1', 'Alice', { timestamp: 1000 })];
 
       expect(canRenameMember('member-1', events)).toEqual({ valid: true });
     });
@@ -469,9 +459,7 @@ describe('Validation functions', () => {
 
   describe('canRetireMember', () => {
     it('allows retire on active member', () => {
-      const events: MemberEvent[] = [
-        makeCreatedEvent('member-1', 'Alice', { timestamp: 1000 }),
-      ];
+      const events: MemberEvent[] = [makeCreatedEvent('member-1', 'Alice', { timestamp: 1000 })];
 
       expect(canRetireMember('member-1', events)).toEqual({ valid: true });
     });
@@ -511,9 +499,7 @@ describe('Validation functions', () => {
     });
 
     it('rejects unretire on non-retired member', () => {
-      const events: MemberEvent[] = [
-        makeCreatedEvent('member-1', 'Alice', { timestamp: 1000 }),
-      ];
+      const events: MemberEvent[] = [makeCreatedEvent('member-1', 'Alice', { timestamp: 1000 })];
 
       const result = canUnretireMember('member-1', events);
       expect(result.valid).toBe(false);
@@ -557,9 +543,7 @@ describe('Validation functions', () => {
     });
 
     it('rejects replace with self', () => {
-      const events: MemberEvent[] = [
-        makeCreatedEvent('member-1', 'Alice', { timestamp: 1000 }),
-      ];
+      const events: MemberEvent[] = [makeCreatedEvent('member-1', 'Alice', { timestamp: 1000 })];
 
       const result = canReplaceMember('member-1', 'member-1', events);
       expect(result.valid).toBe(false);

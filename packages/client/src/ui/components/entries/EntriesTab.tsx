@@ -88,7 +88,11 @@ export const EntriesTab: Component<EntriesTabProps> = (props) => {
           </button>
 
           <Show when={hasActiveFilters()}>
-            <button class="clear-filter-btn" onClick={clearFilters} title={t('entries.clearFilters')}>
+            <button
+              class="clear-filter-btn"
+              onClick={clearFilters}
+              title={t('entries.clearFilters')}
+            >
               {t('entries.clearFilters')}
             </button>
           </Show>
@@ -114,9 +118,7 @@ export const EntriesTab: Component<EntriesTabProps> = (props) => {
               {hasActiveFilters() ? t('entries.noResults') : t('entries.noEntries')}
             </h2>
             <p class="empty-state-message">
-              {hasActiveFilters()
-                ? t('entries.noResultsMessage')
-                : t('entries.noEntriesMessage')}
+              {hasActiveFilters() ? t('entries.noResultsMessage') : t('entries.noEntriesMessage')}
             </p>
           </div>
         }

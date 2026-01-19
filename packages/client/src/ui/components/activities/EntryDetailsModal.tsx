@@ -146,12 +146,21 @@ export const EntryDetailsModal: Component<EntryDetailsModalProps> = (props) => {
   };
 
   // Helper to format amount with optional default currency in parenthesis
-  const showAmount = (amount: number, defaultCurrencyAmount: number | undefined, currency: string): string => {
+  const showAmount = (
+    amount: number,
+    defaultCurrencyAmount: number | undefined,
+    currency: string
+  ): string => {
     const defCurrency = activeGroup()?.defaultCurrency;
     let result = formatAmount(amount, currency);
 
     // If currency is different from default and we have a defaultCurrencyAmount, show it in parenthesis
-    if (defCurrency && currency !== defCurrency && defaultCurrencyAmount !== undefined && defaultCurrencyAmount !== amount) {
+    if (
+      defCurrency &&
+      currency !== defCurrency &&
+      defaultCurrencyAmount !== undefined &&
+      defaultCurrencyAmount !== amount
+    ) {
       result += ` (${formatAmount(defaultCurrencyAmount, defCurrency)})`;
     }
 
@@ -183,11 +192,7 @@ export const EntryDetailsModal: Component<EntryDetailsModalProps> = (props) => {
   };
 
   return (
-    <Modal
-      isOpen={props.isOpen}
-      onClose={props.onClose}
-      title={t('activity.entryDetails')}
-    >
+    <Modal isOpen={props.isOpen} onClose={props.onClose} title={t('activity.entryDetails')}>
       <Show when={props.entry}>
         <div style={{ padding: 'var(--space-md)' }}>
           {/* Header */}
@@ -250,10 +255,7 @@ export const EntryDetailsModal: Component<EntryDetailsModalProps> = (props) => {
 
               <div class="detail-row">
                 <span class="detail-label">{t('entries.date')}:</span>
-                <span
-                  class="detail-value"
-                  classList={{ 'field-changed': isFieldChanged('date') }}
-                >
+                <span class="detail-value" classList={{ 'field-changed': isFieldChanged('date') }}>
                   {formatDate(props.entry!.date)}
                 </span>
               </div>
@@ -268,7 +270,8 @@ export const EntryDetailsModal: Component<EntryDetailsModalProps> = (props) => {
                     {(payer, index) => (
                       <>
                         {index() > 0 && ', '}
-                        {getMemberName(payer.memberId)} ({formatAmount(payer.amount, props.entry!.currency)})
+                        {getMemberName(payer.memberId)} (
+                        {formatAmount(payer.amount, props.entry!.currency)})
                       </>
                     )}
                   </For>
@@ -286,8 +289,12 @@ export const EntryDetailsModal: Component<EntryDetailsModalProps> = (props) => {
                       <>
                         {index() > 0 && ', '}
                         {getMemberName(beneficiary.memberId)}
-                        {beneficiary.splitType === 'shares' && beneficiary.shares && ` (${beneficiary.shares} ${t('entries.shares')})`}
-                        {beneficiary.splitType === 'exact' && beneficiary.amount !== undefined && ` (${formatAmount(beneficiary.amount, props.entry!.currency)})`}
+                        {beneficiary.splitType === 'shares' &&
+                          beneficiary.shares &&
+                          ` (${beneficiary.shares} ${t('entries.shares')})`}
+                        {beneficiary.splitType === 'exact' &&
+                          beneficiary.amount !== undefined &&
+                          ` (${formatAmount(beneficiary.amount, props.entry!.currency)})`}
                       </>
                     )}
                   </For>
@@ -313,30 +320,21 @@ export const EntryDetailsModal: Component<EntryDetailsModalProps> = (props) => {
             <div class="detail-section">
               <div class="detail-row">
                 <span class="detail-label">{t('entries.date')}:</span>
-                <span
-                  class="detail-value"
-                  classList={{ 'field-changed': isFieldChanged('date') }}
-                >
+                <span class="detail-value" classList={{ 'field-changed': isFieldChanged('date') }}>
                   {formatDate(props.entry!.date)}
                 </span>
               </div>
 
               <div class="detail-row">
                 <span class="detail-label">{t('entries.from')}:</span>
-                <span
-                  class="detail-value"
-                  classList={{ 'field-changed': isFieldChanged('from') }}
-                >
+                <span class="detail-value" classList={{ 'field-changed': isFieldChanged('from') }}>
                   {props.fromName || getMemberName(transferEntry()!.from)}
                 </span>
               </div>
 
               <div class="detail-row">
                 <span class="detail-label">{t('entries.to')}:</span>
-                <span
-                  class="detail-value"
-                  classList={{ 'field-changed': isFieldChanged('to') }}
-                >
+                <span class="detail-value" classList={{ 'field-changed': isFieldChanged('to') }}>
                   {props.toName || getMemberName(transferEntry()!.to)}
                 </span>
               </div>
@@ -376,11 +374,13 @@ export const EntryDetailsModal: Component<EntryDetailsModalProps> = (props) => {
               >
                 {t('activity.changes')}
               </h4>
-              <For each={Object.entries(props.changes || {}).filter(([f]) => {
-                const isNotesOrCurrency = f === 'notes' || f === 'currency';
-                const isAmountField = f === 'amount' || f === 'defaultCurrencyAmount';
-                return !isNotesOrCurrency && !(shouldShowMultiCurrencyAmount() && isAmountField);
-              })}>
+              <For
+                each={Object.entries(props.changes || {}).filter(([f]) => {
+                  const isNotesOrCurrency = f === 'notes' || f === 'currency';
+                  const isAmountField = f === 'amount' || f === 'defaultCurrencyAmount';
+                  return !isNotesOrCurrency && !(shouldShowMultiCurrencyAmount() && isAmountField);
+                })}
+              >
                 {([field, change]) => (
                   <div
                     class="change-row"
@@ -398,7 +398,9 @@ export const EntryDetailsModal: Component<EntryDetailsModalProps> = (props) => {
                     >
                       {field}:
                     </div>
-                    <div style={{ display: 'flex', 'align-items': 'center', gap: 'var(--space-sm)' }}>
+                    <div
+                      style={{ display: 'flex', 'align-items': 'center', gap: 'var(--space-sm)' }}
+                    >
                       <span
                         style={{
                           'text-decoration': 'line-through',
@@ -451,7 +453,10 @@ export const EntryDetailsModal: Component<EntryDetailsModalProps> = (props) => {
                     >
                       {showAmount(
                         props.changes?.amount?.from ?? props.entry!.amount,
-                        props.changes?.defaultCurrencyAmount?.from ?? (getOldCurrency() === activeGroup()?.defaultCurrency ? (props.changes?.amount?.from ?? props.entry!.amount) : props.entry!.defaultCurrencyAmount),
+                        props.changes?.defaultCurrencyAmount?.from ??
+                          (getOldCurrency() === activeGroup()?.defaultCurrency
+                            ? (props.changes?.amount?.from ?? props.entry!.amount)
+                            : props.entry!.defaultCurrencyAmount),
                         getOldCurrency()
                       )}
                     </span>
@@ -465,7 +470,10 @@ export const EntryDetailsModal: Component<EntryDetailsModalProps> = (props) => {
                     >
                       {showAmount(
                         props.changes?.amount?.to ?? props.entry!.amount,
-                        props.changes?.defaultCurrencyAmount?.to ?? (getNewCurrency() === activeGroup()?.defaultCurrency ? (props.changes?.amount?.to ?? props.entry!.amount) : props.entry!.defaultCurrencyAmount),
+                        props.changes?.defaultCurrencyAmount?.to ??
+                          (getNewCurrency() === activeGroup()?.defaultCurrency
+                            ? (props.changes?.amount?.to ?? props.entry!.amount)
+                            : props.entry!.defaultCurrencyAmount),
                         getNewCurrency()
                       )}
                     </span>
@@ -491,7 +499,9 @@ export const EntryDetailsModal: Component<EntryDetailsModalProps> = (props) => {
                   >
                     {t('entries.notes')}:
                   </div>
-                  <div style={{ display: 'flex', 'flex-direction': 'column', gap: 'var(--space-sm)' }}>
+                  <div
+                    style={{ display: 'flex', 'flex-direction': 'column', gap: 'var(--space-sm)' }}
+                  >
                     <div
                       style={{
                         padding: 'var(--space-sm)',
@@ -501,7 +511,13 @@ export const EntryDetailsModal: Component<EntryDetailsModalProps> = (props) => {
                         'white-space': 'pre-wrap',
                       }}
                     >
-                      <div style={{ 'font-weight': 'var(--font-weight-medium)', 'margin-bottom': 'var(--space-xs)', color: 'var(--color-danger)' }}>
+                      <div
+                        style={{
+                          'font-weight': 'var(--font-weight-medium)',
+                          'margin-bottom': 'var(--space-xs)',
+                          color: 'var(--color-danger)',
+                        }}
+                      >
                         {t('activity.previousVersion')}:
                       </div>
                       {props.changes!.notes!.from || t('activity.none')}
@@ -515,7 +531,13 @@ export const EntryDetailsModal: Component<EntryDetailsModalProps> = (props) => {
                         'white-space': 'pre-wrap',
                       }}
                     >
-                      <div style={{ 'font-weight': 'var(--font-weight-medium)', 'margin-bottom': 'var(--space-xs)', color: 'var(--color-success)' }}>
+                      <div
+                        style={{
+                          'font-weight': 'var(--font-weight-medium)',
+                          'margin-bottom': 'var(--space-xs)',
+                          color: 'var(--color-success)',
+                        }}
+                      >
                         {t('activity.newVersion')}:
                       </div>
                       {props.changes!.notes!.to || t('activity.none')}
