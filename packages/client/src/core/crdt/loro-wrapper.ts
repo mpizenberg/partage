@@ -132,6 +132,11 @@ export class LoroEntryStore {
   private lastSavedVersion: any | null = null; // Track last saved version for incremental updates
   private keyCache: Map<string, CryptoKey> = new Map(); // Cache imported keys to avoid repeated crypto imports
 
+  // Caches for computed member state (invalidated on member event changes)
+  private cachedCanonicalIdMap: Map<string, string> | null = null;
+  private cachedMemberStates: Map<string, MemberState> | null = null;
+  private memberEventsVersion: number = 0;
+
   constructor(peerId?: string) {
     // Create Loro with a peer ID if provided (important for multi-device sync)
     this.loro = new Loro();
@@ -372,19 +377,32 @@ export class LoroEntryStore {
   }
 
   /**
-   * Get all active entries for a group
-   * Uses parallel decryption for better performance
+   * Get all entry IDs without decrypting.
+   * Useful for incremental updates where we only want to decrypt new entries.
    */
-  async getAllEntries(groupId: string, groupKey: CryptoKey): Promise<Entry[]> {
+  getEntryIds(): string[] {
     const entriesObj = this.entries.toJSON();
-    const entryIds = Object.keys(entriesObj);
+    return Object.keys(entriesObj);
+  }
+
+  /**
+   * Get entries by specific IDs.
+   * Uses parallel decryption for better performance.
+   * Returns entries in the same order as the input IDs (null for failed decryptions).
+   */
+  async getEntriesByIds(
+    entryIds: string[],
+    groupId: string,
+    groupKey: CryptoKey
+  ): Promise<Entry[]> {
+    if (entryIds.length === 0) return [];
 
     // Parallel decryption for better performance
     const entryPromises = entryIds.map((entryId) => this.getEntry(entryId, groupKey));
     const entries = await Promise.all(entryPromises);
 
     // Filter to matching group and non-null entries
-    const allEntries = entries.filter((entry): entry is Entry => {
+    return entries.filter((entry): entry is Entry => {
       if (!entry) return false;
       if (entry.groupId !== groupId) {
         console.warn(
@@ -394,8 +412,15 @@ export class LoroEntryStore {
       }
       return true;
     });
+  }
 
-    return allEntries;
+  /**
+   * Get all active entries for a group
+   * Uses parallel decryption for better performance
+   */
+  async getAllEntries(groupId: string, groupKey: CryptoKey): Promise<Entry[]> {
+    const entryIds = this.getEntryIds();
+    return this.getEntriesByIds(entryIds, groupId, groupKey);
   }
 
   /**
@@ -589,6 +614,11 @@ export class LoroEntryStore {
         // member_retired and member_unretired have no extra fields
       }
     });
+
+    // Invalidate caches when member events change
+    this.cachedCanonicalIdMap = null;
+    this.cachedMemberStates = null;
+    this.memberEventsVersion++;
   }
 
   /**
@@ -655,11 +685,30 @@ export class LoroEntryStore {
   }
 
   /**
-   * Get computed states for all members from events
+   * Get computed states for all members from events.
+   * Uses caching to avoid recomputation when member events haven't changed.
    */
   getAllMemberStates(): Map<string, MemberState> {
+    const currentCount = this.getMemberEventsCount();
+    if (this.cachedMemberStates && this.memberEventsVersion === currentCount) {
+      return this.cachedMemberStates;
+    }
     const events = this.getMemberEvents();
-    return computeAllMemberStates(events);
+    this.cachedMemberStates = computeAllMemberStates(events);
+    this.memberEventsVersion = currentCount;
+    return this.cachedMemberStates;
+  }
+
+  /**
+   * Get the count of member events (for cache invalidation).
+   */
+  private getMemberEventsCount(): number {
+    // Use the size of the memberEvents map as a simple version indicator
+    let count = 0;
+    for (const _id of this.memberEvents.keys()) {
+      count++;
+    }
+    return count;
   }
 
   /**
@@ -679,11 +728,18 @@ export class LoroEntryStore {
   }
 
   /**
-   * Build a map of canonical member ID resolutions
+   * Build a map of canonical member ID resolutions.
+   * Uses caching to avoid recomputation when member events haven't changed.
    */
   getCanonicalIdMap(): Map<string, string> {
+    const currentCount = this.getMemberEventsCount();
+    if (this.cachedCanonicalIdMap && this.memberEventsVersion === currentCount) {
+      return this.cachedCanonicalIdMap;
+    }
     const events = this.getMemberEvents();
-    return buildCanonicalIdMap(events);
+    this.cachedCanonicalIdMap = buildCanonicalIdMap(events);
+    this.memberEventsVersion = currentCount;
+    return this.cachedCanonicalIdMap;
   }
 
   /**
@@ -872,6 +928,10 @@ export class LoroEntryStore {
     this.memberEvents = this.loro.getMap('memberEvents');
     this.settlementPreferences = this.loro.getMap('settlementPreferences');
     this.lastSavedVersion = this.loro.oplogVersion(); // Mark as saved
+
+    // Invalidate member caches since snapshot may have different member events
+    this.cachedCanonicalIdMap = null;
+    this.cachedMemberStates = null;
   }
 
   /**
@@ -919,6 +979,10 @@ export class LoroEntryStore {
     this.memberAliases = this.loro.getMap('memberAliases');
     this.memberEvents = this.loro.getMap('memberEvents');
     this.settlementPreferences = this.loro.getMap('settlementPreferences');
+
+    // Invalidate member caches since update may have new member events
+    this.cachedCanonicalIdMap = null;
+    this.cachedMemberStates = null;
   }
 
   /**
@@ -1129,6 +1193,16 @@ export class LoroEntryStore {
    */
   clearKeyCache(): void {
     this.keyCache.clear();
+  }
+
+  /**
+   * Clear all caches (keys, canonical ID map, member states).
+   * Useful on key rotation or when forcing full recomputation.
+   */
+  clearAllCaches(): void {
+    this.keyCache.clear();
+    this.cachedCanonicalIdMap = null;
+    this.cachedMemberStates = null;
   }
 
   /**

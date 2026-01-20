@@ -97,6 +97,17 @@ RAILPACK_SPA_OUTPUT_DIR=packages/client/dist
 - **Crypto**: WebCrypto API
 - **Testing**: Vitest
 
+### Performance Optimizations
+
+The application implements a **CQRS (Command Query Responsibility Segregation)** pattern with incremental updates for optimal performance:
+
+- **Incremental balance updates**: Balance calculations are commutative, enabling O(k) updates for k new entries instead of O(n) full recalculation
+- **Entry caching**: Decrypted entries are cached; only new entries are decrypted on updates
+- **Member state caching**: Canonical ID maps and member states are cached and invalidated only when member events change
+- **Sorted activity insertion**: Activities are inserted in O(log n) time instead of regenerating the full list
+
+See [docs/PERFORMANCE-ANALYSIS.md](./docs/PERFORMANCE-ANALYSIS.md) for detailed analysis and implementation.
+
 ## Implementation Status
 
 See [PLAN.md](./docs/PLAN.md) for the complete implementation roadmap.
@@ -237,6 +248,7 @@ See [PLAN.md](./docs/PLAN.md) for the complete implementation roadmap.
 - [DESIGN.md](./docs/DESIGN.md) - Complete product specification
 - [PLAN.md](./docs/PLAN.md) - Detailed implementation plan
 - [DEPLOYMENT.md](./docs/DEPLOYMENT.md) - Production deployment guide
+- [PERFORMANCE-ANALYSIS.md](./docs/PERFORMANCE-ANALYSIS.md) - Performance analysis and optimizations
 - [packages/server/README.md](./packages/server/README.md) - Server setup guide
 
 ## License

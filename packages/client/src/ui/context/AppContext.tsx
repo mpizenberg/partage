@@ -16,15 +16,8 @@ import {
   calculateBalances,
   generateSettlementPlan,
 } from '../../domain/calculations/balance-calculator';
-import {
-  generateAllActivities,
-  filterActivities,
-  generateActivityForNewEntry,
-  generateActivityForModifiedEntry,
-  generateActivityForDeletedEntry,
-  generateActivityForUndeletedEntry,
-  insertActivitySorted,
-} from '../../domain/calculations/activity-generator';
+import { filterActivities } from '../../domain/calculations/activity-generator';
+import { IncrementalStateManager } from '../../domain/state/incremental-state-manager';
 import { SyncManager, type SyncState } from '../../core/sync';
 import { SnapshotManager } from '../../core/storage/snapshot-manager';
 import { pbClient, PocketBaseClient } from '../../api';
@@ -243,6 +236,9 @@ export const AppProvider: Component<{ children: JSX.Element }> = (props) => {
 
   // Snapshot manager for incremental updates
   const [snapshotManager] = createSignal(new SnapshotManager(db, 50)); // Consolidate every 50 updates
+
+  // Incremental state manager for CQRS pattern
+  const [stateManager] = createSignal(new IncrementalStateManager());
 
   // Core state
   const [identity, setIdentity] = createSignal<SerializedKeypair | null>(null);
@@ -604,6 +600,9 @@ export const AppProvider: Component<{ children: JSX.Element }> = (props) => {
       setIsLoading(true);
       setError(null);
 
+      // Clear previous group's state cache
+      stateManager().clear();
+
       const currentIdentity = identity();
       if (!currentIdentity) {
         throw new Error('No identity found');
@@ -715,10 +714,14 @@ export const AppProvider: Component<{ children: JSX.Element }> = (props) => {
       setSyncManager(null);
     }
 
+    // Clear incremental state manager cache
+    stateManager().clear();
+
     setActiveGroup(null);
     setLoroStore(null);
     setEntries([]);
     setBalances(new Map());
+    setAllActivities([]);
     setSyncState({
       status: 'idle',
       lastSyncTimestamp: null,
@@ -739,7 +742,7 @@ export const AppProvider: Component<{ children: JSX.Element }> = (props) => {
     return importSymmetricKey(keyString);
   };
 
-  // Refresh entries from Loro store
+  // Refresh entries from Loro store using IncrementalStateManager
   const refreshEntries = async (groupId: string, _keyVersion: number) => {
     try {
       const store = loroStore();
@@ -753,38 +756,40 @@ export const AppProvider: Component<{ children: JSX.Element }> = (props) => {
         throw new Error('Group key not found');
       }
       const groupKey = await importSymmetricKey(keyString);
+      const currentMembers = members();
 
-      // Get entries based on showDeleted toggle
-      let allEntries: Entry[];
-      if (showDeleted()) {
-        // Get current versions of all entries including deleted (excludes superseded)
-        allEntries = await store.getCurrentEntries(groupId, groupKey);
-      } else {
-        // Get only active entries (excludes deleted and superseded)
-        allEntries = await store.getActiveEntries(groupId, groupKey);
+      // Use IncrementalStateManager for CQRS pattern with caching
+      const manager = stateManager();
+      const { state, result } = await manager.handleUpdate(
+        store,
+        groupKey,
+        groupId,
+        currentMembers
+      );
+
+      // Update signals only if data changed
+      // Create new references to trigger SolidJS reactivity
+      if (result.balancesChanged) {
+        setBalances(new Map(state.balances));
+      }
+      if (result.activitiesChanged) {
+        setAllActivities([...state.activities]);
       }
 
-      setEntries(allEntries);
-
-      // Calculate balances (always use only active entries for balance calculation)
-      // Uses member events for recursive alias resolution
-      const activeEntries = await store.getActiveEntries(groupId, groupKey);
-      const memberEvents = store.getMemberEvents();
-      const calculatedBalances = calculateBalances(activeEntries, memberEvents);
-      setBalances(calculatedBalances);
-
-      // Generate activities from ALL entries (including all versions for audit trail)
-      const allEntriesForActivities = await store.getAllEntries(groupId, groupKey);
-      const currentMembers = members();
-      const canonicalIdMap = store.getCanonicalIdMap();
-      const generatedActivities = generateAllActivities(
-        allEntriesForActivities,
-        currentMembers,
-        groupId,
-        memberEvents,
-        canonicalIdMap
-      );
-      setAllActivities(generatedActivities);
+      // Update entries list with showDeleted filter
+      // Use cached state from IncrementalStateManager
+      if (showDeleted()) {
+        // Get current (non-superseded) entries from cache
+        const currentEntries = Array.from(state.entriesById.values()).filter(
+          (e) => !state.supersededEntryIds.has(e.id)
+        );
+        setEntries(currentEntries);
+      } else {
+        const activeEntries = Array.from(state.activeEntryIds)
+          .map((id) => state.entriesById.get(id)!)
+          .filter(Boolean);
+        setEntries(activeEntries);
+      }
     } catch (err) {
       console.error('Failed to refresh entries:', err);
       setError(err instanceof Error ? err.message : 'Failed to load entries');
@@ -792,85 +797,17 @@ export const AppProvider: Component<{ children: JSX.Element }> = (props) => {
   };
 
   // Incremental refresh after adding/modifying/deleting a single entry
-  // This is much faster than regenerating all activities (O(log n) vs O(n log n))
+  // Now delegates to refreshEntries() which uses IncrementalStateManager internally
+  // The state manager handles incremental updates via commutative balance deltas
   const refreshEntriesIncremental = async (
     groupId: string,
-    newEntry: Entry,
-    previousEntry: Entry | null,
-    operationType: 'add' | 'modify' | 'delete' | 'undelete'
+    _newEntry: Entry,
+    _previousEntry: Entry | null,
+    _operationType: 'add' | 'modify' | 'delete' | 'undelete'
   ) => {
-    try {
-      const store = loroStore();
-      if (!store) return;
-
-      const keyString = await db.getGroupKey(groupId);
-      if (!keyString) {
-        throw new Error('Group key not found');
-      }
-      const groupKey = await importSymmetricKey(keyString);
-
-      // Update entries list
-      let allEntries: Entry[];
-      if (showDeleted()) {
-        allEntries = await store.getCurrentEntries(groupId, groupKey);
-      } else {
-        allEntries = await store.getActiveEntries(groupId, groupKey);
-      }
-      setEntries(allEntries);
-
-      // Recalculate balances with event-based alias resolution
-      const activeEntries = await store.getActiveEntries(groupId, groupKey);
-      const memberEvents = store.getMemberEvents();
-      const calculatedBalances = calculateBalances(activeEntries, memberEvents);
-      setBalances(calculatedBalances);
-
-      // Generate single activity and insert incrementally
-      const currentMembers = members();
-      const canonicalIdMap = store.getCanonicalIdMap();
-      let newActivity: Activity;
-
-      switch (operationType) {
-        case 'add':
-          newActivity = generateActivityForNewEntry(
-            newEntry,
-            currentMembers,
-            groupId,
-            canonicalIdMap
-          );
-          break;
-        case 'modify':
-          newActivity = generateActivityForModifiedEntry(
-            newEntry,
-            previousEntry,
-            currentMembers,
-            groupId,
-            canonicalIdMap
-          );
-          break;
-        case 'delete':
-          newActivity = generateActivityForDeletedEntry(
-            newEntry,
-            currentMembers,
-            groupId,
-            canonicalIdMap
-          );
-          break;
-        case 'undelete':
-          newActivity = generateActivityForUndeletedEntry(
-            newEntry,
-            currentMembers,
-            groupId,
-            canonicalIdMap
-          );
-          break;
-      }
-
-      // Insert activity in sorted order (O(log n) binary search + O(n) array copy)
-      const updatedActivities = insertActivitySorted(allActivities(), newActivity);
-      setAllActivities(updatedActivities);
-    } catch (err) {
-      console.error('Failed to refresh entries incrementally:', err);
-      setError(err instanceof Error ? err.message : 'Failed to update');
+    const group = activeGroup();
+    if (group) {
+      await refreshEntries(groupId, group.currentKeyVersion);
     }
   };
 

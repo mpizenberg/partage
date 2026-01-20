@@ -21,15 +21,24 @@ import { buildCanonicalIdMap } from '../members/member-state';
  * Calculate balances for all members in a group
  * Resolves member aliases to canonical IDs before calculation
  * Uses the event-based system for recursive alias resolution
+ *
+ * @param entries - Array of entries to process
+ * @param memberEventsOrCanonicalMap - Either an array of MemberEvents (will build canonical map)
+ *                                      or a pre-computed canonical ID map (avoids rebuilding)
  */
 export function calculateBalances(
   entries: Entry[],
-  memberEvents: MemberEvent[] = []
+  memberEventsOrCanonicalMap: MemberEvent[] | Map<string, string> = []
 ): Map<string, Balance> {
   const balances = new Map<string, Balance>();
 
-  // Build canonical ID map from events for recursive alias resolution
-  const canonicalIdMap = buildCanonicalIdMap(memberEvents);
+  // Build or use provided canonical ID map
+  let canonicalIdMap: Map<string, string>;
+  if (memberEventsOrCanonicalMap instanceof Map) {
+    canonicalIdMap = memberEventsOrCanonicalMap;
+  } else {
+    canonicalIdMap = buildCanonicalIdMap(memberEventsOrCanonicalMap);
+  }
 
   // Resolve member ID to canonical ID
   const resolve = (id: string): string => canonicalIdMap.get(id) ?? id;
