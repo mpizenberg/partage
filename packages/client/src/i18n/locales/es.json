@@ -242,7 +242,9 @@
     "from": "De",
     "to": "Para",
     "date": "Fecha",
-    "shares": "partes"
+    "shares": "partes",
+    "duplicate": "Duplicado",
+    "duplicateTooltip": "Esta entrada fue editada simultáneamente por varios miembros. Revise ambas versiones y elimine la incorrecta."
   },
 
   "filter": {

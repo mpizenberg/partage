@@ -25,13 +25,22 @@ export interface EntryCardProps {
 
 export const EntryCard: Component<EntryCardProps> = (props) => {
   const { t, locale } = useI18n();
-  const { members, identity, setEditingEntry, deleteEntry, undeleteEntry, loroStore, activeGroup } =
-    useAppContext();
+  const {
+    members,
+    identity,
+    setEditingEntry,
+    deleteEntry,
+    undeleteEntry,
+    loroStore,
+    activeGroup,
+    conflictingEntryIds,
+  } = useAppContext();
   const [showDeleteModal, setShowDeleteModal] = createSignal(false);
   const [isDeleting, setIsDeleting] = createSignal(false);
   const [isUndeleting, setIsUndeleting] = createSignal(false);
 
   const isDeleted = () => props.entry.status === 'deleted';
+  const isConflict = () => conflictingEntryIds().has(props.entry.id);
 
   const handleClick = () => {
     // Don't allow editing if disabled or deleted
@@ -244,6 +253,11 @@ export const EntryCard: Component<EntryCardProps> = (props) => {
                 </Show>
               </div>
             </div>
+            <Show when={isConflict()}>
+              <span class="entry-duplicate-badge" title={t('entries.duplicateTooltip')}>
+                {t('entries.duplicate')}
+              </span>
+            </Show>
             <Show when={!props.disabled}>
               <Show
                 when={!isDeleted()}
@@ -314,6 +328,11 @@ export const EntryCard: Component<EntryCardProps> = (props) => {
                 <span class="entry-time">{getRelativeTime(props.entry.createdAt)}</span>
               </Show>
             </div>
+            <Show when={isConflict()}>
+              <span class="entry-duplicate-badge" title={t('entries.duplicateTooltip')}>
+                {t('entries.duplicate')}
+              </span>
+            </Show>
             <Show when={!props.disabled}>
               <Show
                 when={!isDeleted()}

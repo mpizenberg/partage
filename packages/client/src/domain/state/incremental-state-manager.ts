@@ -54,6 +54,11 @@ export interface DerivedState {
   activeEntryIds: Set<string>;
   supersededEntryIds: Set<string>;
 
+  // Conflict detection: entries that share the same rootId (concurrent edit chains)
+  conflictingEntryIds: Set<string>;
+  // Map from rootId -> set of active entry IDs with that root
+  rootToActiveEntries: Map<string, Set<string>>;
+
   // Materialized views
   balances: Map<string, Balance>;
   activities: Activity[];
@@ -124,6 +129,29 @@ export class IncrementalStateManager {
       }
     }
 
+    // Build rootId -> active entries map for conflict detection
+    // Use rootId if available, otherwise fall back to previousVersionId for modified entries
+    const rootToActiveEntries = new Map<string, Set<string>>();
+    for (const entryId of activeEntryIds) {
+      const entry = entriesById.get(entryId)!;
+      const effectiveRoot = entry.rootId ?? entry.previousVersionId;
+      if (!effectiveRoot) continue; // Skip new entries - they can't be in conflict
+      const activeSet = rootToActiveEntries.get(effectiveRoot) || new Set();
+      activeSet.add(entryId);
+      rootToActiveEntries.set(effectiveRoot, activeSet);
+    }
+
+    // Detect conflicts: active entries that share the same rootId
+    const conflictingEntryIds = new Set<string>();
+    for (const [_rootId, entryIds] of rootToActiveEntries) {
+      if (entryIds.size > 1) {
+        // Multiple active entries share the same root = conflict
+        for (const entryId of entryIds) {
+          conflictingEntryIds.add(entryId);
+        }
+      }
+    }
+
     // Get active entries for balance calculation
     const activeEntries = Array.from(activeEntryIds)
       .map((id) => entriesById.get(id)!)
@@ -148,6 +176,8 @@ export class IncrementalStateManager {
       entriesById,
       activeEntryIds,
       supersededEntryIds,
+      conflictingEntryIds,
+      rootToActiveEntries,
       balances,
       activities,
       memberStates,
@@ -264,6 +294,21 @@ export class IncrementalStateManager {
     // Track superseded entries
     if (entry.previousVersionId) {
       state.supersededEntryIds.add(entry.previousVersionId);
+
+      // Remove superseded entry from rootToActiveEntries and update conflicts
+      const effectiveRoot = entry.rootId ?? entry.previousVersionId;
+      const activeSet = state.rootToActiveEntries.get(effectiveRoot);
+      if (activeSet) {
+        activeSet.delete(entry.previousVersionId);
+        state.conflictingEntryIds.delete(entry.previousVersionId);
+
+        // If only one entry remains for this root, it's no longer in conflict
+        if (activeSet.size === 1) {
+          for (const remainingId of activeSet) {
+            state.conflictingEntryIds.delete(remainingId);
+          }
+        }
+      }
     }
 
     // Handle entry lifecycle
@@ -278,6 +323,9 @@ export class IncrementalStateManager {
       state.activities = insertActivitySorted(state.activities, activity);
       activityAdded = true;
     } else if (entry.status === 'active' && entry.previousVersionId) {
+      // Add to rootToActiveEntries since it is a modified entry
+      this.addToRootActiveEntries(state, entry.id, entry.rootId ?? entry.previousVersionId);
+
       // Check if this is an undelete operation
       const oldEntry = state.entriesById.get(entry.previousVersionId);
       const isUndelete = oldEntry && oldEntry.status === 'deleted';
@@ -324,6 +372,26 @@ export class IncrementalStateManager {
     }
 
     return { balanceChanged, activityAdded };
+  }
+
+  /**
+   * Add an entry to rootToActiveEntries and update conflict detection
+   */
+  private addToRootActiveEntries(state: DerivedState, entryId: string, rootId: string): void {
+    const activeSet = state.rootToActiveEntries.get(rootId) || new Set();
+    activeSet.add(entryId);
+    state.rootToActiveEntries.set(rootId, activeSet);
+
+    // Update conflict detection for this root
+    if (activeSet.size > 1) {
+      // Multiple active entries share this root = conflict
+      for (const id of activeSet) {
+        state.conflictingEntryIds.add(id);
+      }
+    } else {
+      // Only one active entry for this root - remove from conflicts if present
+      state.conflictingEntryIds.delete(entryId);
+    }
   }
 
   /**

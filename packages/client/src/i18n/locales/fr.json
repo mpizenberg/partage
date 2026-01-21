@@ -242,7 +242,9 @@
     "from": "De",
     "to": "À",
     "date": "Date",
-    "shares": "parts"
+    "shares": "parts",
+    "duplicate": "Doublon",
+    "duplicateTooltip": "Cette entrée a été modifiée simultanément par plusieurs membres. Examinez les deux versions et supprimez celle qui est incorrecte."
   },
 
   "filter": {

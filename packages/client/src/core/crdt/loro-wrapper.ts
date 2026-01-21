@@ -69,6 +69,7 @@ interface EntryMetadata {
   keyVersion: number;
 
   previousVersionId?: string;
+  rootId?: string; // Root entry ID of the modification chain (undefined for new entries)
   createdAt: number;
   createdBy: string;
   modifiedAt?: number;
@@ -1019,6 +1020,7 @@ export class LoroEntryStore {
       keyVersion: (entry as any).keyVersion ?? 1,
 
       previousVersionId: entry.previousVersionId,
+      rootId: entry.rootId,
       createdAt: entry.createdAt,
       createdBy: entry.createdBy,
       modifiedAt: entry.modifiedAt,
@@ -1078,6 +1080,7 @@ export class LoroEntryStore {
       deletedAt: metadata.deletedAt,
       deletedBy: metadata.deletedBy,
       status: metadata.status,
+      rootId: metadata.rootId,
       amount: payload.amount,
       currency: payload.currency,
       defaultCurrencyAmount: payload.defaultCurrencyAmount,
@@ -1218,6 +1221,7 @@ export class LoroEntryStore {
     map.set('keyVersion', metadata.keyVersion);
 
     if (metadata.previousVersionId) map.set('previousVersionId', metadata.previousVersionId);
+    if (metadata.rootId) map.set('rootId', metadata.rootId);
     map.set('createdAt', metadata.createdAt);
     map.set('createdBy', metadata.createdBy);
     if (metadata.modifiedAt) map.set('modifiedAt', metadata.modifiedAt);
@@ -1245,6 +1249,7 @@ export class LoroEntryStore {
       keyVersion: (obj.keyVersion as number | undefined) ?? 1,
 
       previousVersionId: obj.previousVersionId as string | undefined,
+      rootId: obj.rootId as string | undefined,
       createdAt: obj.createdAt as number,
       createdBy: obj.createdBy as string,
       modifiedAt: obj.modifiedAt as number | undefined,

@@ -113,6 +113,7 @@ interface AppContextValue {
 
   // Entries (derived from Loro)
   entries: Accessor<Entry[]>;
+  conflictingEntryIds: Accessor<Set<string>>; // Entries with concurrent edits (same rootId)
   showDeleted: Accessor<boolean>;
   setShowDeleted: (show: boolean) => void;
   entryFilter: Accessor<EntryFilter>;
@@ -249,6 +250,7 @@ export const AppProvider: Component<{ children: JSX.Element }> = (props) => {
 
   // Derived state
   const [entries, setEntries] = createSignal<Entry[]>([]);
+  const [conflictingEntryIds, setConflictingEntryIds] = createSignal<Set<string>>(new Set());
   const [balances, setBalances] = createSignal<Map<string, Balance>>(new Map());
   const [preferencesVersion, setPreferencesVersion] = createSignal(0);
 
@@ -776,6 +778,16 @@ export const AppProvider: Component<{ children: JSX.Element }> = (props) => {
         setAllActivities([...state.activities]);
       }
 
+      // Update conflict detection (entries with concurrent edits)
+      const currentConflicts = conflictingEntryIds();
+      const newConflicts = state.conflictingEntryIds;
+      const conflictsChanged =
+        currentConflicts.size !== newConflicts.size ||
+        [...newConflicts].some((id) => !currentConflicts.has(id));
+      if (conflictsChanged) {
+        setConflictingEntryIds(new Set(newConflicts));
+      }
+
       // Update entries list with showDeleted filter
       // Use cached state from IncrementalStateManager
       if (showDeleted()) {
@@ -833,6 +845,7 @@ export const AppProvider: Component<{ children: JSX.Element }> = (props) => {
         type: 'expense',
         version: 1,
         keyVersion: group.currentKeyVersion,
+        // rootId is undefined for new entries (they are their own root)
         createdAt: Date.now(),
         createdBy: currentIdentity.publicKeyHash,
         status: 'active',
@@ -925,6 +938,7 @@ export const AppProvider: Component<{ children: JSX.Element }> = (props) => {
         type: 'transfer',
         version: 1,
         keyVersion: group.currentKeyVersion,
+        // rootId is undefined for new entries (they are their own root)
         createdAt: Date.now(),
         createdBy: currentIdentity.publicKeyHash,
         status: 'active',
@@ -1027,6 +1041,7 @@ export const AppProvider: Component<{ children: JSX.Element }> = (props) => {
         version: originalEntry.version + 1,
         keyVersion: group.currentKeyVersion,
         previousVersionId: originalId,
+        rootId: originalEntry.rootId ?? originalEntry.previousVersionId ?? originalEntry.id, // Preserve root chain
         createdAt: originalEntry.createdAt,
         createdBy: originalEntry.createdBy,
         modifiedAt: Date.now(),
@@ -1124,6 +1139,7 @@ export const AppProvider: Component<{ children: JSX.Element }> = (props) => {
         version: originalEntry.version + 1,
         keyVersion: group.currentKeyVersion,
         previousVersionId: originalId,
+        rootId: originalEntry.rootId ?? originalEntry.previousVersionId ?? originalEntry.id, // Preserve root chain
         createdAt: originalEntry.createdAt,
         createdBy: originalEntry.createdBy,
         modifiedAt: Date.now(),
@@ -2174,6 +2190,7 @@ export const AppProvider: Component<{ children: JSX.Element }> = (props) => {
     renameMember,
     removeMember,
     entries,
+    conflictingEntryIds,
     showDeleted,
     setShowDeleted,
     entryFilter,

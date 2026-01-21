@@ -242,7 +242,9 @@
     "from": "From",
     "to": "To",
     "date": "Date",
-    "shares": "shares"
+    "shares": "shares",
+    "duplicate": "Duplicate",
+    "duplicateTooltip": "This entry was edited concurrently by multiple members. Review both versions and delete the incorrect one."
   },
 
   "filter": {

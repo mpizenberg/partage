@@ -35,6 +35,7 @@ export interface BaseEntry {
   type: EntryType;
   version: number; // For modification tracking
   previousVersionId?: string; // Reference to prior version
+  rootId?: string; // Root entry ID of the modification chain (undefined for new entries)
   createdAt: number; // Unix timestamp
   createdBy: string; // Public key hash
   modifiedAt?: number;
