@@ -114,6 +114,24 @@ export const InviteModal: Component<InviteModalProps> = (props) => {
                 </Button>
               </Show>
             </div>
+
+            <div
+              class="invite-security-warning"
+              style={{
+                'margin-top': 'var(--space-md)',
+                padding: 'var(--space-sm)',
+                background: 'var(--color-warning-light, #fff3cd)',
+                border: '1px solid var(--color-warning, #ffc107)',
+                'border-radius': 'var(--border-radius)',
+                'font-size': 'var(--font-size-sm)',
+                color: 'var(--color-text)',
+              }}
+            >
+              <strong>⚠️ {t('invite.securityWarningTitle')}</strong>
+              <p style="margin: 'var(--space-xs) 0 0 0'">
+                {t('invite.securityWarningMessage')}
+              </p>
+            </div>
           </div>
         </Show>
       </div>

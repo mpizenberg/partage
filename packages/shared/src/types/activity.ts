@@ -193,6 +193,7 @@ export type Activity =
 export interface ActivityFilter {
   types?: ActivityType[];
   actorIds?: string[];
+  memberIds?: string[]; // Filter by involved members (payers, beneficiaries, from/to)
   startDate?: number;
   endDate?: number;
   entryId?: string;

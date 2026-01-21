@@ -474,6 +474,62 @@ export function filterActivities(activities: Activity[], filter: ActivityFilter)
     filtered = filtered.filter((activity) => filter.actorIds!.includes(activity.actorId));
   }
 
+  if (filter.memberIds && filter.memberIds.length > 0) {
+    filtered = filtered.filter((activity) => {
+      // Check if any of the filter member IDs are involved in this activity
+      const filterMemberSet = new Set(filter.memberIds);
+
+      // For entry activities, check payers, beneficiaries, from, to
+      if (
+        activity.type === 'entry_added' ||
+        activity.type === 'entry_modified' ||
+        activity.type === 'entry_deleted' ||
+        activity.type === 'entry_undeleted'
+      ) {
+        const entryActivity = activity as any;
+
+        // Check payers
+        if (entryActivity.payers) {
+          for (const payerId of entryActivity.payers) {
+            if (filterMemberSet.has(payerId)) return true;
+          }
+        }
+
+        // Check beneficiaries
+        if (entryActivity.beneficiaries) {
+          for (const benId of entryActivity.beneficiaries) {
+            if (filterMemberSet.has(benId)) return true;
+          }
+        }
+
+        // Check from/to (for transfers)
+        if (entryActivity.from && filterMemberSet.has(entryActivity.from)) return true;
+        if (entryActivity.to && filterMemberSet.has(entryActivity.to)) return true;
+      }
+
+      // For member activities, check the member ID
+      if (
+        activity.type === 'member_joined' ||
+        activity.type === 'member_renamed' ||
+        activity.type === 'member_retired'
+      ) {
+        const memberActivity = activity as any;
+        if (memberActivity.memberId && filterMemberSet.has(memberActivity.memberId)) return true;
+      }
+
+      // For member linked activity, check both member IDs
+      if (activity.type === 'member_linked') {
+        const linkedActivity = activity as any;
+        if (linkedActivity.newMemberId && filterMemberSet.has(linkedActivity.newMemberId))
+          return true;
+        if (linkedActivity.existingMemberId && filterMemberSet.has(linkedActivity.existingMemberId))
+          return true;
+      }
+
+      return false;
+    });
+  }
+
   if (filter.startDate !== undefined) {
     filtered = filtered.filter((activity) => activity.timestamp >= filter.startDate!);
   }

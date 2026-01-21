@@ -368,7 +368,9 @@
     "qrCode": "Código QR",
     "linkExpiry": "Este enlace da acceso completo al grupo",
     "shareTitle": "Únete a {groupName} en Partage",
-    "shareText": "¡Has sido invitado a unirte a {groupName}!"
+    "shareText": "¡Has sido invitado a unirte a {groupName}!",
+    "securityWarningTitle": "Aviso de Seguridad",
+    "securityWarningMessage": "Comparte este enlace solo con destinatarios de confianza. Contiene la clave para unirse al grupo y descifrar todo el historial del grupo."
   },
 
   "activity": {
@@ -377,6 +379,7 @@
     "noActivityMessage": "La actividad aparecerá aquí cuando los miembros del grupo hagan cambios",
     "noActivityFiltered": "Ninguna actividad coincide con tus filtros actuales",
     "filterByType": "Filtrar por Tipo",
+    "filterByMember": "Filtrar por Miembro",
     "filterActivities": "Filtrar actividades",
     "entryAdded": "{member} agregó '{description}'",
     "entryModified": "{member} modificó '{description}'",

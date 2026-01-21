@@ -481,19 +481,16 @@ export const ActivityCard: Component<ActivityCardProps> = (props) => {
                             {/* Other changes (excluding amount/defaultCurrencyAmount/currency when multi-currency display is shown) */}
                             <For
                               each={Object.entries(activity.changes || {}).filter(([field]) => {
-                                if (field === 'notes') return false;
-                                if (field === 'currency') return false;
-                                // If showing multi-currency display, skip amount and defaultCurrencyAmount
+                                // Skip notes and currency (handled separately)
+                                if (field === 'notes' || field === 'currency') return false;
+                                // If multi-currency display is shown, skip both amount fields
                                 if (
                                   shouldShowMultiCurrencyAmount() &&
                                   (field === 'amount' || field === 'defaultCurrencyAmount')
                                 )
                                   return false;
-                                // If NOT showing multi-currency display, skip defaultCurrencyAmount (but keep amount)
-                                if (
-                                  !shouldShowMultiCurrencyAmount() &&
-                                  field === 'defaultCurrencyAmount'
-                                )
+                                // If NOT multi-currency but defaultCurrencyAmount changed, skip it (only show amount)
+                                if (!shouldShowMultiCurrencyAmount() && field === 'defaultCurrencyAmount')
                                   return false;
                                 return true;
                               })}

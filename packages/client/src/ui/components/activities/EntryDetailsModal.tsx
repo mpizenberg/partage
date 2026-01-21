@@ -80,6 +80,66 @@ export const EntryDetailsModal: Component<EntryDetailsModalProps> = (props) => {
   const expenseEntry = () => (isExpense() ? (props.entry as ExpenseEntry) : null);
   const transferEntry = () => (isTransfer() ? (props.entry as TransferEntry) : null);
 
+  // Calculate split amounts for beneficiaries
+  const calculateBeneficiarySplitAmounts = (): Map<string, number> => {
+    const expense = expenseEntry();
+    if (!expense) return new Map();
+
+    const totalAmount = props.entry!.defaultCurrencyAmount ?? props.entry!.amount;
+    const beneficiaries = expense.beneficiaries;
+    const splits = new Map<string, number>();
+
+    // Separate by split type
+    const sharesBeneficiaries = beneficiaries.filter((b) => b.splitType === 'shares');
+    const exactBeneficiaries = beneficiaries.filter((b) => b.splitType === 'exact');
+
+    // Calculate exact amounts first (convert to default currency if needed)
+    let exactTotal = 0;
+    for (const beneficiary of exactBeneficiaries) {
+      const amount = beneficiary.amount ?? 0;
+      // If entry uses default currency, use amount directly
+      // Otherwise, proportionally convert to default currency
+      const defaultCurrencyValue =
+        props.entry!.currency === activeGroup()?.defaultCurrency
+          ? amount
+          : (amount / props.entry!.amount) * totalAmount;
+      splits.set(beneficiary.memberId, (splits.get(beneficiary.memberId) ?? 0) + defaultCurrencyValue);
+      exactTotal += defaultCurrencyValue;
+    }
+
+    // Calculate shares from remaining amount
+    if (sharesBeneficiaries.length > 0) {
+      const remainingAmount = totalAmount - exactTotal;
+      const totalShares = sharesBeneficiaries.reduce((sum, b) => sum + (b.shares ?? 1), 0);
+
+      // Use cents for integer arithmetic
+      const remainingCents = Math.round(remainingAmount * 100);
+      const centsPerShare = Math.floor(remainingCents / totalShares);
+      let remainderCents = remainingCents - centsPerShare * totalShares;
+
+      // Sort beneficiaries for deterministic distribution
+      const sortedBeneficiaries = [...sharesBeneficiaries].sort((a, b) =>
+        a.memberId.localeCompare(b.memberId)
+      );
+
+      for (const beneficiary of sortedBeneficiaries) {
+        const shares = beneficiary.shares ?? 1;
+        let amountCents = centsPerShare * shares;
+
+        // Distribute remainder
+        if (remainderCents > 0 && shares > 0) {
+          const extraCents = Math.min(remainderCents, shares);
+          amountCents += extraCents;
+          remainderCents -= extraCents;
+        }
+
+        splits.set(beneficiary.memberId, (splits.get(beneficiary.memberId) ?? 0) + amountCents / 100);
+      }
+    }
+
+    return splits;
+  };
+
   const getCategoryEmoji = (): string => {
     const expense = expenseEntry();
     if (!expense || !expense.category) return '📝';
@@ -280,25 +340,28 @@ export const EntryDetailsModal: Component<EntryDetailsModalProps> = (props) => {
 
               <div class="detail-row">
                 <span class="detail-label">{t('entries.split')}:</span>
-                <span
+                <div
                   class="detail-value"
                   classList={{ 'field-changed': isFieldChanged('beneficiaries') }}
+                  style="display: flex; flex-direction: column; gap: var(--space-xs);"
                 >
                   <For each={expenseEntry()!.beneficiaries}>
-                    {(beneficiary, index) => (
-                      <>
-                        {index() > 0 && ', '}
-                        {getMemberName(beneficiary.memberId)}
-                        {beneficiary.splitType === 'shares' &&
-                          beneficiary.shares &&
-                          ` (${beneficiary.shares} ${t('entries.shares')})`}
-                        {beneficiary.splitType === 'exact' &&
-                          beneficiary.amount !== undefined &&
-                          ` (${formatAmount(beneficiary.amount, props.entry!.currency)})`}
-                      </>
-                    )}
+                    {(beneficiary) => {
+                      const splitAmounts = calculateBeneficiarySplitAmounts();
+                      const splitAmount = splitAmounts.get(beneficiary.memberId) ?? 0;
+                      const defaultCurrency = activeGroup()?.defaultCurrency;
+                      return (
+                        <div>
+                          {getMemberName(beneficiary.memberId)}:{' '}
+                          {beneficiary.splitType === 'shares' &&
+                            beneficiary.shares &&
+                            `${beneficiary.shares} ${t('entries.shares')} = `}
+                          {formatAmount(splitAmount, defaultCurrency || 'USD')}
+                        </div>
+                      );
+                    }}
                   </For>
-                </span>
+                </div>
               </div>
 
               <Show when={expenseEntry()!.notes}>
@@ -377,8 +440,13 @@ export const EntryDetailsModal: Component<EntryDetailsModalProps> = (props) => {
               <For
                 each={Object.entries(props.changes || {}).filter(([f]) => {
                   const isNotesOrCurrency = f === 'notes' || f === 'currency';
+                  // If multi-currency display is shown, skip both amount fields
                   const isAmountField = f === 'amount' || f === 'defaultCurrencyAmount';
-                  return !isNotesOrCurrency && !(shouldShowMultiCurrencyAmount() && isAmountField);
+                  if (shouldShowMultiCurrencyAmount() && isAmountField) return false;
+                  // If NOT multi-currency but defaultCurrencyAmount changed, skip it (only show amount)
+                  if (!shouldShowMultiCurrencyAmount() && f === 'defaultCurrencyAmount') return false;
+                  // Skip notes and currency (handled separately)
+                  return !isNotesOrCurrency;
                 })}
               >
                 {([field, change]) => (

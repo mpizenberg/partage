@@ -33,6 +33,7 @@ import {
   generateActivityForNewEntry,
   generateActivityForModifiedEntry,
   generateActivityForDeletedEntry,
+  generateActivityForUndeletedEntry,
   insertActivitySorted,
   generateActivitiesFromMemberEvents,
   generateAllActivities as generateAllActivitiesFromModule,
@@ -277,9 +278,12 @@ export class IncrementalStateManager {
       state.activities = insertActivitySorted(state.activities, activity);
       activityAdded = true;
     } else if (entry.status === 'active' && entry.previousVersionId) {
-      // Modified entry: reverse old, apply new
+      // Check if this is an undelete operation
       const oldEntry = state.entriesById.get(entry.previousVersionId);
+      const isUndelete = oldEntry && oldEntry.status === 'deleted';
+
       if (oldEntry && state.activeEntryIds.has(entry.previousVersionId)) {
+        // Reverse old entry if it was active
         this.applyBalanceDelta(oldEntry, -1);
         state.activeEntryIds.delete(entry.previousVersionId);
       }
@@ -287,14 +291,16 @@ export class IncrementalStateManager {
       this.applyBalanceDelta(entry, +1);
       balanceChanged = true;
 
-      // Insert modification activity
-      const activity = generateActivityForModifiedEntry(
-        entry,
-        oldEntry || null,
-        members,
-        groupId,
-        state.canonicalIdMap
-      );
+      // Insert appropriate activity (undeleted or modified)
+      const activity = isUndelete
+        ? generateActivityForUndeletedEntry(entry, members, groupId, state.canonicalIdMap)
+        : generateActivityForModifiedEntry(
+            entry,
+            oldEntry || null,
+            members,
+            groupId,
+            state.canonicalIdMap
+          );
       state.activities = insertActivitySorted(state.activities, activity);
       activityAdded = true;
     } else if (entry.status === 'deleted' && entry.previousVersionId) {

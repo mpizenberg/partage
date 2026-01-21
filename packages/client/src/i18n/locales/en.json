@@ -368,7 +368,9 @@
     "qrCode": "QR Code",
     "linkExpiry": "This link gives full access to the group",
     "shareTitle": "Join {groupName} on Partage",
-    "shareText": "You've been invited to join {groupName}!"
+    "shareText": "You've been invited to join {groupName}!",
+    "securityWarningTitle": "Security Notice",
+    "securityWarningMessage": "Only share this link with trusted recipients. It contains the key to join the group and decrypt the entire group history."
   },
 
   "activity": {
@@ -377,6 +379,7 @@
     "noActivityMessage": "Activity will appear here as group members make changes",
     "noActivityFiltered": "No activities match your current filters",
     "filterByType": "Filter by Type",
+    "filterByMember": "Filter by Member",
     "filterActivities": "Filter activities",
     "entryAdded": "{member} added '{description}'",
     "entryModified": "{member} modified '{description}'",
