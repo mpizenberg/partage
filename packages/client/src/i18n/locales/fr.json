@@ -19,7 +19,17 @@
     "virtual": "Virtuel",
     "and": "et",
     "others": "autres",
-    "offline": "Vous êtes hors ligne. Les modifications seront synchronisées à la reconnexion."
+    "offline": "Vous êtes hors ligne. Les modifications seront synchronisées à la reconnexion.",
+    "dismiss": "Ignorer"
+  },
+
+  "install": {
+    "title": "Installer Partage",
+    "description": "Installez pour un accès hors ligne et de meilleures performances",
+    "iosInstructions": "Appuyez sur le bouton de partage et sélectionnez 'Sur l'écran d'accueil'",
+    "addToHomeScreen": "Sur l'écran d'accueil",
+    "install": "Installer",
+    "dismiss": "Plus tard"
   },
 
   "setup": {

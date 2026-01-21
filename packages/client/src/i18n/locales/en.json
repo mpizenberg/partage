@@ -19,7 +19,17 @@
     "virtual": "Virtual",
     "and": "and",
     "others": "others",
-    "offline": "You're offline. Changes will sync when you reconnect."
+    "offline": "You're offline. Changes will sync when you reconnect.",
+    "dismiss": "Dismiss"
+  },
+
+  "install": {
+    "title": "Install Partage",
+    "description": "Install for offline access and better performance",
+    "iosInstructions": "Tap the share button and select 'Add to Home Screen'",
+    "addToHomeScreen": "Add to Home Screen",
+    "install": "Install",
+    "dismiss": "Not now"
   },
 
   "setup": {

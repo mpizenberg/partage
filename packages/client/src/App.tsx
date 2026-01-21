@@ -13,6 +13,7 @@ import { Footer } from './ui/components/common/Footer';
 import { ToastProvider, useToast } from './ui/context/ToastContext';
 import { ToastContainer } from './ui/components/common/ToastContainer';
 import { NotificationPermissionBanner } from './ui/components/common/NotificationPermissionBanner';
+import { InstallPrompt } from './ui/components/common/InstallPrompt';
 import type { Activity } from '@partage/shared/types/activity';
 import { getPushManager } from './domain/notifications/push-manager';
 import { isActivityRelevantToUser } from './domain/notifications/activity-filter';
@@ -137,6 +138,7 @@ const App: Component = () => {
           </Router>
           <ActivityNotifications />
           <NotificationPermissionBanner />
+          <InstallPrompt />
           <OfflineBanner />
           <Footer />
         </AppProvider>

@@ -19,7 +19,17 @@
     "virtual": "Virtual",
     "and": "y",
     "others": "otros",
-    "offline": "Estás desconectado. Los cambios se sincronizarán cuando te reconectes."
+    "offline": "Estás desconectado. Los cambios se sincronizarán cuando te reconectes.",
+    "dismiss": "Descartar"
+  },
+
+  "install": {
+    "title": "Instalar Partage",
+    "description": "Instala para acceso sin conexión y mejor rendimiento",
+    "iosInstructions": "Toca el botón de compartir y selecciona 'Añadir a pantalla de inicio'",
+    "addToHomeScreen": "Añadir a pantalla de inicio",
+    "install": "Instalar",
+    "dismiss": "Ahora no"
   },
 
   "setup": {
