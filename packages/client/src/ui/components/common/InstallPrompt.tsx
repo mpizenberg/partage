@@ -30,9 +30,10 @@ export const InstallPrompt: Component = () => {
     // Check if user previously dismissed
     const dismissed = localStorage.getItem('pwa-install-dismissed');
     const dismissedTime = dismissed ? parseInt(dismissed, 10) : 0;
-    const oneMinuteAgo = Date.now() - 60 * 1000; // 1 minute for testing
+    // const oneMinuteAgo = Date.now() - 60 * 1000; // 1 minute for testing
+    const sevenDaysAgo = Date.now() - 7 * 24 * 60 * 60 * 1000; // 7 days for production
 
-    if (isStandalone || (dismissed && dismissedTime > oneMinuteAgo)) {
+    if (isStandalone || (dismissed && dismissedTime > sevenDaysAgo)) {
       return;
     }
 
