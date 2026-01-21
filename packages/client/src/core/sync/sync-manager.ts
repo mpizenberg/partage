@@ -108,8 +108,16 @@ export class SyncManager {
     // Set up online/offline detection
     this.setupNetworkListeners();
 
-    // Load offline queue from storage
-    this.loadOfflineQueue();
+    // Load offline queue from storage and sync if online
+    // This handles the case where the page is reloaded while online
+    // (the 'online' event won't fire since we're already online)
+    this.loadOfflineQueue().then(() => {
+      if (this.isOnline && this.enableAutoSync && this.offlineQueue.length > 0) {
+        this.syncOfflineQueue().catch((error) => {
+          console.error('[SyncManager] Failed to sync offline queue on init:', error);
+        });
+      }
+    });
   }
 
   // ==================== Public API ====================
@@ -128,7 +136,8 @@ export class SyncManager {
   }
 
   /**
-   * Initial sync for a group - fetch all updates and apply them
+   * Initial sync for a group - fetch all updates and apply them,
+   * then push any queued offline operations
    */
   async initialSync(groupId: string, actorId: string): Promise<void> {
     if (!this.isOnline) {
@@ -157,6 +166,10 @@ export class SyncManager {
 
       // Save snapshot to storage
       await this.saveSnapshot(groupId);
+
+      // Sync any queued offline operations for this group
+      // This handles operations that were queued while offline
+      await this.syncOfflineQueue();
 
       this.setStatus('idle');
     } catch (error) {
@@ -584,7 +597,9 @@ export class SyncManager {
   private async loadOfflineQueue(): Promise<void> {
     try {
       const operations = await this.storage.getQueuedOperations();
-      this.offlineQueue = operations as QueuedOperation[];
+      // The stored format wraps QueuedOperation in { type, groupId, data, timestamp }
+      // Extract the actual QueuedOperation from the `data` field
+      this.offlineQueue = operations.map((op: any) => op.data as QueuedOperation);
     } catch (error) {
       console.error('[SyncManager] Failed to load offline queue:', error);
     }
