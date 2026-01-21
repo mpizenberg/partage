@@ -408,6 +408,24 @@ export const AppProvider: Component<{ children: JSX.Element }> = (props) => {
     });
   });
 
+  // Listen for online/offline events to update syncState
+  onMount(() => {
+    const handleOnline = () => {
+      setSyncState((prev) => ({ ...prev, isOnline: true }));
+    };
+    const handleOffline = () => {
+      setSyncState((prev) => ({ ...prev, isOnline: false }));
+    };
+
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+
+    onCleanup(() => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    });
+  });
+
   // Cleanup on unmount
   onCleanup(async () => {
     const manager = syncManager();
