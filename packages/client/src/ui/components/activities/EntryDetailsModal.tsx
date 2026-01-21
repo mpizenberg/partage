@@ -103,7 +103,10 @@ export const EntryDetailsModal: Component<EntryDetailsModalProps> = (props) => {
         props.entry!.currency === activeGroup()?.defaultCurrency
           ? amount
           : (amount / props.entry!.amount) * totalAmount;
-      splits.set(beneficiary.memberId, (splits.get(beneficiary.memberId) ?? 0) + defaultCurrencyValue);
+      splits.set(
+        beneficiary.memberId,
+        (splits.get(beneficiary.memberId) ?? 0) + defaultCurrencyValue
+      );
       exactTotal += defaultCurrencyValue;
     }
 
@@ -133,7 +136,10 @@ export const EntryDetailsModal: Component<EntryDetailsModalProps> = (props) => {
           remainderCents -= extraCents;
         }
 
-        splits.set(beneficiary.memberId, (splits.get(beneficiary.memberId) ?? 0) + amountCents / 100);
+        splits.set(
+          beneficiary.memberId,
+          (splits.get(beneficiary.memberId) ?? 0) + amountCents / 100
+        );
       }
     }
 
@@ -444,7 +450,8 @@ export const EntryDetailsModal: Component<EntryDetailsModalProps> = (props) => {
                   const isAmountField = f === 'amount' || f === 'defaultCurrencyAmount';
                   if (shouldShowMultiCurrencyAmount() && isAmountField) return false;
                   // If NOT multi-currency but defaultCurrencyAmount changed, skip it (only show amount)
-                  if (!shouldShowMultiCurrencyAmount() && f === 'defaultCurrencyAmount') return false;
+                  if (!shouldShowMultiCurrencyAmount() && f === 'defaultCurrencyAmount')
+                    return false;
                   // Skip notes and currency (handled separately)
                   return !isNotesOrCurrency;
                 })}

@@ -128,9 +128,7 @@ export const InviteModal: Component<InviteModalProps> = (props) => {
               }}
             >
               <strong>⚠️ {t('invite.securityWarningTitle')}</strong>
-              <p style="margin: 'var(--space-xs) 0 0 0'">
-                {t('invite.securityWarningMessage')}
-              </p>
+              <p style="margin: 'var(--space-xs) 0 0 0'">{t('invite.securityWarningMessage')}</p>
             </div>
           </div>
         </Show>

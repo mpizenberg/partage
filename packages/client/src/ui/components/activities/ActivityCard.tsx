@@ -490,7 +490,10 @@ export const ActivityCard: Component<ActivityCardProps> = (props) => {
                                 )
                                   return false;
                                 // If NOT multi-currency but defaultCurrencyAmount changed, skip it (only show amount)
-                                if (!shouldShowMultiCurrencyAmount() && field === 'defaultCurrencyAmount')
+                                if (
+                                  !shouldShowMultiCurrencyAmount() &&
+                                  field === 'defaultCurrencyAmount'
+                                )
                                   return false;
                                 return true;
                               })}
