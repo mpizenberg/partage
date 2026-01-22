@@ -493,7 +493,26 @@
   },
 
   "footer": {
+    "about": "☕ About",
     "viewOnGitHub": "View on GitHub"
+  },
+
+  "about": {
+    "title": "About",
+    "greeting": "Hi! Thanks for using this app, I hope you like it!",
+    "motivation": "It was born out of frustration from using other similar bill sharing apps.",
+    "openSource": "It's",
+    "completelyOpenSource": "completely Open Source",
+    "privacyInfo": ", and it respects your privacy. No one except the members of your groups can know what your personal expenses are, because all data is encrypted end-to-end.",
+    "supportTitle": "Support This Project",
+    "serverCosts": "I'm currently maintaining the server storing the encrypted group messages. It's not a lot, but if many use it, the costs could grow and/or the service performance degrade.",
+    "donationRequest": "So if you want to help me continue building and maintaining cool open source projects, please consider making small donations.",
+    "githubSponsors": "GitHub Sponsors",
+    "githubInfo": "The most convenient and cheapest way to donate (no fees!). Just sign in with GitHub or Google.",
+    "donateOnGitHub": "☕ Donate on GitHub Sponsors",
+    "feedbackTitle": "Questions or Suggestions?",
+    "feedbackInfo": "If you have questions or suggestions, head to the discussions section of the repository.",
+    "visitDiscussions": "Visit GitHub Discussions"
   },
 
   "notifications": {

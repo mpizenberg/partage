@@ -494,7 +494,26 @@
   },
 
   "footer": {
+    "about": "☕ Acerca de",
     "viewOnGitHub": "Ver en GitHub"
+  },
+
+  "about": {
+    "title": "Acerca de",
+    "greeting": "¡Hola! Gracias por usar esta aplicación, ¡espero que te guste!",
+    "motivation": "Nació de la frustración de usar otras aplicaciones similares para compartir gastos.",
+    "openSource": "Es",
+    "completelyOpenSource": "completamente de código abierto",
+    "privacyInfo": ", y respeta tu privacidad. Nadie excepto los miembros de tus grupos puede saber cuáles son tus gastos personales, porque todos los datos están cifrados de extremo a extremo.",
+    "supportTitle": "Apoya este proyecto",
+    "serverCosts": "Actualmente mantengo el servidor que almacena los mensajes de grupo cifrados. No es mucho, pero si muchos lo usan, los costos podrían aumentar y/o el rendimiento del servicio degradarse.",
+    "donationRequest": "Así que si quieres ayudarme a continuar construyendo y manteniendo proyectos de código abierto geniales, por favor considera hacer pequeñas donaciones.",
+    "githubSponsors": "GitHub Sponsors",
+    "githubInfo": "La forma más conveniente y económica de donar (¡sin comisiones!). Simplemente inicia sesión con GitHub o Google.",
+    "donateOnGitHub": "☕ Donar en GitHub Sponsors",
+    "feedbackTitle": "¿Preguntas o sugerencias?",
+    "feedbackInfo": "Si tienes preguntas o sugerencias, dirígete a la sección de discusiones del repositorio.",
+    "visitDiscussions": "Visitar las discusiones de GitHub"
   },
 
   "notifications": {

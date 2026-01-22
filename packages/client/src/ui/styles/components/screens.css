@@ -45,6 +45,46 @@
   padding-bottom: 60px; /* Space for footer (40px) + extra margin (20px) */
 }
 
+/* About Screen */
+.about-content {
+  max-width: 700px;
+  margin: 0 auto;
+  padding-bottom: 60px; /* Space for footer (40px) + extra margin (20px) */
+}
+
+.about-header {
+  margin-bottom: var(--space-lg);
+  padding-top: var(--space-md);
+}
+
+.about-title {
+  font-size: var(--font-size-2xl);
+  font-weight: var(--font-weight-bold);
+  color: var(--color-text);
+  margin: var(--space-md) 0;
+}
+
+.about-section {
+  margin-bottom: var(--space-xl);
+}
+
+.about-donation-box {
+  background-color: var(--color-bg-secondary);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  padding: var(--space-lg);
+}
+
+.text-link {
+  color: var(--color-primary);
+  text-decoration: underline;
+  transition: color var(--transition-base);
+}
+
+.text-link:hover {
+  color: var(--color-primary-dark);
+}
+
 /* Group View Screen */
 .group-view-screen {
   min-height: 100vh;

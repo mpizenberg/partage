@@ -7,6 +7,7 @@ import { GroupSelectionScreen } from './ui/screens/GroupSelectionScreen';
 import { CreateGroupScreen } from './ui/screens/CreateGroupScreen';
 import { GroupViewScreen } from './ui/screens/GroupViewScreen';
 import { JoinGroupScreen } from './ui/screens/JoinGroupScreen';
+import { AboutScreen } from './ui/screens/AboutScreen';
 import { LoadingSpinner } from './ui/components/common/LoadingSpinner';
 import { OfflineBanner } from './ui/components/common/OfflineBanner';
 import { Footer } from './ui/components/common/Footer';
@@ -99,6 +100,9 @@ const App: Component = () => {
           <Router>
             {/* Setup route - redirects to / if identity exists */}
             <Route path="/setup" component={SetupGuard} />
+
+            {/* About page */}
+            <Route path="/about" component={AboutScreen} />
 
             {/* Join group route - key is in URL fragment (#) */}
             <Route path="/join/:groupId" component={JoinGroupGuard} />

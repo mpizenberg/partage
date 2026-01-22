@@ -493,7 +493,26 @@
   },
 
   "footer": {
+    "about": "☕ À propos",
     "viewOnGitHub": "Voir sur GitHub"
+  },
+
+  "about": {
+    "title": "À propos",
+    "greeting": "Bonjour ! Merci d'utiliser cette application, j'espère qu'elle vous plaît !",
+    "motivation": "Elle est née de la frustration d'utiliser d'autres applications similaires de partage de frais.",
+    "openSource": "Elle est",
+    "completelyOpenSource": "entièrement Open Source",
+    "privacyInfo": ", et elle respecte votre vie privée. Personne sauf les membres de vos groupes ne peut connaître vos dépenses personnelles, car toutes les données sont chiffrées de bout en bout.",
+    "supportTitle": "Soutenir ce projet",
+    "serverCosts": "Je maintiens actuellement le serveur qui stocke les messages de groupe chiffrés. Ce n'est pas beaucoup, mais si beaucoup l'utilisent, les coûts pourraient augmenter et/ou les performances du service se dégrader.",
+    "donationRequest": "Donc si vous voulez m'aider à continuer de construire et maintenir de chouettes projets open source, merci de considérer faire de petits dons.",
+    "githubSponsors": "GitHub Sponsors",
+    "githubInfo": "Le moyen le plus pratique et le moins cher de donner (pas de frais !). Connectez-vous simplement avec GitHub ou Google.",
+    "donateOnGitHub": "☕ Faire un don sur GitHub Sponsors",
+    "feedbackTitle": "Questions ou suggestions ?",
+    "feedbackInfo": "Si vous avez des questions ou des suggestions, rendez-vous dans la section discussions du dépôt.",
+    "visitDiscussions": "Visiter les discussions GitHub"
   },
 
   "notifications": {
