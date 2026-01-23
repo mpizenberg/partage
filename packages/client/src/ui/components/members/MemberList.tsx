@@ -4,7 +4,7 @@
  */
 
 import { Component, For, Show, createSignal, createMemo } from 'solid-js';
-import type { Member, Balance } from '@partage/shared';
+import type { Member, Balance, MemberPaymentInfo } from '@partage/shared';
 import type { LoroEntryStore } from '../../../core/crdt/loro-wrapper';
 import { useI18n } from '../../../i18n';
 
@@ -14,7 +14,8 @@ export interface MemberListProps {
   showStatus?: boolean;
   balances?: Map<string, Balance>;
   loroStore?: LoroEntryStore | null;
-  onRenameMember?: (memberId: string, newName: string) => Promise<void>;
+  memberMetadataMap?: Map<string, { phone?: string; payment?: MemberPaymentInfo; info?: string }>;
+  onMemberClick?: (member: Member) => void;
   onRemoveMember?: (memberId: string) => Promise<void>;
 }
 
@@ -23,10 +24,19 @@ type SortMode = 'name' | 'date';
 export const MemberList: Component<MemberListProps> = (props) => {
   const { t, locale } = useI18n();
   const [sortMode, setSortMode] = createSignal<SortMode>('name');
-  const [editingMemberId, setEditingMemberId] = createSignal<string | null>(null);
-  const [newName, setNewName] = createSignal('');
   const [memberToRemove, setMemberToRemove] = createSignal<Member | null>(null);
   const [showDeparted, setShowDeparted] = createSignal(false);
+
+  // Get member metadata for indicators
+  const getMemberMetadata = (memberId: string) => {
+    return props.memberMetadataMap?.get(memberId);
+  };
+
+  const hasPaymentInfo = (memberId: string): boolean => {
+    const metadata = getMemberMetadata(memberId);
+    if (!metadata?.payment) return false;
+    return Object.values(metadata.payment).some((v) => !!v);
+  };
 
   const sortedMembers = createMemo(() => {
     // Filter by status first
@@ -63,34 +73,15 @@ export const MemberList: Component<MemberListProps> = (props) => {
     return member?.name || t('common.unknown');
   };
 
-  const startRename = (member: Member) => {
-    setEditingMemberId(member.id);
-    setNewName(member.name);
-  };
-
-  const cancelRename = () => {
-    setEditingMemberId(null);
-    setNewName('');
-  };
-
-  const confirmRename = async (memberId: string) => {
-    if (!props.onRenameMember) return;
-
-    const trimmedName = newName().trim();
-    if (!trimmedName) return;
-
-    try {
-      await props.onRenameMember(memberId, trimmedName);
-      setEditingMemberId(null);
-      setNewName('');
-    } catch (error) {
-      console.error('Failed to rename member:', error);
-      alert(t('members.renameFailed'));
-    }
-  };
-
-  const startRemove = (member: Member) => {
+  const startRemove = (member: Member, e: Event) => {
+    e.stopPropagation(); // Prevent triggering member click
     setMemberToRemove(member);
+  };
+
+  const handleMemberClick = (member: Member) => {
+    if (props.onMemberClick) {
+      props.onMemberClick(member);
+    }
   };
 
   const cancelRemove = () => {
@@ -168,104 +159,67 @@ export const MemberList: Component<MemberListProps> = (props) => {
               classList={{
                 'member-current': member.id === props.currentUserPublicKeyHash,
                 'member-departed': member.status === 'departed',
+                'member-item--clickable': !!props.onMemberClick,
               }}
+              onClick={() => handleMemberClick(member)}
+              role={props.onMemberClick ? 'button' : undefined}
+              tabIndex={props.onMemberClick ? 0 : undefined}
+              onKeyPress={(e) => e.key === 'Enter' && handleMemberClick(member)}
             >
               <div class="member-info">
-                <Show
-                  when={editingMemberId() === member.id}
-                  fallback={
-                    <>
-                      <div class="member-row-1">
-                        <div class="member-name-wrapper">
-                          <span class="member-name">{member.name}</span>
-                          <Show when={member.id === props.currentUserPublicKeyHash}>
-                            <span class="member-badge">{t('common.you')}</span>
-                          </Show>
-                          <Show when={member.isVirtual}>
-                            <span class="member-badge-virtual-small">{t('members.virtual')}</span>
-                          </Show>
-                        </div>
-                        <span class="member-joined-date">{formatJoinedDate(member.joinedAt)}</span>
-                      </div>
+                <div class="member-row-1">
+                  <div class="member-name-wrapper">
+                    <span class="member-name">{member.name}</span>
+                    <Show when={member.id === props.currentUserPublicKeyHash}>
+                      <span class="member-badge">{t('common.you')}</span>
+                    </Show>
+                    <Show when={member.isVirtual}>
+                      <span class="member-badge-virtual-small">{t('members.virtual')}</span>
+                    </Show>
+                    {/* Metadata indicators */}
+                    <Show when={getMemberMetadata(member.id)?.phone}>
+                      <span class="member-metadata-indicator" title={t('memberDetail.hasPhone')}>
+                        📞
+                      </span>
+                    </Show>
+                    <Show when={hasPaymentInfo(member.id)}>
+                      <span class="member-metadata-indicator" title={t('memberDetail.hasPayment')}>
+                        💳
+                      </span>
+                    </Show>
+                  </div>
+                  <span class="member-joined-date">{formatJoinedDate(member.joinedAt)}</span>
+                </div>
 
-                      <div class="member-row-2">
-                        <Show
-                          when={!member.isVirtual && member.id}
-                          fallback={
-                            <span class="member-id-text">
-                              {t('members.addedBy')}: {getAddedByName(member.addedBy)} (
-                              {member.addedBy ? truncateId(member.addedBy) : t('common.unknown')})
-                            </span>
-                          }
-                        >
-                          <span class="member-id-text">ID: {member.id}</span>
-                        </Show>
-                      </div>
+                <div class="member-row-2">
+                  <Show
+                    when={!member.isVirtual && member.id}
+                    fallback={
+                      <span class="member-id-text">
+                        {t('members.addedBy')}: {getAddedByName(member.addedBy)} (
+                        {member.addedBy ? truncateId(member.addedBy) : t('common.unknown')})
+                      </span>
+                    }
+                  >
+                    <span class="member-id-text">ID: {member.id}</span>
+                  </Show>
+                </div>
 
-                      {/* Action buttons - only show for active members when handlers are provided */}
-                      <Show
-                        when={
-                          member.status === 'active' &&
-                          (props.onRenameMember || props.onRemoveMember)
-                        }
-                      >
-                        <div
-                          class="member-actions"
-                          style="margin-top: var(--space-sm); display: flex; gap: var(--space-sm);"
-                        >
-                          <Show when={props.onRenameMember}>
-                            <button
-                              class="btn btn-sm btn-secondary"
-                              onClick={() => startRename(member)}
-                              style="font-size: var(--font-size-sm); padding: var(--space-xs) var(--space-sm);"
-                            >
-                              ✏️ {t('members.rename')}
-                            </button>
-                          </Show>
-                          <Show when={props.onRemoveMember}>
-                            <button
-                              class="btn btn-sm btn-danger"
-                              onClick={() => startRemove(member)}
-                              disabled={!canRemoveMember(member.id)}
-                              title={!canRemoveMember(member.id) ? t('members.cannotRemove') : ''}
-                              style="font-size: var(--font-size-sm); padding: var(--space-xs) var(--space-sm);"
-                            >
-                              🗑️ {t('members.remove')}
-                            </button>
-                          </Show>
-                        </div>
-                      </Show>
-                    </>
-                  }
-                >
-                  {/* Editing state */}
-                  <div style="width: 100%;">
-                    <div style="margin-bottom: var(--space-sm);">
-                      <input
-                        type="text"
-                        class="input"
-                        value={newName()}
-                        onInput={(e) => setNewName(e.currentTarget.value)}
-                        placeholder={t('members.newNamePlaceholder')}
-                        style="width: 100%;"
-                      />
-                    </div>
-                    <div style="display: flex; gap: var(--space-sm);">
-                      <button
-                        class="btn btn-sm btn-primary"
-                        onClick={() => confirmRename(member.id)}
-                        style="font-size: var(--font-size-sm); padding: var(--space-xs) var(--space-sm);"
-                      >
-                        ✓ {t('common.save')}
-                      </button>
-                      <button
-                        class="btn btn-sm btn-secondary"
-                        onClick={cancelRename}
-                        style="font-size: var(--font-size-sm); padding: var(--space-xs) var(--space-sm);"
-                      >
-                        ✕ {t('common.cancel')}
-                      </button>
-                    </div>
+                {/* Remove button - only show for active members when handler is provided */}
+                <Show when={member.status === 'active' && props.onRemoveMember}>
+                  <div
+                    class="member-actions"
+                    style="margin-top: var(--space-sm); display: flex; gap: var(--space-sm);"
+                  >
+                    <button
+                      class="btn btn-sm btn-danger"
+                      onClick={(e) => startRemove(member, e)}
+                      disabled={!canRemoveMember(member.id)}
+                      title={!canRemoveMember(member.id) ? t('members.cannotRemove') : ''}
+                      style="font-size: var(--font-size-sm); padding: var(--space-xs) var(--space-sm);"
+                    >
+                      🗑️ {t('members.remove')}
+                    </button>
                   </div>
                 </Show>
               </div>

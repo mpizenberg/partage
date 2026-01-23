@@ -28,13 +28,13 @@ import type {
   MemberEvent,
   MemberState,
   MemberOperationValidation,
+  MemberPaymentInfo,
+  GroupMetadataState,
+  GroupLink,
 } from '@partage/shared';
 import { PartageDB } from '../storage/indexeddb.js';
 import {
-  computeMemberState,
   computeAllMemberStates,
-  getActiveMembers as getActiveMemberStates,
-  getRetiredMembers as getRetiredMemberStates,
   resolveCanonicalMemberId as resolveCanonicalMemberIdFromEvents,
   buildCanonicalIdMap,
   canRenameMember,
@@ -128,7 +128,9 @@ export class LoroEntryStore {
   private entries: LoroMap;
   private members: LoroMap;
   private memberAliases: LoroMap;
-  private memberEvents: LoroMap; // New: event-based member management
+  private memberEvents: LoroMap; // Event-based member management
+  private groupMetadata: LoroMap; // Latest group metadata state (keyed by groupId)
+  private memberMetadata: LoroMap; // Latest member metadata state (keyed by memberId)
   private settlementPreferences: LoroMap;
   private lastSavedVersion: any | null = null; // Track last saved version for incremental updates
   private keyCache: Map<string, CryptoKey> = new Map(); // Cache imported keys to avoid repeated crypto imports
@@ -151,6 +153,8 @@ export class LoroEntryStore {
     this.members = this.loro.getMap('members');
     this.memberAliases = this.loro.getMap('memberAliases');
     this.memberEvents = this.loro.getMap('memberEvents');
+    this.groupMetadata = this.loro.getMap('groupMetadata');
+    this.memberMetadata = this.loro.getMap('memberMetadata');
     this.settlementPreferences = this.loro.getMap('settlementPreferences');
   }
 
@@ -588,6 +592,8 @@ export class LoroEntryStore {
   /**
    * Add a member event to the store
    * Events are immutable - once added, they cannot be modified
+   *
+   * Note: Member metadata is stored separately via setMemberMetadata(), not as events.
    */
   addMemberEvent(event: MemberEvent): void {
     this.transact(() => {
@@ -623,7 +629,72 @@ export class LoroEntryStore {
   }
 
   /**
-   * Get all member events from the store
+   * Set member metadata (encrypted).
+   * Stores the COMPLETE state directly - no event iteration needed.
+   * The full history is preserved in Loro's oplog on the server, but locally we only keep the latest.
+   */
+  async setMemberMetadata(
+    memberId: string,
+    metadata: { phone?: string; payment?: MemberPaymentInfo; info?: string },
+    groupKey: CryptoKey
+  ): Promise<void> {
+    // Store COMPLETE state - use empty string for cleared text fields, empty object for payment
+    const sensitiveData = {
+      phone: metadata.phone ?? '',
+      payment: metadata.payment ?? {},
+      info: metadata.info ?? '',
+    };
+
+    const encrypted = await encryptJSON(sensitiveData, groupKey);
+    const encryptedPayload = this.serializeEncryptedData(encrypted);
+
+    this.transact(() => {
+      const metaMap = this.memberMetadata.setContainer(memberId, new LoroMap()) as LoroMap;
+      metaMap.set('timestamp', Date.now());
+      metaMap.set('encryptedPayload', encryptedPayload);
+    });
+  }
+
+  /**
+   * Get member metadata (decrypted).
+   * Direct O(1) lookup - no iteration needed.
+   */
+  async getMemberMetadata(
+    memberId: string,
+    groupKey: CryptoKey
+  ): Promise<{ phone?: string; payment?: MemberPaymentInfo; info?: string } | null> {
+    const metaMap = this.memberMetadata.get(memberId);
+    if (!metaMap || !(metaMap instanceof LoroMap)) return null;
+
+    const encryptedPayload = metaMap.get('encryptedPayload') as string | undefined;
+    if (!encryptedPayload) return null;
+
+    try {
+      const encrypted = this.deserializeEncryptedData(encryptedPayload);
+      const decrypted = await decryptJSON<{
+        phone: string;
+        payment: MemberPaymentInfo;
+        info: string;
+      }>(encrypted, groupKey);
+
+      // Convert empty strings back to undefined for cleaner API
+      const result: { phone?: string; payment?: MemberPaymentInfo; info?: string } = {};
+      if (decrypted.phone) result.phone = decrypted.phone;
+      if (decrypted.payment && Object.keys(decrypted.payment).length > 0) {
+        result.payment = decrypted.payment;
+      }
+      if (decrypted.info) result.info = decrypted.info;
+
+      return Object.keys(result).length > 0 ? result : null;
+    } catch (error) {
+      console.warn(`[LoroEntryStore] Failed to decrypt member metadata for ${memberId}:`, error);
+      return null;
+    }
+  }
+
+  /**
+   * Get all member events from the store.
+   * Note: Member metadata is stored separately via setMemberMetadata/getMemberMetadata.
    */
   getMemberEvents(): MemberEvent[] {
     const events: MemberEvent[] = [];
@@ -671,6 +742,7 @@ export class LoroEntryStore {
             replacedById: eventMap.get('replacedById') as string,
           });
           break;
+        // Note: member_metadata_updated is stored separately in memberMetadata map
       }
     }
 
@@ -678,11 +750,12 @@ export class LoroEntryStore {
   }
 
   /**
-   * Get computed state for a specific member from events
+   * Get computed state for a specific member.
+   * Uses cached states - O(1) lookup after initial computation.
    */
   getMemberState(memberId: string): MemberState | null {
-    const events = this.getMemberEvents();
-    return computeMemberState(memberId, events);
+    const states = this.getAllMemberStates();
+    return states.get(memberId) ?? null;
   }
 
   /**
@@ -713,19 +786,21 @@ export class LoroEntryStore {
   }
 
   /**
-   * Get all active members (computed from events)
+   * Get all active members.
+   * Uses cached states - filters from getAllMemberStates().
    */
   getActiveMemberStates(): MemberState[] {
-    const events = this.getMemberEvents();
-    return getActiveMemberStates(events);
+    const states = this.getAllMemberStates();
+    return Array.from(states.values()).filter((s) => s.isActive);
   }
 
   /**
-   * Get all retired members (computed from events)
+   * Get all retired members (not replaced).
+   * Uses cached states - filters from getAllMemberStates().
    */
   getRetiredMemberStates(): MemberState[] {
-    const events = this.getMemberEvents();
-    return getRetiredMemberStates(events);
+    const states = this.getAllMemberStates();
+    return Array.from(states.values()).filter((s) => s.isRetired && !s.isReplaced);
   }
 
   /**
@@ -794,7 +869,7 @@ export class LoroEntryStore {
       return validation;
     }
 
-    const state = computeMemberState(memberId, events);
+    const state = this.getMemberState(memberId);
     const previousName = state!.name;
 
     const event = createMemberRenamedEvent(memberId, previousName, newName, actorId);
@@ -863,6 +938,93 @@ export class LoroEntryStore {
     return 'valid' in result && !result.valid;
   }
 
+  /**
+   * Update member metadata (convenience wrapper for setMemberMetadata)
+   */
+  async updateMemberMetadata(
+    memberId: string,
+    metadata: { phone?: string; payment?: MemberPaymentInfo; info?: string },
+    _actorId: string,
+    groupKey: CryptoKey
+  ): Promise<void> {
+    await this.setMemberMetadata(memberId, metadata, groupKey);
+  }
+
+  // ==================== Group Metadata Management ====================
+
+  /**
+   * Set group metadata (encrypted).
+   * Stores the COMPLETE state directly - no event iteration needed.
+   * The full history is preserved in Loro's oplog on the server, but locally we only keep the latest.
+   */
+  async setGroupMetadata(
+    groupId: string,
+    metadata: { subtitle?: string; description?: string; links?: GroupLink[] },
+    groupKey: CryptoKey
+  ): Promise<void> {
+    // Store COMPLETE state - use empty string for cleared text fields, empty array for links
+    const sensitiveData = {
+      subtitle: metadata.subtitle ?? '',
+      description: metadata.description ?? '',
+      links: metadata.links ?? [],
+    };
+
+    const encrypted = await encryptJSON(sensitiveData, groupKey);
+    const encryptedPayload = this.serializeEncryptedData(encrypted);
+
+    this.transact(() => {
+      const metaMap = this.groupMetadata.setContainer(groupId, new LoroMap()) as LoroMap;
+      metaMap.set('timestamp', Date.now());
+      metaMap.set('encryptedPayload', encryptedPayload);
+    });
+  }
+
+  /**
+   * Get group metadata (decrypted).
+   * Direct O(1) lookup - no iteration needed.
+   */
+  async getGroupMetadata(groupId: string, groupKey: CryptoKey): Promise<GroupMetadataState> {
+    const metaMap = this.groupMetadata.get(groupId);
+    if (!metaMap || !(metaMap instanceof LoroMap)) {
+      return { links: [] };
+    }
+
+    const encryptedPayload = metaMap.get('encryptedPayload') as string | undefined;
+    if (!encryptedPayload) {
+      return { links: [] };
+    }
+
+    try {
+      const encrypted = this.deserializeEncryptedData(encryptedPayload);
+      const decrypted = await decryptJSON<{
+        subtitle: string;
+        description: string;
+        links: GroupLink[];
+      }>(encrypted, groupKey);
+
+      return {
+        subtitle: decrypted.subtitle || undefined,
+        description: decrypted.description || undefined,
+        links: decrypted.links || [],
+      };
+    } catch (error) {
+      console.warn(`[LoroEntryStore] Failed to decrypt group metadata for ${groupId}:`, error);
+      return { links: [] };
+    }
+  }
+
+  /**
+   * Update group metadata (convenience wrapper for setGroupMetadata)
+   */
+  async updateGroupMetadata(
+    groupId: string,
+    updates: { subtitle?: string; description?: string; links?: GroupLink[] },
+    _actorId: string,
+    groupKey: CryptoKey
+  ): Promise<void> {
+    await this.setGroupMetadata(groupId, updates, groupKey);
+  }
+
   // ==================== Settlement Preferences ====================
 
   /**
@@ -927,10 +1089,12 @@ export class LoroEntryStore {
     this.members = this.loro.getMap('members');
     this.memberAliases = this.loro.getMap('memberAliases');
     this.memberEvents = this.loro.getMap('memberEvents');
+    this.groupMetadata = this.loro.getMap('groupMetadata');
+    this.memberMetadata = this.loro.getMap('memberMetadata');
     this.settlementPreferences = this.loro.getMap('settlementPreferences');
     this.lastSavedVersion = this.loro.oplogVersion(); // Mark as saved
 
-    // Invalidate member caches since snapshot may have different member events
+    // Invalidate caches since snapshot may have different events
     this.cachedCanonicalIdMap = null;
     this.cachedMemberStates = null;
   }
@@ -979,9 +1143,11 @@ export class LoroEntryStore {
     this.members = this.loro.getMap('members');
     this.memberAliases = this.loro.getMap('memberAliases');
     this.memberEvents = this.loro.getMap('memberEvents');
+    this.groupMetadata = this.loro.getMap('groupMetadata');
+    this.memberMetadata = this.loro.getMap('memberMetadata');
     this.settlementPreferences = this.loro.getMap('settlementPreferences');
 
-    // Invalidate member caches since update may have new member events
+    // Invalidate caches since update may have new events
     this.cachedCanonicalIdMap = null;
     this.cachedMemberStates = null;
   }

@@ -30,7 +30,11 @@ import type {
 } from '@partage/shared';
 
 /**
- * Intermediate state used during event processing
+ * Intermediate state used during event processing.
+ *
+ * Note: Metadata fields (phone, payment, info) are NOT included here.
+ * Metadata is encrypted in CRDT events and must be decrypted separately
+ * using LoroEntryStore.getMemberMetadata().
  */
 interface ProcessingState {
   id: string;
@@ -492,6 +496,11 @@ function applyEvent(state: ProcessingState, event: MemberEvent): void {
         state.replacedById = event.replacedById;
         state.replacedAt = event.timestamp;
       }
+      break;
+
+    case 'member_metadata_updated':
+      // Metadata is now encrypted and handled separately via getMemberMetadata().
+      // Each event stores complete state (not deltas), so only the latest event is needed.
       break;
 
     case 'member_created':

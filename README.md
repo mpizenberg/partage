@@ -114,7 +114,20 @@ See [PLAN.md](./docs/PLAN.md) for the complete implementation roadmap.
 
 ### Current Phase: Phase 8 - Polish & Production 🔄
 
-**Recent Updates** (January 18, 2026):
+**Recent Updates** (January 22, 2026):
+
+- ✅ Group and Member Metadata
+  - **Group metadata**: Optional subtitle (shown in header), description, and links (clickable chips)
+  - **Member metadata**: Phone, payment info (IBAN, Wero, Lydia, Revolut, PayPal, Venmo, BTC, Cardano), and free-text notes
+  - All metadata encrypted with group key (AES-256-GCM) - server cannot read content
+  - Event-sourced architecture with complete state per event (enables field deletion)
+  - Timestamps unencrypted for efficient latest-event lookup
+  - GroupInfoSection on Members tab with edit modal
+  - Clickable member cards that open detail modal (replaced inline rename buttons)
+  - Optional metadata fields during group creation
+  - Full i18n support (EN, FR, ES)
+
+**Previous Updates** (January 18, 2026):
 
 - ✅ Proof-of-Work anti-spam protection for group creation
   - Server-side challenge/response with HMAC-signed challenges

@@ -1,9 +1,13 @@
-import { Component, Show, createSignal, createMemo } from 'solid-js';
+import { Component, Show, createSignal, createMemo, createEffect, on } from 'solid-js';
 import { useAppContext } from '../../context/AppContext';
 import { useI18n } from '../../../i18n';
 import { MemberList } from './MemberList';
+import { MemberDetailModal } from './MemberDetailModal';
 import { InviteModal } from '../invites/InviteModal';
 import { Button } from '../common/Button';
+import { GroupInfoSection } from '../groups/GroupInfoSection';
+import { GroupMetadataModal } from '../groups/GroupMetadataModal';
+import type { Member, MemberState, GroupLink, MemberPaymentInfo } from '@partage/shared';
 
 export interface MembersTabProps {
   disabled?: boolean;
@@ -20,12 +24,119 @@ export const MembersTab: Component<MembersTabProps> = (props) => {
     identity,
     balances,
     loroStore,
+    groupMetadata,
+    getMemberMetadata,
+    updateGroupMetadata,
+    updateMemberMetadata,
   } = useAppContext();
   const { t } = useI18n();
   const [showInviteModal, setShowInviteModal] = createSignal(false);
   const [inviteLink, setInviteLink] = createSignal<string | null>(null);
   const [showAddMemberModal, setShowAddMemberModal] = createSignal(false);
   const [newMemberName, setNewMemberName] = createSignal('');
+  const [showGroupMetadataModal, setShowGroupMetadataModal] = createSignal(false);
+  const [selectedMember, setSelectedMember] = createSignal<Member | null>(null);
+  const [selectedMemberMetadata, setSelectedMemberMetadata] = createSignal<{
+    phone?: string;
+    payment?: MemberPaymentInfo;
+    info?: string;
+  } | null>(null);
+
+  // Cache of member metadata for list indicators (loaded in background)
+  const [memberMetadataMap, setMemberMetadataMap] = createSignal<
+    Map<string, { phone?: string; payment?: MemberPaymentInfo; info?: string }>
+  >(new Map());
+
+  // Load all member metadata when members change (for list indicators)
+  createEffect(
+    on([members, loroStore], async ([memberList, store]) => {
+      if (!store || memberList.length === 0) return;
+
+      const metadataMap = new Map<
+        string,
+        { phone?: string; payment?: MemberPaymentInfo; info?: string }
+      >();
+
+      // Load metadata for all members in parallel
+      await Promise.all(
+        memberList.map(async (member) => {
+          const metadata = await getMemberMetadata(member.id);
+          if (metadata) {
+            metadataMap.set(member.id, metadata);
+          }
+        })
+      );
+
+      setMemberMetadataMap(metadataMap);
+    })
+  );
+
+  // Get basic member state for selected member (without encrypted metadata)
+  const selectedMemberState = createMemo((): MemberState | null => {
+    const member = selectedMember();
+    const store = loroStore();
+    if (!member || !store) return null;
+    const state = store.getMemberState(member.id);
+    // Merge in decrypted metadata if available
+    if (state && selectedMemberMetadata()) {
+      return { ...state, ...selectedMemberMetadata() };
+    }
+    return state;
+  });
+
+  const handleSaveGroupMetadata = async (metadata: {
+    subtitle?: string;
+    description?: string;
+    links?: GroupLink[];
+  }) => {
+    await updateGroupMetadata(metadata);
+  };
+
+  const handleSaveMemberDetails = async (updates: {
+    name?: string;
+    phone?: string;
+    payment?: MemberPaymentInfo;
+    info?: string;
+  }) => {
+    const member = selectedMember();
+    if (!member) return;
+
+    // If name changed, rename member
+    if (updates.name && updates.name !== member.name) {
+      await renameMember(member.id, updates.name);
+    }
+
+    // Update metadata
+    await updateMemberMetadata(member.id, {
+      phone: updates.phone,
+      payment: updates.payment,
+      info: updates.info,
+    });
+
+    // Update the metadata map for list indicators
+    const newMetadata = { phone: updates.phone, payment: updates.payment, info: updates.info };
+    const hasAnyMetadata =
+      updates.phone ||
+      updates.info ||
+      (updates.payment && Object.values(updates.payment).some((v) => !!v));
+    setMemberMetadataMap((prev) => {
+      const updated = new Map(prev);
+      if (hasAnyMetadata) {
+        updated.set(member.id, newMetadata);
+      } else {
+        updated.delete(member.id);
+      }
+      return updated;
+    });
+  };
+
+  const handleMemberClick = async (member: Member) => {
+    setSelectedMember(member);
+    setSelectedMemberMetadata(null); // Clear previous metadata
+    // Load decrypted metadata asynchronously
+    const metadata = await getMemberMetadata(member.id);
+    setSelectedMemberMetadata(metadata);
+  };
 
   const activeMembersCount = createMemo(
     () => members().filter((m) => m.status === 'active').length
@@ -76,6 +187,17 @@ export const MembersTab: Component<MembersTabProps> = (props) => {
         </div>
       </Show>
 
+      {/* Group Info Section */}
+      <div class="members-section">
+        <h2 class="members-section-title">{t('groupInfo.title')}</h2>
+        <GroupInfoSection
+          description={groupMetadata().description}
+          links={groupMetadata().links}
+          onEdit={() => setShowGroupMetadataModal(true)}
+          disabled={props.disabled}
+        />
+      </div>
+
       {/* Member List */}
       <div class="members-section">
         <h2 class="members-section-title">
@@ -86,7 +208,8 @@ export const MembersTab: Component<MembersTabProps> = (props) => {
           currentUserPublicKeyHash={identity()?.publicKeyHash}
           balances={balances()}
           loroStore={loroStore()}
-          onRenameMember={props.disabled ? undefined : renameMember}
+          memberMetadataMap={memberMetadataMap()}
+          onMemberClick={handleMemberClick}
           onRemoveMember={props.disabled ? undefined : removeMember}
         />
       </div>
@@ -129,6 +252,24 @@ export const MembersTab: Component<MembersTabProps> = (props) => {
           </div>
         </div>
       </Show>
+
+      {/* Group Metadata Modal */}
+      <GroupMetadataModal
+        isOpen={showGroupMetadataModal()}
+        onClose={() => setShowGroupMetadataModal(false)}
+        currentMetadata={groupMetadata()}
+        onSave={handleSaveGroupMetadata}
+      />
+
+      {/* Member Detail Modal */}
+      <MemberDetailModal
+        isOpen={selectedMember() !== null}
+        onClose={() => setSelectedMember(null)}
+        member={selectedMember()}
+        memberState={selectedMemberState()}
+        onSave={handleSaveMemberDetails}
+        canEdit={!props.disabled}
+      />
     </div>
   );
 };

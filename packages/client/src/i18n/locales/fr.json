@@ -103,7 +103,8 @@
     "creating": "Création...",
     "solvingPoW": "Vérification anti-spam en cours...",
     "powProgress": "{hashes} hashs calculés ({rate} H/s)",
-    "preparingInBackground": "Préparation de la vérification..."
+    "preparingInBackground": "Préparation de la vérification...",
+    "optionalFields": "Optionnel : Description & Liens"
   },
 
   "joinGroup": {
@@ -367,6 +368,48 @@
     "removeMemberQuestion": "Supprimer le membre ?",
     "removeConfirm": "Êtes-vous sûr de vouloir supprimer {name} du groupe ? Il sera marqué comme parti mais restera dans l'historique d'audit.",
     "removeMember": "Supprimer le membre"
+  },
+
+  "groupInfo": {
+    "title": "Infos du groupe",
+    "addInfo": "Ajouter des infos",
+    "clickToEdit": "Cliquez pour modifier",
+    "subtitle": "Sous-titre",
+    "subtitlePlaceholder": "ex. : Vacances été 2024",
+    "description": "Description",
+    "descriptionPlaceholder": "ex. : Dépenses pour notre voyage à Barcelone",
+    "links": "Liens",
+    "addLink": "Ajouter",
+    "removeLink": "Supprimer le lien",
+    "linkLabelPlaceholder": "Libellé",
+    "linkUrlPlaceholder": "https://...",
+    "linkRequiredFields": "Le libellé et l'URL sont requis",
+    "invalidUrl": "Format d'URL invalide",
+    "editTitle": "Modifier les infos du groupe"
+  },
+
+  "memberDetail": {
+    "title": "Détails du membre",
+    "editTitle": "Modifier le membre",
+    "joined": "A rejoint",
+    "name": "Nom",
+    "namePlaceholder": "Entrez le nom",
+    "nameRequired": "Le nom est requis",
+    "phone": "Téléphone",
+    "phonePlaceholder": "+33 6 12 34 56 78",
+    "paymentInfo": "Infos de paiement",
+    "info": "Notes",
+    "infoPlaceholder": "Informations supplémentaires...",
+    "ibanPlaceholder": "FR76 1234 5678 9012 3456 7890 123",
+    "weroPlaceholder": "+33 6 12 34 56 78",
+    "lydiaPlaceholder": "identifiant-lydia",
+    "revolutPlaceholder": "@identifiant-revolut",
+    "paypalPlaceholder": "paypal@email.com",
+    "venmoPlaceholder": "@identifiant-venmo",
+    "btcPlaceholder": "bc1q...",
+    "cardanoPlaceholder": "addr1...",
+    "hasPhone": "A un numéro de téléphone",
+    "hasPayment": "A des infos de paiement"
   },
 
   "invite": {

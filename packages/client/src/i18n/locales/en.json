@@ -103,7 +103,8 @@
     "creating": "Creating...",
     "solvingPoW": "Verifying you're not a robot...",
     "powProgress": "{hashes} hashes computed ({rate} H/s)",
-    "preparingInBackground": "Preparing verification..."
+    "preparingInBackground": "Preparing verification...",
+    "optionalFields": "Optional: Description & Links"
   },
 
   "joinGroup": {
@@ -367,6 +368,48 @@
     "removeMemberQuestion": "Remove Member?",
     "removeConfirm": "Are you sure you want to remove {name} from the group? They will be marked as departed but will remain in the audit history.",
     "removeMember": "Remove Member"
+  },
+
+  "groupInfo": {
+    "title": "Group Info",
+    "addInfo": "Add group info",
+    "clickToEdit": "Click to edit",
+    "subtitle": "Subtitle",
+    "subtitlePlaceholder": "e.g., Summer 2024 vacation",
+    "description": "Description",
+    "descriptionPlaceholder": "e.g., Expenses for our trip to Barcelona",
+    "links": "Links",
+    "addLink": "Add",
+    "removeLink": "Remove link",
+    "linkLabelPlaceholder": "Label",
+    "linkUrlPlaceholder": "https://...",
+    "linkRequiredFields": "Both label and URL are required",
+    "invalidUrl": "Invalid URL format",
+    "editTitle": "Edit Group Info"
+  },
+
+  "memberDetail": {
+    "title": "Member Details",
+    "editTitle": "Edit Member",
+    "joined": "Joined",
+    "name": "Name",
+    "namePlaceholder": "Enter name",
+    "nameRequired": "Name is required",
+    "phone": "Phone",
+    "phonePlaceholder": "+1 234 567 8900",
+    "paymentInfo": "Payment Info",
+    "info": "Notes",
+    "infoPlaceholder": "Any additional info...",
+    "ibanPlaceholder": "FR76 1234 5678 9012 3456 7890 123",
+    "weroPlaceholder": "+33 6 12 34 56 78",
+    "lydiaPlaceholder": "lydia-username",
+    "revolutPlaceholder": "@revolut-username",
+    "paypalPlaceholder": "paypal@email.com",
+    "venmoPlaceholder": "@venmo-username",
+    "btcPlaceholder": "bc1q...",
+    "cardanoPlaceholder": "addr1...",
+    "hasPhone": "Has phone number",
+    "hasPayment": "Has payment info"
   },
 
   "invite": {

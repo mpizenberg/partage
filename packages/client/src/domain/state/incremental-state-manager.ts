@@ -28,7 +28,6 @@ import type {
   MemberEvent,
   MemberState,
 } from '@partage/shared';
-import { computeAllMemberStates, buildCanonicalIdMap } from '../members/member-state.js';
 import {
   generateActivityForNewEntry,
   generateActivityForModifiedEntry,
@@ -106,9 +105,9 @@ export class IncrementalStateManager {
     const allEntries = await store.getAllEntries(groupId, groupKey);
     const memberEvents = store.getMemberEvents();
 
-    // Build member state caches
-    const memberStates = computeAllMemberStates(memberEvents);
-    const canonicalIdMap = buildCanonicalIdMap(memberEvents);
+    // Use store's cached member states and canonical ID map
+    const memberStates = store.getAllMemberStates();
+    const canonicalIdMap = store.getCanonicalIdMap();
 
     // Build entry caches
     const entriesById = new Map<string, Entry>();
@@ -217,7 +216,7 @@ export class IncrementalStateManager {
       };
     }
 
-    // Get member events
+    // Check for new member events
     const memberEvents = store.getMemberEvents();
     const newMemberEvents = memberEvents.filter(
       (e) => !this.state!.processedMemberEventIds.has(e.id)
@@ -239,7 +238,7 @@ export class IncrementalStateManager {
 
     // Handle member events first (may affect canonical ID resolution)
     if (newMemberEvents.length > 0) {
-      const aliasChanged = this.handleMemberEventsChanged(memberEvents, members, groupId);
+      const aliasChanged = this.handleMemberEventsChanged(store, newMemberEvents, members, groupId);
       membersChanged = true;
       // New member events generate activities (joins, renames, retirements, etc.)
       activitiesChanged = true;
@@ -519,45 +518,42 @@ export class IncrementalStateManager {
   /**
    * Handle member event changes.
    * Returns true if canonical ID mappings changed (requiring balance recomputation).
+   * Uses store's cached member states and canonical ID map for efficiency.
    */
   private handleMemberEventsChanged(
-    allMemberEvents: MemberEvent[],
+    store: LoroEntryStore,
+    newMemberEvents: MemberEvent[],
     members: Member[],
     groupId: string
   ): boolean {
     const state = this.state!;
 
-    // IMPORTANT: Find new events BEFORE marking them as processed
-    const newMemberEvents = allMemberEvents.filter((e) => !state.processedMemberEventIds.has(e.id));
-
-    const newMemberStates = computeAllMemberStates(allMemberEvents);
-    const newCanonicalIdMap = buildCanonicalIdMap(allMemberEvents);
+    // Use store's cached member states and canonical ID map
+    const newMemberStates = store.getAllMemberStates();
+    const newCanonicalIdMap = store.getCanonicalIdMap();
 
     // Check if aliases changed (requires balance recomputation)
     const aliasesChanged = !this.mapsEqual(state.canonicalIdMap, newCanonicalIdMap);
 
-    // Update member state caches
+    // Update member state caches (using store's cached values)
     state.memberStates = newMemberStates;
     state.canonicalIdMap = newCanonicalIdMap;
-    state.memberEventsVersion = allMemberEvents.length;
 
-    // Track all member events as processed (after filtering for new ones)
-    for (const event of allMemberEvents) {
+    // Track new member events as processed
+    for (const event of newMemberEvents) {
       state.processedMemberEventIds.add(event.id);
     }
 
     // Generate activities for new member events
-    if (newMemberEvents.length > 0) {
-      const memberActivities = generateActivitiesFromMemberEvents(
-        newMemberEvents,
-        members,
-        state.canonicalIdMap
-      );
-      // Set groupId for member activities (function returns them with empty groupId)
-      for (const activity of memberActivities) {
-        activity.groupId = groupId;
-        state.activities = insertActivitySorted(state.activities, activity);
-      }
+    const memberActivities = generateActivitiesFromMemberEvents(
+      newMemberEvents,
+      members,
+      state.canonicalIdMap
+    );
+    // Set groupId for member activities (function returns them with empty groupId)
+    for (const activity of memberActivities) {
+      activity.groupId = groupId;
+      state.activities = insertActivitySorted(state.activities, activity);
     }
 
     return aliasesChanged;

@@ -77,7 +77,33 @@ export type MemberEvent =
   | MemberRenamedEvent
   | MemberRetiredEvent
   | MemberUnretiredEvent
-  | MemberReplacedEvent;
+  | MemberReplacedEvent
+  | MemberMetadataUpdatedEvent;
+
+/**
+ * Member payment information
+ */
+export interface MemberPaymentInfo {
+  iban?: string;
+  wero?: string;
+  lydia?: string;
+  revolut?: string;
+  paypal?: string;
+  venmo?: string;
+  btc?: string;
+  cardano?: string;
+}
+
+/**
+ * Member metadata updated event
+ * Contains optional fields - only provided fields are updated
+ */
+export interface MemberMetadataUpdatedEvent extends BaseMemberEvent {
+  type: 'member_metadata_updated';
+  phone?: string;
+  payment?: MemberPaymentInfo;
+  info?: string;
+}
 
 /**
  * Computed member state from events
@@ -96,6 +122,11 @@ export interface MemberState {
   isReplaced: boolean;
   replacedById?: string; // The member ID that replaced this one
   replacedAt?: number;
+
+  // Metadata (optional)
+  phone?: string;
+  payment?: MemberPaymentInfo;
+  info?: string;
 
   // Convenience computed
   isActive: boolean; // !isRetired && !isReplaced

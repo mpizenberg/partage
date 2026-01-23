@@ -103,7 +103,8 @@
     "creating": "Creando...",
     "solvingPoW": "Verificando que no eres un robot...",
     "powProgress": "{hashes} hashes calculados ({rate} H/s)",
-    "preparingInBackground": "Preparando verificación..."
+    "preparingInBackground": "Preparando verificación...",
+    "optionalFields": "Opcional: Descripción y Enlaces"
   },
 
   "joinGroup": {
@@ -367,6 +368,48 @@
     "removeMemberQuestion": "¿Eliminar Miembro?",
     "removeConfirm": "¿Estás seguro de que quieres eliminar a {name} del grupo? Será marcado como retirado pero permanecerá en el historial de auditoría.",
     "removeMember": "Eliminar Miembro"
+  },
+
+  "groupInfo": {
+    "title": "Información del Grupo",
+    "addInfo": "Agregar información",
+    "clickToEdit": "Clic para editar",
+    "subtitle": "Subtítulo",
+    "subtitlePlaceholder": "ej., Vacaciones verano 2024",
+    "description": "Descripción",
+    "descriptionPlaceholder": "ej., Gastos de nuestro viaje a Barcelona",
+    "links": "Enlaces",
+    "addLink": "Agregar",
+    "removeLink": "Eliminar enlace",
+    "linkLabelPlaceholder": "Etiqueta",
+    "linkUrlPlaceholder": "https://...",
+    "linkRequiredFields": "Se requieren etiqueta y URL",
+    "invalidUrl": "Formato de URL inválido",
+    "editTitle": "Editar Información del Grupo"
+  },
+
+  "memberDetail": {
+    "title": "Detalles del Miembro",
+    "editTitle": "Editar Miembro",
+    "joined": "Se unió",
+    "name": "Nombre",
+    "namePlaceholder": "Ingresa el nombre",
+    "nameRequired": "El nombre es obligatorio",
+    "phone": "Teléfono",
+    "phonePlaceholder": "+34 612 345 678",
+    "paymentInfo": "Información de Pago",
+    "info": "Notas",
+    "infoPlaceholder": "Información adicional...",
+    "ibanPlaceholder": "ES91 2100 0418 4502 0005 1332",
+    "weroPlaceholder": "+34 612 345 678",
+    "lydiaPlaceholder": "usuario-lydia",
+    "revolutPlaceholder": "@usuario-revolut",
+    "paypalPlaceholder": "paypal@email.com",
+    "venmoPlaceholder": "@usuario-venmo",
+    "btcPlaceholder": "bc1q...",
+    "cardanoPlaceholder": "addr1...",
+    "hasPhone": "Tiene número de teléfono",
+    "hasPayment": "Tiene información de pago"
   },
 
   "invite": {

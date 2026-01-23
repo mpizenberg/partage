@@ -44,6 +44,9 @@ import type {
   Activity,
   ActivityFilter,
   EntryFilter,
+  GroupLink,
+  MemberPaymentInfo,
+  GroupMetadataState,
 } from '@partage/shared';
 import { DEFAULT_GROUP_SETTINGS } from '@partage/shared';
 import { generateInviteLink } from '../../domain/invitations/invite-manager';
@@ -99,7 +102,12 @@ interface AppContextValue {
     currency: string,
     members: Member[],
     powSolution: PoWSolution,
-    myUserName?: string
+    myUserName: string,
+    metadata?: {
+      subtitle?: string;
+      description?: string;
+      links?: GroupLink[];
+    }
   ) => Promise<void>;
   selectGroup: (groupId: string) => Promise<void>;
   deselectGroup: () => void;
@@ -156,6 +164,27 @@ interface AppContextValue {
   // Settlement preferences
   updateSettlementPreferences: (userId: string, preferredRecipients: string[]) => Promise<void>;
   preferencesVersion: Accessor<number>; // Version counter to force reactivity
+
+  // Group and member metadata
+  groupMetadata: Accessor<GroupMetadataState>;
+  getMemberMetadata: (memberId: string) => Promise<{
+    phone?: string;
+    payment?: MemberPaymentInfo;
+    info?: string;
+  } | null>;
+  updateGroupMetadata: (metadata: {
+    subtitle?: string;
+    description?: string;
+    links?: GroupLink[];
+  }) => Promise<void>;
+  updateMemberMetadata: (
+    memberId: string,
+    metadata: {
+      phone?: string;
+      payment?: MemberPaymentInfo;
+      info?: string;
+    }
+  ) => Promise<void>;
 
   // Export/Import/Delete
   exportGroups: (groupIds?: string[]) => Promise<string>;
@@ -266,6 +295,9 @@ export const AppProvider: Component<{ children: JSX.Element }> = (props) => {
   // Activities state
   const [allActivities, setAllActivities] = createSignal<Activity[]>([]);
   const [activityFilter, setActivityFilter] = createSignal<ActivityFilter>({});
+
+  // Group metadata (decrypted) - loaded when group is selected
+  const [groupMetadata, setGroupMetadata] = createSignal<GroupMetadataState>({ links: [] });
 
   // Phase 5: Invitations & Multi-User
 
@@ -468,7 +500,12 @@ export const AppProvider: Component<{ children: JSX.Element }> = (props) => {
     currency: string,
     virtualMembers: Member[],
     powSolution: PoWSolution,
-    myUserName: string = 'You'
+    myUserName: string,
+    metadata?: {
+      subtitle?: string;
+      description?: string;
+      links?: GroupLink[];
+    }
   ) => {
     try {
       setIsLoading(true);
@@ -564,6 +601,16 @@ export const AppProvider: Component<{ children: JSX.Element }> = (props) => {
         newLoroStore.createMember(member.id, member.name, currentIdentity.publicKeyHash, {
           isVirtual: true,
         });
+      }
+
+      // Add initial group metadata if provided (encrypted)
+      if (metadata && (metadata.subtitle || metadata.description || metadata.links?.length)) {
+        await newLoroStore.updateGroupMetadata(
+          groupId,
+          metadata,
+          currentIdentity.publicKeyHash,
+          groupKey
+        );
       }
 
       // Save to database
@@ -678,6 +725,17 @@ export const AppProvider: Component<{ children: JSX.Element }> = (props) => {
             await db.saveGroup(refreshedGroup);
             setActiveGroup(refreshedGroup);
 
+            // Refresh group metadata after sync
+            if (groupKeyBase64) {
+              try {
+                const groupKey = await importSymmetricKey(groupKeyBase64);
+                const metadata = await store.getGroupMetadata(groupId, groupKey);
+                setGroupMetadata(metadata);
+              } catch (metaErr) {
+                console.warn('[AppContext] Failed to refresh group metadata:', metaErr);
+              }
+            }
+
             // IMPORTANT: Trigger reactive update for settlement preferences and other Loro data
             // Increment version counter to force settlement plan recalculation
             setPreferencesVersion((v) => v + 1);
@@ -689,6 +747,18 @@ export const AppProvider: Component<{ children: JSX.Element }> = (props) => {
 
       // Load entries and calculate balances (before sync)
       await refreshEntries(groupId, group.currentKeyVersion);
+
+      // Load decrypted group metadata
+      if (groupKeyBase64) {
+        try {
+          const groupKey = await importSymmetricKey(groupKeyBase64);
+          const metadata = await store.getGroupMetadata(groupId, groupKey);
+          setGroupMetadata(metadata);
+        } catch (metaErr) {
+          console.warn('[AppContext] Failed to load group metadata:', metaErr);
+          setGroupMetadata({ links: [] });
+        }
+      }
 
       // Perform initial sync if online
       if (navigator.onLine && autoSyncEnabled()) {
@@ -1940,6 +2010,165 @@ export const AppProvider: Component<{ children: JSX.Element }> = (props) => {
     }
   };
 
+  // Update group metadata (subtitle, description, links)
+  const updateGroupMetadata = async (metadata: {
+    subtitle?: string;
+    description?: string;
+    links?: GroupLink[];
+  }) => {
+    try {
+      setIsLoading(true);
+      setError(null);
+
+      const currentIdentity = identity();
+      const group = activeGroup();
+      const store = loroStore();
+      const manager = syncManager();
+
+      if (!currentIdentity || !group || !store) {
+        throw new Error('Invalid state: missing identity, group, or store');
+      }
+
+      // Get group key for encryption
+      const keyString = await db.getGroupKey(group.id);
+      if (!keyString) {
+        throw new Error('Group key not found');
+      }
+      const groupKey = await importSymmetricKey(keyString);
+
+      // Get version BEFORE updating metadata
+      const versionBefore = store.getVersion();
+
+      // Update metadata in Loro (encrypted)
+      await store.updateGroupMetadata(group.id, metadata, currentIdentity.publicKeyHash, groupKey);
+
+      // Refresh the groupMetadata signal with the new decrypted state
+      const updatedMetadata = await store.getGroupMetadata(group.id, groupKey);
+      setGroupMetadata(updatedMetadata);
+
+      // Trigger reactive update
+      setLoroStore(store);
+
+      // Sync to server
+      if (manager && autoSyncEnabled()) {
+        try {
+          const updateBytes = store.exportFrom(versionBefore);
+          await manager.pushUpdate(
+            group.id,
+            currentIdentity.publicKeyHash,
+            updateBytes,
+            versionBefore
+          );
+          setSyncState(manager.getState());
+        } catch (syncError) {
+          console.warn('[AppContext] Failed to sync group metadata, queued for later:', syncError);
+        }
+      }
+
+      // Save snapshot to IndexedDB
+      await snapshotManager().saveIncremental(group.id, store);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to update group metadata');
+      throw err;
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Update member metadata (phone, payment info, etc.)
+  const updateMemberMetadata = async (
+    memberId: string,
+    metadata: {
+      phone?: string;
+      payment?: MemberPaymentInfo;
+      info?: string;
+    }
+  ) => {
+    try {
+      setIsLoading(true);
+      setError(null);
+
+      const currentIdentity = identity();
+      const group = activeGroup();
+      const store = loroStore();
+      const manager = syncManager();
+
+      if (!currentIdentity || !group || !store) {
+        throw new Error('Invalid state: missing identity, group, or store');
+      }
+
+      // Get group key for encryption
+      const keyString = await db.getGroupKey(group.id);
+      if (!keyString) {
+        throw new Error('Group key not found');
+      }
+      const groupKey = await importSymmetricKey(keyString);
+
+      // Get version BEFORE updating metadata
+      const versionBefore = store.getVersion();
+
+      // Update metadata in Loro (encrypted)
+      await store.updateMemberMetadata(memberId, metadata, currentIdentity.publicKeyHash, groupKey);
+
+      // Trigger reactive update
+      setLoroStore(store);
+
+      // Sync to server
+      if (manager && autoSyncEnabled()) {
+        try {
+          const updateBytes = store.exportFrom(versionBefore);
+          await manager.pushUpdate(
+            group.id,
+            currentIdentity.publicKeyHash,
+            updateBytes,
+            versionBefore
+          );
+          setSyncState(manager.getState());
+        } catch (syncError) {
+          console.warn('[AppContext] Failed to sync member metadata, queued for later:', syncError);
+        }
+      }
+
+      // Save snapshot to IndexedDB
+      await snapshotManager().saveIncremental(group.id, store);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to update member metadata');
+      throw err;
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  /**
+   * Get decrypted metadata for a specific member
+   * Optimized: only decrypts the latest metadata event for this member
+   * Returns null if member not found or metadata cannot be decrypted
+   */
+  const getMemberMetadata = async (
+    memberId: string
+  ): Promise<{ phone?: string; payment?: MemberPaymentInfo; info?: string } | null> => {
+    const group = activeGroup();
+    const store = loroStore();
+
+    if (!group || !store) {
+      return null;
+    }
+
+    try {
+      const keyString = await db.getGroupKey(group.id);
+      if (!keyString) {
+        return null;
+      }
+      const groupKey = await importSymmetricKey(keyString);
+
+      // Use optimized method that only decrypts the latest event
+      return await store.getMemberMetadata(memberId, groupKey);
+    } catch (err) {
+      console.warn('[AppContext] Failed to get member metadata:', err);
+      return null;
+    }
+  };
+
   /**
    * Add a virtual member to the active group
    * Uses the new event-based member system
@@ -2233,6 +2462,10 @@ export const AppProvider: Component<{ children: JSX.Element }> = (props) => {
     manualSync,
     toggleAutoSync,
     updateSettlementPreferences,
+    groupMetadata,
+    getMemberMetadata,
+    updateGroupMetadata,
+    updateMemberMetadata,
     preferencesVersion,
     exportGroups,
     importGroups,

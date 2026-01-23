@@ -1,4 +1,4 @@
-import { Component, createSignal, Show, onMount, onCleanup } from 'solid-js';
+import { Component, createSignal, Show, For, onMount, onCleanup } from 'solid-js';
 import { useNavigate } from '@solidjs/router';
 import { useI18n } from '../../i18n';
 import { useAppContext } from '../context/AppContext';
@@ -9,7 +9,7 @@ import { MemberManager } from '../components/forms/MemberManager';
 import { LoadingSpinner } from '../components/common/LoadingSpinner';
 import { pbClient } from '../../api';
 import { BackgroundPoWSolver, type PoWState } from '../../core/pow/proof-of-work';
-import type { Member } from '@partage/shared';
+import type { Member, GroupLink } from '@partage/shared';
 
 // Predefined currency list
 const CURRENCIES: SelectOption[] = [
@@ -55,6 +55,14 @@ export const CreateGroupScreen: Component<CreateGroupScreenProps> = (props) => {
   const [myName, setMyName] = createSignal('');
   const [members, setMembers] = createSignal<Member[]>([]);
   const [validationError, setValidationError] = createSignal<string | null>(null);
+
+  // Optional metadata state
+  const [subtitle, setSubtitle] = createSignal('');
+  const [description, setDescription] = createSignal('');
+  const [links, setLinks] = createSignal<GroupLink[]>([]);
+  const [newLinkLabel, setNewLinkLabel] = createSignal('');
+  const [newLinkUrl, setNewLinkUrl] = createSignal('');
+  const [showOptionalFields, setShowOptionalFields] = createSignal(false);
 
   // PoW state - using background solver
   const [powState, setPowState] = createSignal<PoWState>({ status: 'idle' });
@@ -105,6 +113,29 @@ export const CreateGroupScreen: Component<CreateGroupScreenProps> = (props) => {
     setMembers(members().filter((m) => m.id !== id));
   };
 
+  const handleAddLink = () => {
+    const label = newLinkLabel().trim();
+    const url = newLinkUrl().trim();
+
+    if (!label || !url) return;
+
+    // Basic URL validation
+    try {
+      new URL(url);
+    } catch {
+      setValidationError(t('groupInfo.invalidUrl'));
+      return;
+    }
+
+    setLinks([...links(), { label, url }]);
+    setNewLinkLabel('');
+    setNewLinkUrl('');
+  };
+
+  const handleRemoveLink = (index: number) => {
+    setLinks(links().filter((_, i) => i !== index));
+  };
+
   const validate = (): boolean => {
     clearError();
     setValidationError(null);
@@ -142,7 +173,19 @@ export const CreateGroupScreen: Component<CreateGroupScreenProps> = (props) => {
 
       // Create the group with PoW solution
       // Pass only virtual members - AppContext will add current user
-      await createGroup(groupName().trim(), currency(), members(), powSolution, myName().trim());
+      const metadata = {
+        subtitle: subtitle().trim() || undefined,
+        description: description().trim() || undefined,
+        links: links().length > 0 ? links() : undefined,
+      };
+      await createGroup(
+        groupName().trim(),
+        currency(),
+        members(),
+        powSolution,
+        myName().trim(),
+        metadata
+      );
 
       // Navigate to the newly created group
       const group = activeGroup();
@@ -241,6 +284,103 @@ export const CreateGroupScreen: Component<CreateGroupScreenProps> = (props) => {
               />
               <p class="form-hint">{t('createGroup.currencyHint')}</p>
             </div>
+
+            {/* Optional fields toggle */}
+            <div class="form-group">
+              <button
+                type="button"
+                class="btn btn-link"
+                onClick={() => setShowOptionalFields(!showOptionalFields())}
+                style="padding: 0; text-align: left;"
+              >
+                {showOptionalFields() ? '▼' : '▶'} {t('createGroup.optionalFields')}
+              </button>
+            </div>
+
+            {/* Optional metadata fields */}
+            <Show when={showOptionalFields()}>
+              {/* Subtitle */}
+              <div class="form-group">
+                <label class="form-label" for="subtitle">
+                  {t('groupInfo.subtitle')}
+                </label>
+                <Input
+                  id="subtitle"
+                  type="text"
+                  value={subtitle()}
+                  placeholder={t('groupInfo.subtitlePlaceholder')}
+                  onInput={(e) => setSubtitle(e.currentTarget.value)}
+                />
+              </div>
+
+              {/* Description */}
+              <div class="form-group">
+                <label class="form-label" for="description">
+                  {t('groupInfo.description')}
+                </label>
+                <textarea
+                  id="description"
+                  class="input textarea"
+                  value={description()}
+                  onInput={(e) => setDescription(e.currentTarget.value)}
+                  placeholder={t('groupInfo.descriptionPlaceholder')}
+                  rows={3}
+                />
+              </div>
+
+              {/* Links */}
+              <div class="form-group">
+                <label class="form-label">{t('groupInfo.links')}</label>
+
+                {/* Existing links */}
+                <Show when={links().length > 0}>
+                  <div class="group-metadata-links-list" style="margin-bottom: var(--space-sm);">
+                    <For each={links()}>
+                      {(link, index) => (
+                        <div class="group-metadata-link-item">
+                          <span class="group-metadata-link-label">{link.label}</span>
+                          <span class="group-metadata-link-url">{link.url}</span>
+                          <button
+                            type="button"
+                            class="group-metadata-link-remove"
+                            onClick={() => handleRemoveLink(index())}
+                            aria-label={t('groupInfo.removeLink')}
+                          >
+                            ×
+                          </button>
+                        </div>
+                      )}
+                    </For>
+                  </div>
+                </Show>
+
+                {/* Add new link */}
+                <div
+                  class="group-metadata-add-link"
+                  style="display: flex; gap: var(--space-xs); flex-wrap: wrap;"
+                >
+                  <div style="flex: 1; min-width: 120px;">
+                    <Input
+                      type="text"
+                      value={newLinkLabel()}
+                      onInput={(e) => setNewLinkLabel(e.currentTarget.value)}
+                      placeholder={t('groupInfo.linkLabelPlaceholder')}
+                    />
+                  </div>
+                  <div style="flex: 2; min-width: 200px;">
+                    <Input
+                      type="text"
+                      value={newLinkUrl()}
+                      onInput={(e) => setNewLinkUrl(e.currentTarget.value)}
+                      placeholder={t('groupInfo.linkUrlPlaceholder')}
+                    />
+                  </div>
+                  <Button type="button" variant="secondary" onClick={handleAddLink}>
+                    +
+                  </Button>
+                </div>
+              </div>
+            </Show>
           </div>
 
           {/* Members */}

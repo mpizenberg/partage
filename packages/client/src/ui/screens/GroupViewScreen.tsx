@@ -35,6 +35,7 @@ export const GroupViewScreen: Component = () => {
     loroStore,
     db,
     isLoading,
+    groupMetadata,
   } = useAppContext();
   const [showAddEntry, setShowAddEntry] = createSignal(false);
   const [transferInitialData, setTransferInitialData] = createSignal<TransferInitialData | null>(
@@ -215,6 +216,9 @@ export const GroupViewScreen: Component = () => {
             </button>
             <div class="group-info">
               <h1 class="group-name">{activeGroup()?.name}</h1>
+              <Show when={groupMetadata()?.subtitle}>
+                <p class="group-subtitle">{groupMetadata()?.subtitle}</p>
+              </Show>
               <p class={`balance-summary ${getBalanceColor()}`}>{getBalanceText()}</p>
             </div>
             <div class="group-header-actions">

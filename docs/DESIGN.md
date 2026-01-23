@@ -51,8 +51,30 @@ A fully encrypted, local-first bill-splitting application for trusted groups tha
 - User creates group with:
   - Group name
   - Default currency (ISO 4217 code)
+  - Optional metadata:
+    - Subtitle (short description shown in header)
+    - Description (longer text shown on Members tab)
+    - Links (array of label/URL pairs, displayed as clickable chips)
 - Creator becomes first member
 - Encryption keys generated automatically
+
+#### Group Metadata
+
+Groups can have optional metadata that provides context and useful links:
+
+**Fields**:
+
+- **Subtitle**: Short description displayed below group name in header (e.g., "Summer 2024 vacation")
+- **Description**: Longer text displayed on the Members tab (e.g., "Expenses for our trip to Barcelona")
+- **Links**: Array of {label, url} pairs displayed as clickable chips (e.g., "Shared Album", "Airbnb Booking")
+
+**Implementation**:
+
+- Stored via event-sourcing (`group_metadata_updated` events)
+- Each event stores complete state (not deltas) - enables clearing fields
+- Encrypted with group key (AES-256-GCM) - server cannot read content
+- Timestamps unencrypted for efficient latest-event lookup
+- Editable via modal on Members tab
 
 #### Join Group
 
@@ -84,6 +106,7 @@ All member operations use an immutable event-sourced system. Member states are d
 - `member_retired`: Marks member as retired (soft delete)
 - `member_unretired`: Restores retired member to active
 - `member_replaced`: Links member to another (for identity claims)
+- `member_metadata_updated`: Updates member contact/payment info
 
 **Member States (derived from events)**:
 
@@ -114,6 +137,40 @@ All member operations use an immutable event-sourced system. Member states are d
 - All active member names must be unique (case-insensitive)
 - Adding a virtual member checks against existing active names
 - Retired or replaced members don't block name reuse
+
+#### Member Metadata
+
+Members can have optional metadata for contact and payment information:
+
+**Fields**:
+
+- **Phone**: Phone number (displayed as clickable tel: link)
+- **Payment Info**: Payment methods for receiving money
+  - IBAN (bank transfer)
+  - Wero (European instant payment)
+  - Lydia (French payment app)
+  - Revolut
+  - PayPal
+  - Venmo
+  - BTC (Bitcoin address)
+  - Cardano (ADA address)
+- **Info**: Free-text notes
+
+**Implementation**:
+
+- Stored via `member_metadata_updated` events
+- Each event stores complete state (not deltas) - enables clearing fields
+- Encrypted with group key (AES-256-GCM) - server cannot read content
+- Timestamps unencrypted for efficient latest-event lookup
+- Viewable by clicking on member card (opens detail modal)
+- Editable in the same modal
+- Metadata indicators shown on member cards (phone icon, payment icon)
+
+**Use Cases**:
+
+- Share payment details for settlements (IBAN, PayPal, etc.)
+- Quick access to phone numbers for coordination
+- Notes about member preferences or availability
 
 ### 3.2 Financial Entries
 

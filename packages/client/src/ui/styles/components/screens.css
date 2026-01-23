@@ -136,6 +136,13 @@
   color: white;
 }
 
+.group-subtitle {
+  font-size: var(--font-size-sm);
+  margin: var(--space-xs) 0 0 0;
+  color: rgba(255, 255, 255, 0.75);
+  font-weight: var(--font-weight-normal);
+}
+
 .balance-summary {
   font-size: var(--font-size-base);
   margin-top: var(--space-xs);
