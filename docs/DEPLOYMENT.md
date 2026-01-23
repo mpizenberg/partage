@@ -377,7 +377,7 @@ curl https://partage-pocketbase.yourhost.com/api/collections/groups/records
 2. **Always use HTTPS** - WebCrypto API requires secure context
 3. **PocketBase is zero-knowledge** - Server cannot decrypt data
 4. **Backup encryption keys** - Users should export/backup their keypairs
-5. **Rate limiting** - Consider adding rate limiting to PocketBase API
+5. **Rate limiting** - Configure per-IP rate limiting in PocketBase admin settings
 
 ## Scaling Considerations
 
