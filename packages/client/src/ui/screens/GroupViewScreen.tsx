@@ -6,15 +6,14 @@ import { BalanceTab } from '../components/balance/BalanceTab';
 import { EntriesTab } from '../components/entries/EntriesTab';
 import { MembersTab } from '../components/members/MembersTab';
 import { ActivitiesTab } from '../components/activities/ActivitiesTab';
-import { SettleTab } from '../components/settle/SettleTab';
 import { AddEntryModal, type TransferInitialData } from '../components/forms/AddEntryModal';
 import { LanguageSwitcher } from '../components/common/LanguageSwitcher';
 import { LoadingSpinner } from '../components/common/LoadingSpinner';
 import { generateInviteLink } from '../../domain/invitations/invite-manager';
 
-type TabType = 'balance' | 'entries' | 'settle' | 'members' | 'activities';
+type TabType = 'balance' | 'entries' | 'members' | 'activities';
 
-const VALID_TABS: TabType[] = ['balance', 'entries', 'settle', 'members', 'activities'];
+const VALID_TABS: TabType[] = ['balance', 'entries', 'members', 'activities'];
 
 export const GroupViewScreen: Component = () => {
   const { t, locale } = useI18n();
@@ -247,13 +246,6 @@ export const GroupViewScreen: Component = () => {
               <span>{t('tabs.entries')}</span>
             </button>
             <button
-              class={`tab ${activeTab() === 'settle' ? 'active' : ''}`}
-              onClick={() => setActiveTab('settle')}
-            >
-              <span class="tab-icon">✅</span>
-              <span>{t('tabs.settle')}</span>
-            </button>
-            <button
               class={`tab ${activeTab() === 'members' ? 'active' : ''}`}
               onClick={() => setActiveTab('members')}
             >
@@ -308,9 +300,6 @@ export const GroupViewScreen: Component = () => {
             </Match>
             <Match when={activeTab() === 'entries'}>
               <EntriesTab onAddEntry={() => setShowAddEntry(true)} disabled={isUnknownUser()} />
-            </Match>
-            <Match when={activeTab() === 'settle'}>
-              <SettleTab disabled={isUnknownUser()} />
             </Match>
             <Match when={activeTab() === 'members'}>
               <MembersTab disabled={isUnknownUser()} />

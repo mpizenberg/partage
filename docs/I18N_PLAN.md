@@ -159,7 +159,7 @@ const { t } = useI18n()
 **4.5 GroupViewScreen.tsx** (~15 strings)
 
 - `balance.youOwe`, `balance.youAreOwed`, `balance.allSettled`
-- Tab labels: `tabs.balance`, `tabs.entries`, `tabs.settle`, `tabs.members`, `tabs.activity`
+- Tab labels: `tabs.balance`, `tabs.entries`, `tabs.members`, `tabs.activity`
 
 **Files to modify:**
 
@@ -181,8 +181,8 @@ const { t } = useI18n()
 **5.2 Balance components** (~25 strings)
 
 - `BalanceCard.tsx` - Balance display, actions
+- `BalanceTab.tsx` - Balance screen with settlement suggestions and preferences
 - `SettlementPlan.tsx` - Settlement UI
-- `SettleTab.tsx` - Settlement screen
 
 **5.3 Entry components** (~30 strings)
 
@@ -207,7 +207,6 @@ forms/: ExpenseForm.tsx, TransferForm.tsx, AddEntryModal.tsx, MemberManager.tsx
 balance/: BalanceCard.tsx, BalanceTab.tsx, SettlementPlan.tsx
 entries/: EntryCard.tsx, EntryList.tsx, EntriesTab.tsx, EntriesFilter.tsx
 activities/: ActivityCard.tsx, ActivityList.tsx, ActivitiesTab.tsx
-settle/: SettleTab.tsx
 members/: MembersTab.tsx, MemberList.tsx
 invites/: InviteModal.tsx
 ```
@@ -254,9 +253,9 @@ Also update:
   "joinGroup": { "title", "newMember", "existingMember" },
   "validation": { "required", "amountGreaterThanZero", "selectPayer" },
   "categories": { "food", "transport", "accommodation", ... },
-  "tabs": { "balance", "entries", "settle", "members", "activity" },
+  "tabs": { "balance", "entries", "members", "activity" },
   "balance": { "youOwe", "youAreOwed", "allSettled", "noTransactions" },
-  "settle": { "title", "paymentCount", "markAsPaid", "allSettledTitle" },
+  "settle": { "suggestions", "preferences", "usingPreferences", ... },
   "entries": { "addExpense", "addTransfer", "deleteConfirm" },
   "time": { "justNow", "minutesAgo", "hoursAgo", "yesterday", "daysAgo" }
 }

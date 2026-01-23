@@ -126,8 +126,7 @@ All member operations use an immutable event-sourced system. Member states are d
 
 - **Group Selection**: Active members only (count and list)
 - **Members Tab**: Active by default, checkbox to show retired
-- **Balance Tab**: Canonical members only (resolved from entries)
-- **Settle Tab**: Canonical for balances, active only for preferences
+- **Balance Tab**: Canonical members only (resolved from entries); active only for settlement preferences
 - **Activity Tab**: Canonical members (resolved from events)
 - **Entries Tab**: Canonical members (payers/beneficiaries resolved)
 - **New Entry Modal**: Active first (with "you" at top), retired collapsed
@@ -747,7 +746,8 @@ For any entry:
 - `common`: Shared UI strings (Cancel, Save, Delete, etc.)
 - `setup`: Onboarding flow
 - `groups`: Group management
-- `balance`, `entries`, `settle`: Tab-specific strings
+- `balance`, `entries`: Tab-specific strings
+- `settle`: Settlement suggestions and preferences (shown in Balance tab)
 - `expenseForm`, `transferForm`: Form labels and validation
 - `categories`: Expense categories
 - `time`: Relative time expressions

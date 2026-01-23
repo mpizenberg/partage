@@ -200,7 +200,7 @@ See [PLAN.md](./docs/PLAN.md) for the complete implementation roadmap.
 - ✅ Complete screen implementations:
   - SetupScreen: Automatic keypair generation on first launch
   - GroupSelectionScreen & CreateGroupScreen: Group management
-  - GroupViewScreen: Tab navigation (Balance/Entries)
+  - GroupViewScreen: Tab navigation (Balance/Entries/Members/Activities)
   - AddEntryModal: Expense/Transfer forms with validation
 - ✅ Entry components:
   - EntryList: Date-grouped chronological display

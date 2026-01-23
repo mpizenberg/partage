@@ -149,10 +149,9 @@ Set up a monorepo structure for a fully encrypted, local-first bill-splitting PW
 │   │   │       ├── /components    # UI components ✅
 │   │   │       │   ├── /common    # Button, Input, Modal, etc. ✅
 │   │   │       │   ├── /forms     # Entry forms ✅
-│   │   │       │   ├── /balance   # Balance display ✅
+│   │   │       │   ├── /balance   # Balance display & settlement ✅
 │   │   │       │   ├── /entries   # Entry display ✅
 │   │   │       │   ├── /activities # Activity feed ✅
-│   │   │       │   ├── /settle    # Settlement tab ✅
 │   │   │       │   ├── /members   # Member management, detail modal ✅
 │   │   │       │   ├── /groups    # Group info section, metadata modal ✅
 │   │   │       │   ├── /invites   # Invite modal ✅
@@ -453,7 +452,7 @@ Set up a monorepo structure for a fully encrypted, local-first bill-splitting PW
 2. ✅ Member alias system for claiming virtual member identities
 3. ✅ Balance calculations with alias resolution across all components
 4. ✅ Simplified invite flow with instant join
-5. ✅ Fixed member display across EntryCard, BalanceTab, SettleTab, ActivityCard
+5. ✅ Fixed member display across EntryCard, BalanceTab, ActivityCard
 6. ✅ Fixed settlement involvement detection for aliased members
 7. ✅ Fixed member count and filtering in group selection
 8. ✅ Fixed remove button state based on aliased balance lookup
