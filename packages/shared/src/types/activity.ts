@@ -11,7 +11,8 @@ export type ActivityType =
   | 'member_joined'
   | 'member_linked'
   | 'member_renamed'
-  | 'member_retired';
+  | 'member_retired'
+  | 'group_metadata_updated';
 
 /**
  * Base activity interface
@@ -175,6 +176,17 @@ export interface MemberRetiredActivity extends BaseActivity {
 }
 
 /**
+ * Group metadata updated activity
+ * When group metadata (including name) is changed
+ */
+export interface GroupMetadataUpdatedActivity extends BaseActivity {
+  type: 'group_metadata_updated';
+  previousName?: string;
+  newName: string;
+  // Could also track subtitle/description changes if desired
+}
+
+/**
  * Union type of all activities
  */
 export type Activity =
@@ -185,7 +197,8 @@ export type Activity =
   | MemberJoinedActivity
   | MemberLinkedActivity
   | MemberRenamedActivity
-  | MemberRetiredActivity;
+  | MemberRetiredActivity
+  | GroupMetadataUpdatedActivity;
 
 /**
  * Activity filter options

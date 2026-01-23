@@ -14,6 +14,7 @@ export interface GroupMetadataModalProps {
   onClose: () => void;
   currentMetadata: GroupMetadataState;
   onSave: (metadata: {
+    name: string; // MANDATORY
     subtitle?: string;
     description?: string;
     links?: GroupLink[];
@@ -22,6 +23,7 @@ export interface GroupMetadataModalProps {
 
 export const GroupMetadataModal: Component<GroupMetadataModalProps> = (props) => {
   const { t } = useI18n();
+  const [name, setName] = createSignal('');
   const [subtitle, setSubtitle] = createSignal('');
   const [description, setDescription] = createSignal('');
   const [links, setLinks] = createSignal<GroupLink[]>([]);
@@ -33,6 +35,7 @@ export const GroupMetadataModal: Component<GroupMetadataModalProps> = (props) =>
   // Reset form when modal opens
   createEffect(() => {
     if (props.isOpen) {
+      setName(props.currentMetadata.name);
       setSubtitle(props.currentMetadata.subtitle || '');
       setDescription(props.currentMetadata.description || '');
       setLinks([...props.currentMetadata.links]);
@@ -74,7 +77,15 @@ export const GroupMetadataModal: Component<GroupMetadataModalProps> = (props) =>
       setIsSaving(true);
       setError(null);
 
+      const trimmedName = name().trim();
+      if (!trimmedName) {
+        setError(t('groupInfo.nameRequired'));
+        setIsSaving(false);
+        return;
+      }
+
       await props.onSave({
+        name: trimmedName, // MANDATORY
         subtitle: subtitle().trim() || undefined,
         description: description().trim() || undefined,
         links: links(),
@@ -91,6 +102,22 @@ export const GroupMetadataModal: Component<GroupMetadataModalProps> = (props) =>
   return (
     <Modal isOpen={props.isOpen} onClose={props.onClose} title={t('groupInfo.editTitle')}>
       <div class="group-metadata-form">
+        {/* Name - REQUIRED */}
+        <div class="form-group">
+          <label class="form-label" for="group-name">
+            {t('groupInfo.name')} *
+          </label>
+          <Input
+            id="group-name"
+            type="text"
+            value={name()}
+            onInput={(e) => setName(e.currentTarget.value)}
+            placeholder={t('groupInfo.namePlaceholder')}
+            required
+            error={!name().trim() && !!error()}
+          />
+        </div>
+
         {/* Subtitle */}
         <div class="form-group">
           <label class="form-label" for="group-subtitle">

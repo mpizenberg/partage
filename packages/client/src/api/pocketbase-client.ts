@@ -29,7 +29,7 @@ export interface UserRecord extends RecordModel {
  */
 export interface GroupRecord {
   id: string;
-  name: string;
+  // name removed - now stored in encrypted GroupMetadataState
   createdAt: number;
   createdBy: string;
   powChallenge: string; // Stored to prevent challenge reuse
@@ -109,13 +109,12 @@ export class PocketBaseClient {
   /**
    * Create a new group
    * Requires a solved PoW challenge to prevent spam
-   * @param data - Group data
+   * @param data - Group data (name is now stored in encrypted metadata)
    * @param powSolution - The solved PoW challenge
    * @returns The group record with PocketBase-generated ID
    */
   async createGroup(
     data: {
-      name: string;
       createdAt: number;
       createdBy: string;
     },

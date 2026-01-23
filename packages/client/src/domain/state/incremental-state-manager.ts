@@ -27,6 +27,7 @@ import type {
   Member,
   MemberEvent,
   MemberState,
+  GroupMetadataUpdatedEvent,
 } from '@partage/shared';
 import {
   generateActivityForNewEntry,
@@ -35,6 +36,7 @@ import {
   generateActivityForUndeletedEntry,
   insertActivitySorted,
   generateActivitiesFromMemberEvents,
+  generateActivitiesFromGroupMetadataEvents,
   generateAllActivities as generateAllActivitiesFromModule,
 } from '../calculations/activity-generator.js';
 import { calculateBalances } from '../calculations/balance-calculator.js';
@@ -47,6 +49,7 @@ export interface DerivedState {
   // Track what's processed (IDs, not timestamps)
   processedEntryIds: Set<string>;
   processedMemberEventIds: Set<string>;
+  processedGroupMetadataEventIds: Set<string>;
 
   // Cached decrypted entries
   entriesById: Map<string, Entry>;
@@ -77,6 +80,7 @@ export interface StateUpdateResult {
   membersChanged: boolean;
   newEntryCount: number;
   newMemberEventCount: number;
+  newGroupMetadataEventCount: number;
 }
 
 /**
@@ -104,6 +108,7 @@ export class IncrementalStateManager {
     // Get all data from Loro
     const allEntries = await store.getAllEntries(groupId, groupKey);
     const memberEvents = store.getMemberEvents();
+    const groupMetadataEvents = store.getGroupMetadataEvents();
 
     // Use store's cached member states and canonical ID map
     const memberStates = store.getAllMemberStates();
@@ -159,10 +164,11 @@ export class IncrementalStateManager {
     // Calculate balances with pre-computed canonical ID map
     const balances = calculateBalances(activeEntries, canonicalIdMap);
 
-    // Generate activities from entries and member events
+    // Generate activities from entries, member events, and group metadata events
     const activities = this.generateAllActivities(
       allEntries,
       memberEvents,
+      groupMetadataEvents,
       members,
       groupId,
       canonicalIdMap
@@ -172,6 +178,7 @@ export class IncrementalStateManager {
     this.state = {
       processedEntryIds: new Set(allEntries.map((e) => e.id)),
       processedMemberEventIds: new Set(memberEvents.map((e) => e.id)),
+      processedGroupMetadataEventIds: new Set(groupMetadataEvents.map((e) => e.id)),
       entriesById,
       activeEntryIds,
       supersededEntryIds,
@@ -212,6 +219,7 @@ export class IncrementalStateManager {
           membersChanged: true,
           newEntryCount: state.processedEntryIds.size,
           newMemberEventCount: state.processedMemberEventIds.size,
+          newGroupMetadataEventCount: state.processedGroupMetadataEventIds.size,
         },
       };
     }
@@ -220,6 +228,12 @@ export class IncrementalStateManager {
     const memberEvents = store.getMemberEvents();
     const newMemberEvents = memberEvents.filter(
       (e) => !this.state!.processedMemberEventIds.has(e.id)
+    );
+
+    // Check for new group metadata events
+    const groupMetadataEvents = store.getGroupMetadataEvents();
+    const newGroupMetadataEvents = groupMetadataEvents.filter(
+      (e) => !this.state!.processedGroupMetadataEventIds.has(e.id)
     );
 
     // OPTIMIZATION: Only decrypt new entries, not all entries
@@ -252,6 +266,13 @@ export class IncrementalStateManager {
       }
     }
 
+    // Handle group metadata events
+    if (newGroupMetadataEvents.length > 0) {
+      this.handleGroupMetadataEventsChanged(newGroupMetadataEvents, members, groupId);
+      // New group metadata events generate activities
+      activitiesChanged = true;
+    }
+
     // Apply new entries incrementally
     // Order doesn't matter for balances - they're commutative!
     for (const entry of newEntries) {
@@ -268,6 +289,7 @@ export class IncrementalStateManager {
         membersChanged,
         newEntryCount: newEntries.length,
         newMemberEventCount: newMemberEvents.length,
+        newGroupMetadataEventCount: newGroupMetadataEvents.length,
       },
     };
   }
@@ -560,11 +582,41 @@ export class IncrementalStateManager {
   }
 
   /**
-   * Generate all activities from entries and member events.
+   * Handle group metadata event changes.
+   * Generates activities for group metadata updates (like group renames).
+   */
+  private handleGroupMetadataEventsChanged(
+    newGroupMetadataEvents: Array<GroupMetadataUpdatedEvent & { previousName?: string }>,
+    members: Member[],
+    groupId: string
+  ): void {
+    const state = this.state!;
+
+    // Track new group metadata events as processed
+    for (const event of newGroupMetadataEvents) {
+      state.processedGroupMetadataEventIds.add(event.id);
+    }
+
+    // Generate activities for new group metadata events
+    const groupMetadataActivities = generateActivitiesFromGroupMetadataEvents(
+      newGroupMetadataEvents,
+      members,
+      groupId
+    );
+
+    // Insert activities into sorted list
+    for (const activity of groupMetadataActivities) {
+      state.activities = insertActivitySorted(state.activities, activity);
+    }
+  }
+
+  /**
+   * Generate all activities from entries, member events, and group metadata events.
    */
   private generateAllActivities(
     allEntries: Entry[],
     memberEvents: MemberEvent[],
+    groupMetadataEvents: Array<GroupMetadataUpdatedEvent & { previousName?: string }>,
     members: Member[],
     groupId: string,
     canonicalIdMap: Map<string, string>
@@ -574,7 +626,8 @@ export class IncrementalStateManager {
       members,
       groupId,
       memberEvents,
-      canonicalIdMap
+      canonicalIdMap,
+      groupMetadataEvents
     );
   }
 

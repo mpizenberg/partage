@@ -24,6 +24,7 @@ import { LoadingSpinner } from '../components/common/LoadingSpinner';
 import { LanguageSwitcher } from '../components/common/LanguageSwitcher';
 import { pbClient, PocketBaseClient } from '../../api';
 import { base64UrlToBase64 } from '../../domain/invitations/invite-manager';
+import { importSymmetricKey } from '../../core/crypto';
 import type { Member } from '@partage/shared';
 
 export const JoinGroupScreen: Component = () => {
@@ -114,19 +115,10 @@ export const JoinGroupScreen: Component = () => {
         }
       }
 
-      // Try to fetch group metadata from server
-      try {
-        const groupRecord = await pbClient.getGroup(groupId);
-        setGroupName(groupRecord.name);
-      } catch (err) {
-        console.warn('[JoinGroupScreen] Could not fetch group metadata from server:', err);
-        setGroupName('Group'); // Fallback name
-      }
-
-      // Fetch all updates from server to get member list
+      // Fetch all updates from server to get member list and metadata
       const updates = await pbClient.fetchAllUpdates(groupId);
 
-      // Apply updates to a temporary Loro store to get members
+      // Apply updates to a temporary Loro store to get members and metadata
       if (updates.length > 0) {
         const { LoroEntryStore } = await import('../../core/crdt/loro-wrapper');
         const tempStore = new LoroEntryStore(currentIdentity.publicKeyHash);
@@ -134,6 +126,16 @@ export const JoinGroupScreen: Component = () => {
         for (const update of updates) {
           const updateBytes = PocketBaseClient.decodeUpdateData(update.updateData);
           tempStore.applyUpdate(updateBytes);
+        }
+
+        // Load group name from encrypted metadata
+        try {
+          const groupKeyCrypto = await importSymmetricKey(groupKey);
+          const metadata = await tempStore.getGroupMetadata(groupId, groupKeyCrypto);
+          setGroupName(metadata.name);
+        } catch (err) {
+          console.warn('[JoinGroupScreen] Could not load group metadata:', err);
+          setGroupName('Group'); // Fallback name
         }
 
         // Check if we already have this group AND current identity is a member

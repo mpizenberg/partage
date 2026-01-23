@@ -29,6 +29,7 @@ export interface BaseGroupEvent {
  */
 export interface GroupMetadataUpdatedEvent extends BaseGroupEvent {
   type: 'group_metadata_updated';
+  name: string; // MANDATORY: Group name
   subtitle?: string;
   description?: string;
   links?: GroupLink[];
@@ -43,6 +44,7 @@ export type GroupEvent = GroupMetadataUpdatedEvent;
  * Computed group metadata state from events
  */
 export interface GroupMetadataState {
+  name: string; // MANDATORY: Group name
   subtitle?: string;
   description?: string;
   links: GroupLink[];

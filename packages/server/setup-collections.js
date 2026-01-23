@@ -143,11 +143,6 @@ async function createGroupsCollection() {
     deleteRule: null, // Admin only
     fields: [
       {
-        name: 'name',
-        type: 'text',
-        required: true,
-      },
-      {
         name: 'createdAt',
         type: 'number',
         required: true,

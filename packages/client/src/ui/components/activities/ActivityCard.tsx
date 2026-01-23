@@ -135,6 +135,8 @@ export const ActivityCard: Component<ActivityCardProps> = (props) => {
         return '↶';
       case 'member_joined':
         return '👋';
+      case 'group_metadata_updated':
+        return '✏️';
       default:
         return '📝';
     }
@@ -148,6 +150,8 @@ export const ActivityCard: Component<ActivityCardProps> = (props) => {
         return 'var(--color-primary)';
       case 'entry_deleted':
         return 'var(--color-danger)';
+      case 'group_metadata_updated':
+        return 'var(--color-primary)';
       case 'entry_undeleted':
         return 'var(--color-success)';
       case 'member_joined':
@@ -705,6 +709,27 @@ export const ActivityCard: Component<ActivityCardProps> = (props) => {
                         )}
                       </strong>{' '}
                       {t('activity.wasRemovedFromGroup')}
+                    </div>
+                  );
+                })()}
+              </Match>
+
+              {/* Group Metadata Updated (Rename) */}
+              <Match when={props.activity.type === 'group_metadata_updated'}>
+                {(() => {
+                  const activity = props.activity as any;
+                  return (
+                    <div class="activity-description">
+                      <strong>{activity.actorName}</strong> {t('activity.renamedGroupTo')}{' '}
+                      <span class="activity-highlight">"{activity.newName}"</span>
+                      <Show when={activity.previousName}>
+                        <div
+                          class="activity-details"
+                          style="margin-top: var(--space-xs); font-size: var(--font-size-sm); color: var(--color-text-light);"
+                        >
+                          {t('activity.previouslyNamed')} "{activity.previousName}"
+                        </div>
+                      </Show>
                     </div>
                   );
                 })()}

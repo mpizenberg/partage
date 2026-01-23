@@ -15,7 +15,7 @@ export interface SettlementPreference {
 
 export interface Group {
   id: string;
-  name: string;
+  // name removed - now stored in encrypted GroupMetadataState
   defaultCurrency: string; // ISO 4217 code (e.g., 'USD', 'EUR')
   createdAt: number; // Unix timestamp
   createdBy: string; // Public key hash

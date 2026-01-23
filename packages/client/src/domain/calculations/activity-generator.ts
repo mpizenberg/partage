@@ -15,6 +15,7 @@ import type {
   MemberLinkedActivity,
   MemberRenamedActivity,
   MemberRetiredActivity,
+  GroupMetadataUpdatedActivity,
   ActivityFilter,
   ExpenseEntry,
   TransferEntry,
@@ -22,6 +23,7 @@ import type {
   MemberCreatedEvent,
   MemberRenamedEvent,
   MemberReplacedEvent,
+  GroupMetadataUpdatedEvent,
 } from '@partage/shared';
 
 // =============================================================================
@@ -428,6 +430,45 @@ export function generateActivitiesFromMemberEvents(
 }
 
 // =============================================================================
+// Group Metadata Activity Generation
+// =============================================================================
+
+/**
+ * Generate activities from group metadata events (historical)
+ */
+export function generateActivitiesFromGroupMetadataEvents(
+  groupMetadataEvents: Array<GroupMetadataUpdatedEvent & { previousName?: string }>,
+  members: Member[],
+  groupId: string
+): Activity[] {
+  const activities: Activity[] = [];
+
+  // Build current name lookup from members array
+  const currentNameMap = new Map(members.map((m) => [m.id, m.name]));
+
+  // Helper to get actor name
+  const getActorName = (actorId: string): string => {
+    return currentNameMap.get(actorId) || 'Unknown';
+  };
+
+  for (const event of groupMetadataEvents) {
+    const activity: GroupMetadataUpdatedActivity = {
+      id: `activity-event-${event.id}`,
+      type: 'group_metadata_updated',
+      timestamp: event.timestamp,
+      actorId: event.actorId,
+      actorName: getActorName(event.actorId),
+      groupId,
+      previousName: event.previousName,
+      newName: event.name,
+    };
+    activities.push(activity);
+  }
+
+  return activities;
+}
+
+// =============================================================================
 // Main API
 // =============================================================================
 
@@ -439,13 +480,19 @@ export function generateAllActivities(
   members: Member[],
   groupId: string,
   memberEvents: MemberEvent[] = [],
-  canonicalIdMap?: Map<string, string>
+  canonicalIdMap?: Map<string, string>,
+  groupMetadataEvents: Array<GroupMetadataUpdatedEvent & { previousName?: string }> = []
 ): Activity[] {
   const entryActivities = generateActivitiesFromEntries(entries, members, canonicalIdMap);
   const memberActivities = generateActivitiesFromMemberEvents(
     memberEvents,
     members,
     canonicalIdMap
+  );
+  const groupMetadataActivities = generateActivitiesFromGroupMetadataEvents(
+    groupMetadataEvents,
+    members,
+    groupId
   );
 
   // Set groupId for member activities
@@ -454,7 +501,7 @@ export function generateAllActivities(
   });
 
   // Combine and sort by timestamp (newest first)
-  const allActivities = [...entryActivities, ...memberActivities];
+  const allActivities = [...entryActivities, ...memberActivities, ...groupMetadataActivities];
   allActivities.sort((a, b) => b.timestamp - a.timestamp);
 
   return allActivities;

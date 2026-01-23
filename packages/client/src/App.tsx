@@ -155,7 +155,7 @@ const App: Component = () => {
  * Component that monitors activities and shows toast notifications
  */
 const ActivityNotifications: Component = () => {
-  const { activities, identity, loroStore, activeGroup } = useAppContext();
+  const { activities, identity, loroStore, groupMetadata } = useAppContext();
   const { addToast, toasts, removeToast } = useToast();
   const { t } = useI18n();
 
@@ -200,7 +200,6 @@ const ActivityNotifications: Component = () => {
     const allActivities = activities();
     const currentIdentity = identity();
     const store = loroStore();
-    const group = activeGroup();
 
     // Need all dependencies to work
     if (!allActivities || !currentIdentity || !store || allActivities.length === 0) {
@@ -229,7 +228,7 @@ const ActivityNotifications: Component = () => {
         const message = formatActivityMessage(activity, t);
 
         if (isAppBackgrounded && pushManager.isEnabled()) {
-          pushManager.showNotification(activity, message, group?.name);
+          pushManager.showNotification(activity, message, groupMetadata()?.name);
         } else if (!isAppBackgrounded) {
           addToast({ type: activity.type, message });
         }

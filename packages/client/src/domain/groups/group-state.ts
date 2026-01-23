@@ -22,6 +22,7 @@ import type { GroupMetadataUpdatedEvent, GroupLink } from '@partage/shared';
 export function createGroupMetadataUpdatedEvent(
   groupId: string,
   updates: {
+    name: string; // MANDATORY
     subtitle?: string;
     description?: string;
     links?: GroupLink[];

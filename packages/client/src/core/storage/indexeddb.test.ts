@@ -95,7 +95,6 @@ describe('IndexedDB Storage', () => {
   describe('Group Management', () => {
     const mockGroup: Group = {
       id: 'group1',
-      name: 'Test Group',
       defaultCurrency: 'USD',
       createdAt: Date.now(),
       createdBy: 'user123',
@@ -118,17 +117,17 @@ describe('IndexedDB Storage', () => {
     it('should update existing group', async () => {
       await db.saveGroup(mockGroup);
 
-      const updatedGroup = { ...mockGroup, name: 'Updated Name' };
+      const updatedGroup = { ...mockGroup, defaultCurrency: 'EUR' };
       await db.saveGroup(updatedGroup);
 
       const result = await db.getGroup('group1');
-      expect(result?.name).toBe('Updated Name');
+      expect(result?.defaultCurrency).toBe('EUR');
     });
 
     it('should get all groups', async () => {
-      const group1: Group = { ...mockGroup, id: 'group1', name: 'Group 1' };
-      const group2: Group = { ...mockGroup, id: 'group2', name: 'Group 2' };
-      const group3: Group = { ...mockGroup, id: 'group3', name: 'Group 3' };
+      const group1: Group = { ...mockGroup, id: 'group1' };
+      const group2: Group = { ...mockGroup, id: 'group2' };
+      const group3: Group = { ...mockGroup, id: 'group3' };
 
       await db.saveGroup(group1);
       await db.saveGroup(group2);

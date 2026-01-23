@@ -141,6 +141,7 @@ interface AppContextValue {
   balances: Accessor<Map<string, Balance>>;
   settlementPlan: Accessor<SettlementPlan>;
   getGroupBalance: (groupId: string) => Promise<Balance | null>;
+  getGroupName: (groupId: string) => Promise<string>;
 
   // Activities (derived from entries and members)
   activities: Accessor<Activity[]>;
@@ -173,6 +174,7 @@ interface AppContextValue {
     info?: string;
   } | null>;
   updateGroupMetadata: (metadata: {
+    name: string; // MANDATORY
     subtitle?: string;
     description?: string;
     links?: GroupLink[];
@@ -297,7 +299,10 @@ export const AppProvider: Component<{ children: JSX.Element }> = (props) => {
   const [activityFilter, setActivityFilter] = createSignal<ActivityFilter>({});
 
   // Group metadata (decrypted) - loaded when group is selected
-  const [groupMetadata, setGroupMetadata] = createSignal<GroupMetadataState>({ links: [] });
+  const [groupMetadata, setGroupMetadata] = createSignal<GroupMetadataState>({
+    name: '',
+    links: [],
+  });
 
   // Phase 5: Invitations & Multi-User
 
@@ -529,7 +534,6 @@ export const AppProvider: Component<{ children: JSX.Element }> = (props) => {
         try {
           const serverGroup = await pbClient.createGroup(
             {
-              name,
               createdAt,
               createdBy: currentIdentity.publicKeyHash,
             },
@@ -561,10 +565,9 @@ export const AppProvider: Component<{ children: JSX.Element }> = (props) => {
         anyoneCanShareKeys: true,
       };
 
-      // Create group object
+      // Create group object (name is now stored in encrypted metadata)
       const group: Group = {
         id: groupId,
-        name,
         defaultCurrency: currency,
         createdAt,
         createdBy: currentIdentity.publicKeyHash,
@@ -585,10 +588,23 @@ export const AppProvider: Component<{ children: JSX.Element }> = (props) => {
         ],
       };
 
-      // Initialize Loro store and add initial members using event-based system
+      // Initialize Loro store and add initial data using event-based system
       const newLoroStore = new LoroEntryStore(currentIdentity.publicKeyHash);
 
-      // Add creator as first member via event
+      // IMPORTANT: Set group metadata with name FIRST (before adding members)
+      // This ensures anyone joining can decrypt the group name immediately
+      await newLoroStore.setGroupMetadata(
+        groupId,
+        {
+          name, // MANDATORY
+          subtitle: metadata?.subtitle,
+          description: metadata?.description,
+          links: metadata?.links,
+        },
+        groupKey
+      );
+
+      // THEN add creator as first member via event
       newLoroStore.createMember(
         currentIdentity.publicKeyHash,
         myUserName,
@@ -596,21 +612,11 @@ export const AppProvider: Component<{ children: JSX.Element }> = (props) => {
         { publicKey: currentIdentity.publicKey, isVirtual: false }
       );
 
-      // Add virtual members to Loro via events
+      // THEN add virtual members to Loro via events
       for (const member of virtualMembers) {
         newLoroStore.createMember(member.id, member.name, currentIdentity.publicKeyHash, {
           isVirtual: true,
         });
-      }
-
-      // Add initial group metadata if provided (encrypted)
-      if (metadata && (metadata.subtitle || metadata.description || metadata.links?.length)) {
-        await newLoroStore.updateGroupMetadata(
-          groupId,
-          metadata,
-          currentIdentity.publicKeyHash,
-          groupKey
-        );
       }
 
       // Save to database
@@ -756,7 +762,7 @@ export const AppProvider: Component<{ children: JSX.Element }> = (props) => {
           setGroupMetadata(metadata);
         } catch (metaErr) {
           console.warn('[AppContext] Failed to load group metadata:', metaErr);
-          setGroupMetadata({ links: [] });
+          setGroupMetadata({ name: 'Unnamed Group', links: [] });
         }
       }
 
@@ -994,7 +1000,7 @@ export const AppProvider: Component<{ children: JSX.Element }> = (props) => {
       // Publish NTFY notification for other users
       publishNotification({
         groupId: group.id,
-        groupName: group.name,
+        groupName: groupMetadata().name,
         groupKey,
         actorId: currentIdentity.publicKeyHash,
       }).catch((err) => console.warn('[AppContext] Failed to publish NTFY notification:', err));
@@ -1084,7 +1090,7 @@ export const AppProvider: Component<{ children: JSX.Element }> = (props) => {
       // Publish NTFY notification for other users
       publishNotification({
         groupId: group.id,
-        groupName: group.name,
+        groupName: groupMetadata().name,
         groupKey,
         actorId: currentIdentity.publicKeyHash,
       }).catch((err) => console.warn('[AppContext] Failed to publish NTFY notification:', err));
@@ -1179,7 +1185,7 @@ export const AppProvider: Component<{ children: JSX.Element }> = (props) => {
       // Publish NTFY notification for other users
       publishNotification({
         groupId: group.id,
-        groupName: group.name,
+        groupName: groupMetadata().name,
         groupKey,
         actorId: currentIdentity.publicKeyHash,
       }).catch((err) => console.warn('[AppContext] Failed to publish NTFY notification:', err));
@@ -1274,7 +1280,7 @@ export const AppProvider: Component<{ children: JSX.Element }> = (props) => {
       // Publish NTFY notification for other users
       publishNotification({
         groupId: group.id,
-        groupName: group.name,
+        groupName: groupMetadata().name,
         groupKey,
         actorId: currentIdentity.publicKeyHash,
       }).catch((err) => console.warn('[AppContext] Failed to publish NTFY notification:', err));
@@ -1358,7 +1364,7 @@ export const AppProvider: Component<{ children: JSX.Element }> = (props) => {
       // Publish NTFY notification for other users
       publishNotification({
         groupId: group.id,
-        groupName: group.name,
+        groupName: groupMetadata().name,
         groupKey,
         actorId: currentIdentity.publicKeyHash,
       }).catch((err) => console.warn('[AppContext] Failed to publish NTFY notification:', err));
@@ -1438,7 +1444,7 @@ export const AppProvider: Component<{ children: JSX.Element }> = (props) => {
       // Publish NTFY notification for other users
       publishNotification({
         groupId: group.id,
-        groupName: group.name,
+        groupName: groupMetadata().name,
         groupKey,
         actorId: currentIdentity.publicKeyHash,
       }).catch((err) => console.warn('[AppContext] Failed to publish NTFY notification:', err));
@@ -1522,10 +1528,9 @@ export const AppProvider: Component<{ children: JSX.Element }> = (props) => {
         console.warn('Could not fetch group metadata, using defaults');
       }
 
-      // Create the group object
+      // Create the group object (name is now in encrypted metadata)
       const group: Group = {
         id: groupId,
-        name: groupRecord?.name || 'Group',
         defaultCurrency: 'USD', // Default, will be synced from CRDT
         createdAt: groupRecord?.createdAt || Date.now(),
         createdBy: groupRecord?.createdBy || currentIdentity.publicKeyHash,
@@ -1596,11 +1601,11 @@ export const AppProvider: Component<{ children: JSX.Element }> = (props) => {
         });
 
         // Publish NTFY notification for other users
-        const groupName = groupRecord?.name || 'Group';
         const groupKey = await importSymmetricKey(groupKeyBase64);
+        const metadata = await newLoroStore.getGroupMetadata(groupId, groupKey);
         publishNotification({
           groupId,
-          groupName,
+          groupName: metadata.name,
           groupKey,
           actorId: currentIdentity.publicKeyHash,
         }).catch((err) => console.warn('[AppContext] Failed to publish NTFY notification:', err));
@@ -2010,8 +2015,9 @@ export const AppProvider: Component<{ children: JSX.Element }> = (props) => {
     }
   };
 
-  // Update group metadata (subtitle, description, links)
+  // Update group metadata (including name, subtitle, description, links)
   const updateGroupMetadata = async (metadata: {
+    name: string; // MANDATORY
     subtitle?: string;
     description?: string;
     links?: GroupLink[];
@@ -2019,6 +2025,10 @@ export const AppProvider: Component<{ children: JSX.Element }> = (props) => {
     try {
       setIsLoading(true);
       setError(null);
+
+      if (!metadata.name?.trim()) {
+        throw new Error('Group name is required');
+      }
 
       const currentIdentity = identity();
       const group = activeGroup();
@@ -2036,18 +2046,20 @@ export const AppProvider: Component<{ children: JSX.Element }> = (props) => {
       }
       const groupKey = await importSymmetricKey(keyString);
 
+      // Get previous metadata to detect changes
       // Get version BEFORE updating metadata
       const versionBefore = store.getVersion();
 
       // Update metadata in Loro (encrypted)
+      // This will create an event in Loro which will be picked up by IncrementalStateManager
       await store.updateGroupMetadata(group.id, metadata, currentIdentity.publicKeyHash, groupKey);
 
       // Refresh the groupMetadata signal with the new decrypted state
       const updatedMetadata = await store.getGroupMetadata(group.id, groupKey);
       setGroupMetadata(updatedMetadata);
 
-      // Trigger reactive update
-      setLoroStore(store);
+      // Trigger IncrementalStateManager to process new group metadata events and generate activities
+      await refreshEntries(group.id, group.currentKeyVersion);
 
       // Sync to server
       if (manager && autoSyncEnabled()) {
@@ -2370,6 +2382,41 @@ export const AppProvider: Component<{ children: JSX.Element }> = (props) => {
   };
 
   /**
+   * Get the group name from encrypted metadata without selecting it
+   * Returns the decrypted group name, or a fallback if not found
+   */
+  const getGroupName = async (groupId: string): Promise<string> => {
+    try {
+      const currentIdentity = identity();
+      if (!currentIdentity) {
+        return 'Unnamed Group';
+      }
+
+      // Get group key
+      const keyString = await db.getGroupKey(groupId);
+      if (!keyString) {
+        return 'Unnamed Group';
+      }
+      const groupKey = await importSymmetricKey(keyString);
+
+      // Load Loro snapshot
+      const snapshot = await db.getLoroSnapshot(groupId);
+      const tempStore = new LoroEntryStore(currentIdentity.publicKeyHash);
+
+      if (snapshot) {
+        tempStore.importSnapshot(snapshot);
+      }
+
+      // Get group metadata (contains the name)
+      const metadata = await tempStore.getGroupMetadata(groupId, groupKey);
+      return metadata.name;
+    } catch (err) {
+      console.error('Failed to get group name:', err);
+      return 'Unnamed Group';
+    }
+  };
+
+  /**
    * Get the personal balance for a specific group without selecting it
    * Returns the user's net balance in the group, or null if not found
    */
@@ -2453,6 +2500,7 @@ export const AppProvider: Component<{ children: JSX.Element }> = (props) => {
     balances,
     settlementPlan,
     getGroupBalance,
+    getGroupName,
     activities,
     activityFilter,
     setActivityFilter,

@@ -85,6 +85,7 @@ export const MembersTab: Component<MembersTabProps> = (props) => {
   });
 
   const handleSaveGroupMetadata = async (metadata: {
+    name: string; // MANDATORY
     subtitle?: string;
     description?: string;
     links?: GroupLink[];
@@ -218,7 +219,7 @@ export const MembersTab: Component<MembersTabProps> = (props) => {
       <InviteModal
         isOpen={showInviteModal()}
         onClose={() => setShowInviteModal(false)}
-        groupName={activeGroup()?.name || ''}
+        groupName={groupMetadata().name}
         inviteLink={inviteLink()}
       />
 

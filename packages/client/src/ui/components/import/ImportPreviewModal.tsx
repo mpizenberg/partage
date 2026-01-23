@@ -2,6 +2,7 @@ import { Component, For, Show } from 'solid-js';
 import { Modal } from '../common/Modal';
 import { Button } from '../common/Button';
 import type { ImportAnalysis } from '../../context/AppContext';
+import { useI18n } from '../../../i18n';
 
 interface ImportPreviewModalProps {
   isOpen: boolean;
@@ -11,6 +12,7 @@ interface ImportPreviewModalProps {
 }
 
 export const ImportPreviewModal: Component<ImportPreviewModalProps> = (props) => {
+  const { t } = useI18n();
   console.log('[ImportPreviewModal] Rendering, isOpen:', props.isOpen, 'analysis:', props.analysis);
 
   const getRelationshipBadge = (relationship: string) => {
@@ -75,7 +77,9 @@ export const ImportPreviewModal: Component<ImportPreviewModalProps> = (props) =>
               {(item) => (
                 <div class="card mb-md">
                   <div class="flex-between mb-sm">
-                    <h3 class="text-lg font-semibold">{item.group.name}</h3>
+                    <h3 class="text-lg font-semibold">
+                      {t('common.group')} ({item.group.id.substring(0, 8)}...)
+                    </h3>
                     {getRelationshipBadge(item.relationship)}
                   </div>
 

@@ -17,6 +17,7 @@ export const GroupSelectionScreen: Component = () => {
     confirmImport,
     deleteGroup,
     getGroupBalance,
+    getGroupName,
   } = useAppContext();
   const [importAnalysis, setImportAnalysis] = createSignal<ImportAnalysis | null>(null);
   const [showImportPreview, setShowImportPreview] = createSignal(false);
@@ -37,6 +38,12 @@ export const GroupSelectionScreen: Component = () => {
 
   const truncateId = (id: string): string => {
     return id.substring(0, 8) + '...';
+  };
+
+  // Component to load and display group name asynchronously
+  const GroupName: Component<{ groupId: string }> = (props) => {
+    const [name] = createResource(() => props.groupId, getGroupName);
+    return <>{name.loading ? truncateId(props.groupId) : name()}</>;
   };
 
   const toggleGroupSelection = (groupId: string) => {
@@ -295,7 +302,9 @@ export const GroupSelectionScreen: Component = () => {
                       <div style="flex: 1; min-width: 0;">
                         <div class="clickable" onClick={() => handleSelectGroup(group.id)}>
                           <div class="flex-between mb-sm">
-                            <h3 class="text-lg font-semibold">{group.name}</h3>
+                            <h3 class="text-lg font-semibold">
+                              <GroupName groupId={group.id} />
+                            </h3>
                             <GroupBalanceBadge
                               groupId={group.id}
                               currency={group.defaultCurrency}

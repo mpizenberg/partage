@@ -7,8 +7,15 @@ import type { ActivityType } from '@partage/shared';
 
 export const ActivitiesTab: Component = () => {
   const { t } = useI18n();
-  const { activities, activityFilter, setActivityFilter, activeGroup, getActiveGroupKey, members } =
-    useAppContext();
+  const {
+    activities,
+    activityFilter,
+    setActivityFilter,
+    activeGroup,
+    getActiveGroupKey,
+    members,
+    groupMetadata,
+  } = useAppContext();
   const [showFilters, setShowFilters] = createSignal(false);
 
   // Load group key for NTFY subscription
@@ -83,7 +90,7 @@ export const ActivitiesTab: Component = () => {
         <div class="activities-section" style="margin-bottom: var(--space-md);">
           <NtfySubscribe
             groupId={activeGroup()!.id}
-            groupName={activeGroup()!.name}
+            groupName={groupMetadata().name}
             groupKey={groupKey()!}
           />
         </div>

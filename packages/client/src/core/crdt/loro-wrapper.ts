@@ -30,6 +30,7 @@ import type {
   MemberOperationValidation,
   MemberPaymentInfo,
   GroupMetadataState,
+  GroupMetadataUpdatedEvent,
   GroupLink,
 } from '@partage/shared';
 import { PartageDB } from '../storage/indexeddb.js';
@@ -130,6 +131,7 @@ export class LoroEntryStore {
   private memberAliases: LoroMap;
   private memberEvents: LoroMap; // Event-based member management
   private groupMetadata: LoroMap; // Latest group metadata state (keyed by groupId)
+  private groupMetadataEvents: LoroMap; // Event-based group metadata tracking
   private memberMetadata: LoroMap; // Latest member metadata state (keyed by memberId)
   private settlementPreferences: LoroMap;
   private lastSavedVersion: any | null = null; // Track last saved version for incremental updates
@@ -154,6 +156,7 @@ export class LoroEntryStore {
     this.memberAliases = this.loro.getMap('memberAliases');
     this.memberEvents = this.loro.getMap('memberEvents');
     this.groupMetadata = this.loro.getMap('groupMetadata');
+    this.groupMetadataEvents = this.loro.getMap('groupMetadataEvents');
     this.memberMetadata = this.loro.getMap('memberMetadata');
     this.settlementPreferences = this.loro.getMap('settlementPreferences');
   }
@@ -959,11 +962,17 @@ export class LoroEntryStore {
    */
   async setGroupMetadata(
     groupId: string,
-    metadata: { subtitle?: string; description?: string; links?: GroupLink[] },
+    metadata: { name: string; subtitle?: string; description?: string; links?: GroupLink[] },
     groupKey: CryptoKey
   ): Promise<void> {
+    // Validate name is non-empty
+    if (!metadata.name?.trim()) {
+      throw new Error('Group name is required');
+    }
+
     // Store COMPLETE state - use empty string for cleared text fields, empty array for links
     const sensitiveData = {
+      name: metadata.name.trim(),
       subtitle: metadata.subtitle ?? '',
       description: metadata.description ?? '',
       links: metadata.links ?? [],
@@ -986,43 +995,128 @@ export class LoroEntryStore {
   async getGroupMetadata(groupId: string, groupKey: CryptoKey): Promise<GroupMetadataState> {
     const metaMap = this.groupMetadata.get(groupId);
     if (!metaMap || !(metaMap instanceof LoroMap)) {
-      return { links: [] };
+      return { name: 'Unnamed Group', links: [] };
     }
 
     const encryptedPayload = metaMap.get('encryptedPayload') as string | undefined;
     if (!encryptedPayload) {
-      return { links: [] };
+      return { name: 'Unnamed Group', links: [] };
     }
 
     try {
       const encrypted = this.deserializeEncryptedData(encryptedPayload);
       const decrypted = await decryptJSON<{
+        name: string;
         subtitle: string;
         description: string;
         links: GroupLink[];
       }>(encrypted, groupKey);
 
       return {
+        name: decrypted.name || 'Unnamed Group',
         subtitle: decrypted.subtitle || undefined,
         description: decrypted.description || undefined,
         links: decrypted.links || [],
       };
     } catch (error) {
       console.warn(`[LoroEntryStore] Failed to decrypt group metadata for ${groupId}:`, error);
-      return { links: [] };
+      return { name: 'Unnamed Group', links: [] };
     }
   }
 
   /**
-   * Update group metadata (convenience wrapper for setGroupMetadata)
+   * Update group metadata and create an event for tracking
    */
   async updateGroupMetadata(
     groupId: string,
-    updates: { subtitle?: string; description?: string; links?: GroupLink[] },
-    _actorId: string,
+    updates: { name: string; subtitle?: string; description?: string; links?: GroupLink[] },
+    actorId: string,
     groupKey: CryptoKey
   ): Promise<void> {
+    // Get previous metadata to detect changes
+    const previousMetadata = await this.getGroupMetadata(groupId, groupKey);
+
+    // Update the metadata state
     await this.setGroupMetadata(groupId, updates, groupKey);
+
+    // Create event if name changed
+    if (previousMetadata.name !== updates.name) {
+      const event: GroupMetadataUpdatedEvent = {
+        id: crypto.randomUUID(),
+        type: 'group_metadata_updated',
+        groupId,
+        timestamp: Date.now(),
+        actorId,
+        name: updates.name,
+        subtitle: updates.subtitle,
+        description: updates.description,
+        links: updates.links,
+      };
+
+      this.addGroupMetadataEvent(event, previousMetadata.name);
+    }
+  }
+
+  /**
+   * Add a group metadata event to the CRDT
+   * previousName is stored separately for activity generation
+   */
+  private addGroupMetadataEvent(event: GroupMetadataUpdatedEvent, previousName: string): void {
+    this.transact(() => {
+      const eventMap = this.groupMetadataEvents.setContainer(event.id, new LoroMap()) as LoroMap;
+      eventMap.set('id', event.id);
+      eventMap.set('type', event.type);
+      eventMap.set('groupId', event.groupId);
+      eventMap.set('timestamp', event.timestamp);
+      eventMap.set('actorId', event.actorId);
+      eventMap.set('name', event.name);
+      eventMap.set('previousName', previousName);
+
+      if (event.subtitle !== undefined) eventMap.set('subtitle', event.subtitle);
+      if (event.description !== undefined) eventMap.set('description', event.description);
+      if (event.links !== undefined) eventMap.set('links', JSON.stringify(event.links));
+    });
+  }
+
+  /**
+   * Get all group metadata events
+   */
+  getGroupMetadataEvents(): Array<GroupMetadataUpdatedEvent & { previousName?: string }> {
+    const events: Array<GroupMetadataUpdatedEvent & { previousName?: string }> = [];
+
+    for (const id of this.groupMetadataEvents.keys()) {
+      const eventMap = this.groupMetadataEvents.get(id);
+      if (!eventMap || !(eventMap instanceof LoroMap)) continue;
+
+      const eventId = eventMap.get('id') as string;
+      const type = eventMap.get('type') as 'group_metadata_updated';
+      const groupId = eventMap.get('groupId') as string;
+      const timestamp = eventMap.get('timestamp') as number;
+      const actorId = eventMap.get('actorId') as string;
+      const name = eventMap.get('name') as string;
+      const previousName = eventMap.get('previousName') as string | undefined;
+      const subtitle = eventMap.get('subtitle') as string | undefined;
+      const description = eventMap.get('description') as string | undefined;
+      const linksJson = eventMap.get('links') as string | undefined;
+
+      const event: GroupMetadataUpdatedEvent & { previousName?: string } = {
+        id: eventId,
+        type,
+        groupId,
+        timestamp,
+        actorId,
+        name,
+        previousName,
+        subtitle,
+        description,
+        links: linksJson ? JSON.parse(linksJson) : undefined,
+      };
+
+      events.push(event);
+    }
+
+    // Sort by timestamp
+    return events.sort((a, b) => a.timestamp - b.timestamp);
   }
 
   // ==================== Settlement Preferences ====================

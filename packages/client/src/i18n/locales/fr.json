@@ -76,6 +76,7 @@
     "noGroups": "Aucun groupe",
     "noGroupsMessage": "Créez votre premier groupe pour commencer à suivre les dépenses",
     "createNew": "Créer un nouveau groupe",
+    "groupShort": "Groupe",
     "memberCount": "{count} membre",
     "memberCountPlural": "{count} membres",
     "createdAt": "Créé le : {date}",
@@ -374,6 +375,9 @@
     "title": "Infos du groupe",
     "addInfo": "Ajouter des infos",
     "clickToEdit": "Cliquez pour modifier",
+    "name": "Nom du groupe",
+    "namePlaceholder": "ex. : Weekend Trip, Appartement 42",
+    "nameRequired": "Le nom du groupe est requis",
     "subtitle": "Sous-titre",
     "subtitlePlaceholder": "ex. : Vacances été 2024",
     "description": "Description",
@@ -471,7 +475,9 @@
     "reJoined": "a rejoint à nouveau",
     "renamedTo": "renommé en",
     "wasRemovedFromGroup": "a été retiré du groupe",
-    "now": "maintenant"
+    "now": "maintenant",
+    "renamedGroupTo": "a renommé le groupe en",
+    "previouslyNamed": "Précédemment nommé"
   },
 
   "categories": {

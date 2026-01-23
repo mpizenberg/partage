@@ -36,7 +36,7 @@ interface IdentityRecord {
 
 interface GroupRecord {
   id: string;
-  name: string;
+  // name removed - now stored in encrypted GroupMetadataState
   defaultCurrency: string;
   createdAt: number;
   createdBy: string;
@@ -230,7 +230,6 @@ export class PartageDB {
 
     const record: GroupRecord = {
       id: group.id,
-      name: group.name,
       defaultCurrency: group.defaultCurrency,
       createdAt: group.createdAt,
       createdBy: group.createdBy,
@@ -253,7 +252,6 @@ export class PartageDB {
 
     return {
       id: record.id,
-      name: record.name,
       defaultCurrency: record.defaultCurrency,
       createdAt: record.createdAt,
       createdBy: record.createdBy,
@@ -272,7 +270,6 @@ export class PartageDB {
     const records = await this.getAll<GroupRecord>(STORES.GROUPS);
     return records.map((record) => ({
       id: record.id,
-      name: record.name,
       defaultCurrency: record.defaultCurrency,
       createdAt: record.createdAt,
       createdBy: record.createdBy,

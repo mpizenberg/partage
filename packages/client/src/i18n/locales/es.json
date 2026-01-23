@@ -76,6 +76,7 @@
     "noGroups": "Aún no hay grupos",
     "noGroupsMessage": "Crea tu primer grupo para empezar a registrar gastos",
     "createNew": "Crear Nuevo Grupo",
+    "groupShort": "Grupo",
     "memberCount": "{count} miembro",
     "memberCountPlural": "{count} miembros",
     "createdAt": "Creado el: {date}",
@@ -374,6 +375,9 @@
     "title": "Información del Grupo",
     "addInfo": "Agregar información",
     "clickToEdit": "Clic para editar",
+    "name": "Nombre del Grupo",
+    "namePlaceholder": "ej., Viaje de Fin de Semana, Apartamento 42",
+    "nameRequired": "El nombre del grupo es obligatorio",
     "subtitle": "Subtítulo",
     "subtitlePlaceholder": "ej., Vacaciones verano 2024",
     "description": "Descripción",
@@ -471,7 +475,9 @@
     "reJoined": "se volvió a unir",
     "renamedTo": "renombrado a",
     "wasRemovedFromGroup": "fue eliminado del grupo",
-    "now": "ahora"
+    "now": "ahora",
+    "renamedGroupTo": "renombró el grupo a",
+    "previouslyNamed": "Anteriormente llamado"
   },
 
   "categories": {

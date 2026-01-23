@@ -215,7 +215,7 @@ export const GroupViewScreen: Component = () => {
               ←
             </button>
             <div class="group-info">
-              <h1 class="group-name">{activeGroup()?.name}</h1>
+              <h1 class="group-name">{groupMetadata().name}</h1>
               <Show when={groupMetadata()?.subtitle}>
                 <p class="group-subtitle">{groupMetadata()?.subtitle}</p>
               </Show>
