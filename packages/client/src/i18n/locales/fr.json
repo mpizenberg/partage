@@ -564,6 +564,22 @@
     "visitDiscussions": "Visiter les discussions GitHub"
   },
 
+  "usage": {
+    "title": "Vos coûts d'utilisation équitable",
+    "description": "Ceci est une estimation locale des coûts serveur basée sur votre utilisation.",
+    "totalCost": "Coût total estimé",
+    "averagePerMonth": "Moyenne par mois",
+    "showDetails": "Afficher les détails",
+    "trackingSince": "Période de suivi",
+    "months": "mois",
+    "baseAllocation": "Allocation de base",
+    "storage": "Stockage",
+    "compute": "Calcul",
+    "bandwidth": "Bande passante",
+    "reset": "Réinitialiser le suivi, j'ai fait un don ! <3",
+    "resetConfirm": "Êtes-vous sûr de vouloir réinitialiser le suivi d'utilisation ? Cela effacera toutes les données de coûts."
+  },
+
   "notifications": {
     "entryAdded": "{actor} a ajouté {description}",
     "entryModified": "{actor} a modifié {description}",

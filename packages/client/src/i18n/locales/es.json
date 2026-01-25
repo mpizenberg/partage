@@ -565,6 +565,22 @@
     "visitDiscussions": "Visitar las discusiones de GitHub"
   },
 
+  "usage": {
+    "title": "Tus costos de uso justo",
+    "description": "Esta es una estimación local de los costos del servidor basada en tu uso.",
+    "totalCost": "Costo total estimado",
+    "averagePerMonth": "Promedio por mes",
+    "showDetails": "Mostrar desglose de costos",
+    "trackingSince": "Período de seguimiento",
+    "months": "meses",
+    "baseAllocation": "Asignación base",
+    "storage": "Almacenamiento",
+    "compute": "Cómputo",
+    "bandwidth": "Ancho de banda",
+    "reset": "Reiniciar seguimiento de uso, ¡he hecho una donación! <3",
+    "resetConfirm": "¿Estás seguro de que deseas reiniciar el seguimiento de uso? Esto borrará todos los datos de costos."
+  },
+
   "notifications": {
     "entryAdded": "{actor} agregó {description}",
     "entryModified": "{actor} modificó {description}",

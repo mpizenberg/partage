@@ -9,5 +9,5 @@ export const CRYPTO_CONFIG = {
 
 export const STORAGE_CONFIG = {
   DB_NAME: 'partage-db',
-  DB_VERSION: 3, // Group passwords storage for PocketBase auth
+  DB_VERSION: 4, // Usage tracking storage
 } as const;

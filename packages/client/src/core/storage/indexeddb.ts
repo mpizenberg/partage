@@ -22,6 +22,7 @@ const STORES = {
   LORO_SNAPSHOTS: 'loroSnapshots',
   PENDING_OPS: 'pendingOperations',
   SW_NOTIFICATION_STATE: 'swNotificationState',
+  USAGE_STATS: 'usageStats',
 } as const;
 
 // Database schema interfaces
@@ -72,6 +73,15 @@ interface PendingOperationRecord {
   groupId: string;
   operation: string; // JSON stringified
   createdAt: number;
+}
+
+interface UsageStatsRecord {
+  id: 'usage'; // Singleton
+  totalBytesTransferred: number;
+  trackingSince: number;
+  lastStorageEstimateTimestamp: number | null;
+  lastStorageEstimateSizeBytes: number | null;
+  totalStorageCost: number; // Accumulated storage cost over time (USD)
 }
 
 /**
@@ -139,6 +149,11 @@ export class PartageDB {
         // Service worker notification state store (for background sync)
         if (!db.objectStoreNames.contains(STORES.SW_NOTIFICATION_STATE)) {
           db.createObjectStore(STORES.SW_NOTIFICATION_STATE, { keyPath: 'id' });
+        }
+
+        // Usage stats store (singleton)
+        if (!db.objectStoreNames.contains(STORES.USAGE_STATS)) {
+          db.createObjectStore(STORES.USAGE_STATS, { keyPath: 'id' });
         }
       };
     });
@@ -649,6 +664,32 @@ export class PartageDB {
       transaction.oncomplete = () => resolve();
       transaction.onerror = () => reject(transaction.error);
     });
+  }
+
+  // Usage Stats Management
+
+  /**
+   * Get usage stats (singleton)
+   */
+  async getUsageStats(): Promise<UsageStatsRecord | null> {
+    await this.ensureOpen();
+
+    const record = await this.get<UsageStatsRecord>(STORES.USAGE_STATS, 'usage');
+    return record ?? null;
+  }
+
+  /**
+   * Save usage stats
+   */
+  async saveUsageStats(stats: Omit<UsageStatsRecord, 'id'>): Promise<void> {
+    await this.ensureOpen();
+
+    const record: UsageStatsRecord = {
+      id: 'usage',
+      ...stats,
+    };
+
+    return this.put(STORES.USAGE_STATS, record);
   }
 
   // Generic IndexedDB operations

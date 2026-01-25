@@ -20,6 +20,8 @@ import { filterActivities } from '../../domain/calculations/activity-generator';
 import { IncrementalStateManager } from '../../domain/state/incremental-state-manager';
 import { SyncManager, type SyncState } from '../../core/sync';
 import { SnapshotManager } from '../../core/storage/snapshot-manager';
+import { UsageTracker } from '../../core/usage/usage-tracker';
+import { NetworkMonitor } from '../../core/usage/network-monitor';
 import { pbClient, PocketBaseClient } from '../../api';
 import {
   generateKeypair,
@@ -89,6 +91,7 @@ interface AppContextValue {
   db: PartageDB;
   loroStore: Accessor<LoroEntryStore | null>;
   syncManager: Accessor<SyncManager | null>;
+  usageTracker: Accessor<UsageTracker>;
 
   // User identity (local crypto keypair)
   identity: Accessor<SerializedKeypair | null>;
@@ -272,6 +275,12 @@ export const AppProvider: Component<{ children: JSX.Element }> = (props) => {
   // Incremental state manager for CQRS pattern
   const [stateManager] = createSignal(new IncrementalStateManager());
 
+  // Usage tracker for cost estimation
+  const [usageTracker] = createSignal(new UsageTracker(db));
+
+  // Network monitor for tracking all network usage
+  const [networkMonitor] = createSignal(new NetworkMonitor(usageTracker()));
+
   // Core state
   const [identity, setIdentity] = createSignal<SerializedKeypair | null>(null);
   const [groups, setGroups] = createSignal<Group[]>([]);
@@ -405,6 +414,17 @@ export const AppProvider: Component<{ children: JSX.Element }> = (props) => {
       // Open database
       await db.open();
 
+      // Initialize usage tracker
+      const tracker = usageTracker();
+      await tracker.initialize();
+
+      // Start network monitoring
+      const monitor = networkMonitor();
+      monitor.start();
+
+      // Refresh storage estimate if needed (>1 day since last estimate)
+      await tracker.refreshStorageEstimateIfNeeded();
+
       // Load user identity
       const storedIdentity = await db.getUserKeypair();
       setIdentity(storedIdentity?.keypair || null);
@@ -469,6 +489,10 @@ export const AppProvider: Component<{ children: JSX.Element }> = (props) => {
     if (manager) {
       await manager.destroy();
     }
+
+    // Stop network monitoring
+    const monitor = networkMonitor();
+    monitor.stop();
   });
 
   // Initialize identity (first-time setup)
@@ -2471,6 +2495,7 @@ export const AppProvider: Component<{ children: JSX.Element }> = (props) => {
     db,
     loroStore,
     syncManager,
+    usageTracker,
     identity,
     initializeIdentity,
     groups,

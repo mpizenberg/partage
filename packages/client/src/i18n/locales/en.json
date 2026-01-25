@@ -564,6 +564,22 @@
     "visitDiscussions": "Visit GitHub Discussions"
   },
 
+  "usage": {
+    "title": "Your fair usage costs",
+    "description": "This is a local estimate of server costs based on your usage.",
+    "totalCost": "Total Estimated Cost",
+    "averagePerMonth": "Average per month",
+    "showDetails": "Show cost breakdown",
+    "trackingSince": "Tracking period",
+    "months": "months",
+    "baseAllocation": "Base allocation",
+    "storage": "Storage",
+    "compute": "Compute",
+    "bandwidth": "Bandwidth",
+    "reset": "Reset fair usage tracking, I've made a donation! <3",
+    "resetConfirm": "Are you sure you want to reset your usage tracking? This will clear all cost data."
+  },
+
   "notifications": {
     "entryAdded": "{actor} added {description}",
     "entryModified": "{actor} modified {description}",

@@ -1,11 +1,14 @@
 import { Component } from 'solid-js';
 import { useNavigate } from '@solidjs/router';
 import { useI18n } from '../../i18n';
+import { useAppContext } from '../context/AppContext';
 import { Button } from '../components/common/Button';
+import { UsageStatsDisplay } from '../components/usage/UsageStatsDisplay';
 
 export const AboutScreen: Component = () => {
   const { t } = useI18n();
   const navigate = useNavigate();
+  const { usageTracker } = useAppContext();
 
   return (
     <div class="container">
@@ -48,6 +51,17 @@ export const AboutScreen: Component = () => {
           <h2 class="text-xl font-semibold mb-md">{t('about.supportTitle')}</h2>
           <p class="text-base mb-md">{t('about.serverCosts')}</p>
           <p class="text-base mb-lg">{t('about.donationRequest')}</p>
+
+          <UsageStatsDisplay
+            onLoad={async () => {
+              const tracker = usageTracker();
+              return await tracker.calculateCostBreakdown();
+            }}
+            onReset={async () => {
+              const tracker = usageTracker();
+              await tracker.reset();
+            }}
+          />
 
           <div class="about-donation-box mb-lg">
             <h3 class="text-lg font-semibold mb-sm">{t('about.githubSponsors')}</h3>
