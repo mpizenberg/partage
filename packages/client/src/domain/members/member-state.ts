@@ -219,6 +219,46 @@ export function buildCanonicalIdMap(events: MemberEvent[]): Map<string, string> 
 }
 
 /**
+ * Resolve a member ID to its root (original) ID
+ *
+ * Follows the replacement chain backwards. If member C replaced B,
+ * and B replaced A, then resolving C returns A (the original).
+ *
+ * This is the inverse of resolveCanonicalMemberId - while canonical
+ * finds the newest ID in the chain, root finds the oldest.
+ *
+ * @param memberId The member ID to resolve
+ * @param events All member events
+ * @param maxDepth Maximum recursion depth (default 10)
+ * @returns The root member ID
+ *
+ * TODO later: Rework the member system to more efficient data structures and updates.
+ */
+export function resolveRootMemberId(
+  memberId: string,
+  events: MemberEvent[],
+  maxDepth: number = 10
+): string {
+  if (maxDepth <= 0) {
+    console.warn(`[member-state] Max recursion depth reached resolving root for ${memberId}`);
+    return memberId;
+  }
+
+  // Find if any member was replaced BY this member
+  const replacedMember = events.find(
+    (e) => e.type === 'member_replaced' && e.replacedById === memberId
+  ) as MemberReplacedEvent | undefined;
+
+  if (!replacedMember) {
+    // No member was replaced by this one, so this is the root
+    return memberId;
+  }
+
+  // Recursively find the root of the replaced member
+  return resolveRootMemberId(replacedMember.memberId, events, maxDepth - 1);
+}
+
+/**
  * Find all member IDs that resolve to the same canonical ID
  *
  * This is useful for finding all "aliases" of a member, including

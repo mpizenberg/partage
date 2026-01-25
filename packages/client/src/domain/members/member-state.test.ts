@@ -20,6 +20,7 @@ import {
   getRetiredMembers,
   getReplacedMembers,
   resolveCanonicalMemberId,
+  resolveRootMemberId,
   buildCanonicalIdMap,
   findAllAliasesFor,
   getMemberDisplayName,
@@ -393,6 +394,83 @@ describe('resolveCanonicalMemberId', () => {
     const canonical = resolveCanonicalMemberId('member-0', events, 10);
     // Should stop at depth 10
     expect(canonical).not.toBe('member-0'); // Did resolve some
+  });
+});
+
+describe('resolveRootMemberId', () => {
+  it('returns same ID for non-replaced member', () => {
+    const events: MemberEvent[] = [makeCreatedEvent('member-1', 'Alice', { timestamp: 1000 })];
+
+    const root = resolveRootMemberId('member-1', events);
+    expect(root).toBe('member-1');
+  });
+
+  it('resolves to original member when replaced', () => {
+    const events: MemberEvent[] = [
+      makeCreatedEvent('member-1', 'Bob (virtual)', { timestamp: 1000, isVirtual: true }),
+      makeCreatedEvent('member-2', 'Bob', { timestamp: 1100 }),
+      makeReplacedEvent('member-1', 'member-2', 2000),
+    ];
+
+    // member-2 replaced member-1, so root of member-2 is member-1
+    const root = resolveRootMemberId('member-2', events);
+    expect(root).toBe('member-1');
+
+    // member-1 is the root itself
+    expect(resolveRootMemberId('member-1', events)).toBe('member-1');
+  });
+
+  it('resolves recursively through replacement chain backwards', () => {
+    const events: MemberEvent[] = [
+      makeCreatedEvent('member-1', 'Bob (v1)', { timestamp: 1000, isVirtual: true }),
+      makeCreatedEvent('member-2', 'Bob (v2)', { timestamp: 1100, isVirtual: true }),
+      makeCreatedEvent('member-3', 'Bob', { timestamp: 1200, isVirtual: false }),
+      makeReplacedEvent('member-1', 'member-2', 2000),
+      makeReplacedEvent('member-2', 'member-3', 3000),
+    ];
+
+    // Chain: member-1 -> member-2 -> member-3
+    // Root of any member in this chain should be member-1
+    expect(resolveRootMemberId('member-3', events)).toBe('member-1');
+    expect(resolveRootMemberId('member-2', events)).toBe('member-1');
+    expect(resolveRootMemberId('member-1', events)).toBe('member-1');
+  });
+
+  it('returns input ID for unknown member', () => {
+    const events: MemberEvent[] = [];
+    const root = resolveRootMemberId('unknown', events);
+    expect(root).toBe('unknown');
+  });
+
+  it('handles max depth protection', () => {
+    // Create a long chain
+    const events: MemberEvent[] = [];
+    for (let i = 0; i < 20; i++) {
+      events.push(makeCreatedEvent(`member-${i}`, `Member ${i}`, { timestamp: 1000 + i }));
+      if (i > 0) {
+        events.push(makeReplacedEvent(`member-${i - 1}`, `member-${i}`, 2000 + i));
+      }
+    }
+
+    // With maxDepth of 10, resolving member-19 backwards should stop at some point
+    const root = resolveRootMemberId('member-19', events, 10);
+    // Should have resolved backwards but hit the depth limit
+    expect(root).not.toBe('member-19'); // Did resolve some
+    expect(root).not.toBe('member-0'); // But didn't reach the root
+  });
+
+  it('works correctly with canonical ID (opposite directions)', () => {
+    const events: MemberEvent[] = [
+      makeCreatedEvent('member-1', 'Alice (virtual)', { timestamp: 1000, isVirtual: true }),
+      makeCreatedEvent('member-2', 'Alice', { timestamp: 1100 }),
+      makeReplacedEvent('member-1', 'member-2', 2000),
+    ];
+
+    // Canonical ID goes forward: member-1 -> member-2 (newest)
+    expect(resolveCanonicalMemberId('member-1', events)).toBe('member-2');
+
+    // Root ID goes backward: member-2 -> member-1 (oldest)
+    expect(resolveRootMemberId('member-2', events)).toBe('member-1');
   });
 });
 

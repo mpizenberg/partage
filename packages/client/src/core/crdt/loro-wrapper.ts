@@ -37,6 +37,7 @@ import { PartageDB } from '../storage/indexeddb.js';
 import {
   computeAllMemberStates,
   resolveCanonicalMemberId as resolveCanonicalMemberIdFromEvents,
+  resolveRootMemberId,
   buildCanonicalIdMap,
   canRenameMember,
   canRetireMember,
@@ -641,6 +642,12 @@ export class LoroEntryStore {
     metadata: { phone?: string; payment?: MemberPaymentInfo; info?: string },
     groupKey: CryptoKey
   ): Promise<void> {
+    // Resolve to ROOT ID to ensure metadata is stored under the original (oldest) member ID
+    // This way, if a member is replaced, both old and new IDs will read/write to the same metadata
+    // Root ID = oldest member in the replacement chain (opposite of canonical ID)
+    const events = this.getMemberEvents();
+    const rootId = resolveRootMemberId(memberId, events);
+
     // Store COMPLETE state - use empty string for cleared text fields, empty object for payment
     const sensitiveData = {
       phone: metadata.phone ?? '',
@@ -652,7 +659,7 @@ export class LoroEntryStore {
     const encryptedPayload = this.serializeEncryptedData(encrypted);
 
     this.transact(() => {
-      const metaMap = this.memberMetadata.setContainer(memberId, new LoroMap()) as LoroMap;
+      const metaMap = this.memberMetadata.setContainer(rootId, new LoroMap()) as LoroMap;
       metaMap.set('timestamp', Date.now());
       metaMap.set('encryptedPayload', encryptedPayload);
     });
@@ -661,12 +668,19 @@ export class LoroEntryStore {
   /**
    * Get member metadata (decrypted).
    * Direct O(1) lookup - no iteration needed.
+   * Resolves to root ID to handle member replacement (when a user claims a virtual member identity).
    */
   async getMemberMetadata(
     memberId: string,
     groupKey: CryptoKey
   ): Promise<{ phone?: string; payment?: MemberPaymentInfo; info?: string } | null> {
-    const metaMap = this.memberMetadata.get(memberId);
+    // Resolve to ROOT ID to ensure we look up metadata under the original (oldest) member ID
+    // This handles the case where a member is replaced (e.g., virtual member claimed by a real user)
+    // Root ID = oldest member in the replacement chain (opposite of canonical ID)
+    const events = this.getMemberEvents();
+    const rootId = resolveRootMemberId(memberId, events);
+
+    const metaMap = this.memberMetadata.get(rootId);
     if (!metaMap || !(metaMap instanceof LoroMap)) return null;
 
     const encryptedPayload = metaMap.get('encryptedPayload') as string | undefined;
@@ -690,7 +704,7 @@ export class LoroEntryStore {
 
       return Object.keys(result).length > 0 ? result : null;
     } catch (error) {
-      console.warn(`[LoroEntryStore] Failed to decrypt member metadata for ${memberId}:`, error);
+      console.warn(`[LoroEntryStore] Failed to decrypt member metadata for ${rootId}:`, error);
       return null;
     }
   }
