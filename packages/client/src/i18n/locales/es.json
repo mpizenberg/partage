@@ -413,7 +413,10 @@
     "btcPlaceholder": "bc1q...",
     "cardanoPlaceholder": "addr1...",
     "hasPhone": "Tiene número de teléfono",
-    "hasPayment": "Tiene información de pago"
+    "hasPayment": "Tiene información de pago",
+    "copy": "Copiar",
+    "copiedToClipboard": "copiado al portapapeles",
+    "copyFailed": "Error al copiar al portapapeles"
   },
 
   "invite": {

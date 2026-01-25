@@ -36,6 +36,34 @@ const PAYMENT_METHODS = [
   { key: 'cardano', label: 'Cardano', icon: '🪙' },
 ] as const;
 
+/**
+ * Normalize username by removing leading @ if present
+ */
+function normalizeUsername(username: string): string {
+  return username.startsWith('@') ? username.slice(1) : username;
+}
+
+/**
+ * Generate payment link for supported methods
+ */
+function getPaymentLink(method: string, value: string): string | null {
+  const normalized = normalizeUsername(value);
+  switch (method) {
+    case 'lydia':
+      return `https://pay.lydia.me/l?t=${encodeURIComponent(normalized)}`;
+    case 'revolut':
+      return `https://revolut.me/${encodeURIComponent(normalized)}`;
+    case 'paypal':
+      return `https://paypal.me/${encodeURIComponent(normalized)}`;
+    case 'venmo':
+      return `https://venmo.com/${encodeURIComponent(normalized)}`;
+    case 'btc':
+      return `bitcoin:${value}`;
+    default:
+      return null;
+  }
+}
+
 export const MemberDetailModal: Component<MemberDetailModalProps> = (props) => {
   const { t, locale } = useI18n();
   const [name, setName] = createSignal('');
@@ -45,6 +73,7 @@ export const MemberDetailModal: Component<MemberDetailModalProps> = (props) => {
   const [isSaving, setIsSaving] = createSignal(false);
   const [error, setError] = createSignal<string | null>(null);
   const [isEditing, setIsEditing] = createSignal(false);
+  const [copiedField, setCopiedField] = createSignal<string | null>(null);
 
   // Reset form when modal opens or member changes
   createEffect(() => {
@@ -115,6 +144,16 @@ export const MemberDetailModal: Component<MemberDetailModalProps> = (props) => {
     return p && PAYMENT_METHODS.some((method) => p[method.key as keyof MemberPaymentInfo]);
   };
 
+  const copyToClipboard = async (text: string, fieldId: string) => {
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopiedField(fieldId);
+      setTimeout(() => setCopiedField(null), 2000);
+    } catch (err) {
+      console.error('Failed to copy to clipboard:', err);
+    }
+  };
+
   return (
     <Modal
       isOpen={props.isOpen}
@@ -135,18 +174,36 @@ export const MemberDetailModal: Component<MemberDetailModalProps> = (props) => {
               /* View mode */
               <>
                 {/* Name */}
-                <div class="member-detail-row">
+                <div class="member-detail-row member-detail-row--with-action">
                   <span class="member-detail-label">{t('memberDetail.name')}</span>
-                  <span class="member-detail-value">{props.member!.name}</span>
+                  <div class="member-detail-value-wrapper">
+                    <span class="member-detail-value">{props.member!.name}</span>
+                    <button
+                      class="copy-button"
+                      onClick={() => copyToClipboard(props.member!.name, 'name')}
+                      title={t('memberDetail.copy')}
+                    >
+                      {copiedField() === 'name' ? '✓' : '📋'}
+                    </button>
+                  </div>
                 </div>
 
                 {/* Phone */}
                 <Show when={props.memberState!.phone}>
-                  <div class="member-detail-row">
+                  <div class="member-detail-row member-detail-row--with-action">
                     <span class="member-detail-label">{t('memberDetail.phone')}</span>
-                    <span class="member-detail-value">
-                      <a href={`tel:${props.memberState!.phone}`}>{props.memberState!.phone}</a>
-                    </span>
+                    <div class="member-detail-value-wrapper">
+                      <span class="member-detail-value">
+                        <a href={`tel:${props.memberState!.phone}`}>{props.memberState!.phone}</a>
+                      </span>
+                      <button
+                        class="copy-button"
+                        onClick={() => copyToClipboard(props.memberState!.phone!, 'phone')}
+                        title={t('memberDetail.copy')}
+                      >
+                        {copiedField() === 'phone' ? '✓' : '📋'}
+                      </button>
+                    </div>
                   </div>
                 </Show>
 
@@ -160,13 +217,31 @@ export const MemberDetailModal: Component<MemberDetailModalProps> = (props) => {
                           props.memberState!.payment?.[method.key as keyof MemberPaymentInfo];
                         return (
                           <Show when={value}>
-                            <div class="member-detail-row member-detail-row--payment">
+                            <div class="member-detail-row member-detail-row--payment member-detail-row--with-action">
                               <span class="member-detail-label">
                                 {method.icon} {method.label}
                               </span>
-                              <span class="member-detail-value member-detail-value--mono">
-                                {value}
-                              </span>
+                              <div class="member-detail-value-wrapper">
+                                <span class="member-detail-value member-detail-value--mono">
+                                  {(() => {
+                                    const link = getPaymentLink(method.key, value!);
+                                    return link ? (
+                                      <a href={link} target="_blank" rel="noopener noreferrer">
+                                        {value}
+                                      </a>
+                                    ) : (
+                                      value
+                                    );
+                                  })()}
+                                </span>
+                                <button
+                                  class="copy-button"
+                                  onClick={() => copyToClipboard(value!, `payment-${method.key}`)}
+                                  title={t('memberDetail.copy')}
+                                >
+                                  {copiedField() === `payment-${method.key}` ? '✓' : '📋'}
+                                </button>
+                              </div>
                             </div>
                           </Show>
                         );
