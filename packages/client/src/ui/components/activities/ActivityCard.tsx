@@ -30,6 +30,14 @@ export const ActivityCard: Component<ActivityCardProps> = (props) => {
     return formatCurrency(amount, currency, locale());
   };
 
+  // Get translated description for entries (handles transfer translation)
+  const getTranslatedDescription = (activity: any): string => {
+    if (activity.entryType === 'transfer') {
+      return t('entries.transfer');
+    }
+    return activity.description || '';
+  };
+
   // Memoized member name lookup map - uses member's own name (not canonical)
   const memberNameMap = createMemo(() => {
     const nameMap = new Map<string, string>();
@@ -375,7 +383,7 @@ export const ActivityCard: Component<ActivityCardProps> = (props) => {
                     <>
                       <div class="activity-description">
                         <strong>{activity.actorName}</strong> {t('activity.added')}{' '}
-                        <span class="activity-highlight">"{activity.description}"</span>
+                        <span class="activity-highlight">"{getTranslatedDescription(activity)}"</span>
                       </div>
                       <div class="activity-details">
                         <div>
@@ -417,7 +425,7 @@ export const ActivityCard: Component<ActivityCardProps> = (props) => {
                     <>
                       <div class="activity-description">
                         <strong>{activity.actorName}</strong> {t('activity.modified')}{' '}
-                        <span class="activity-highlight">"{activity.description}"</span>
+                        <span class="activity-highlight">"{getTranslatedDescription(activity)}"</span>
                       </div>
                       <div class="activity-details">
                         <div>
@@ -548,7 +556,7 @@ export const ActivityCard: Component<ActivityCardProps> = (props) => {
                     <>
                       <div class="activity-description">
                         <strong>{activity.actorName}</strong> {t('activity.deleted')}{' '}
-                        <span class="activity-highlight">"{activity.description}"</span>
+                        <span class="activity-highlight">"{getTranslatedDescription(activity)}"</span>
                       </div>
                       <div class="activity-details">
                         <div>
@@ -593,7 +601,7 @@ export const ActivityCard: Component<ActivityCardProps> = (props) => {
                     <>
                       <div class="activity-description">
                         <strong>{activity.actorName}</strong> {t('activity.restored')}{' '}
-                        <span class="activity-highlight">"{activity.description}"</span>
+                        <span class="activity-highlight">"{getTranslatedDescription(activity)}"</span>
                       </div>
                       <div class="activity-details">
                         <div>

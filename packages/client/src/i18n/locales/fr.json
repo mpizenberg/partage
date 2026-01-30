@@ -138,7 +138,7 @@
 
   "tabs": {
     "balance": "Solde",
-    "entries": "Entrées",
+    "entries": "Dépenses",
     "settle": "Régler",
     "members": "Membres",
     "activity": "Activité"
@@ -158,6 +158,7 @@
     "noBalances": "Aucun solde",
     "noBalancesMessage": "Ajoutez des dépenses pour voir les calculs de solde et les suggestions de règlement",
     "allSettled": "Tout est réglé",
+    "youAreSettled": "Votre solde est à zéro",
     "youAreOwed": "On vous doit {amount}",
     "youOwe": "Vous devez {amount}",
     "isOwed": "doit recevoir {amount}",
@@ -196,7 +197,7 @@
     "preferencesHelp": "Sélectionnez les membres préférés pour envoyer de l'argent. L'ordre compte - les membres en haut de la liste seront prioritaires.",
     "availableRecipients": "Destinataires disponibles",
     "preferredRecipientsOrdered": "Destinataires préférés (par ordre)",
-    "savePreferences": "Enregistrer les préférences",
+    "savePreferences": "Enregistrer",
     "settlementPayment": "Paiement de règlement",
     "allSettledUp": "Tout est réglé !",
     "allSettledDescription": "Les soldes de tout le monde sont à zéro",
@@ -218,7 +219,7 @@
     "editEntry": "Modifier l'entrée",
     "deleteEntry": "Supprimer l'entrée",
     "deleteConfirm": "Êtes-vous sûr de vouloir supprimer cette entrée ?",
-    "deleteNote": "Cette action peut être annulée ultérieurement.",
+    "deleteNote": "Vous pourrez la restaurer en activant « Afficher les entrées supprimées » au-dessus de la liste.",
     "deleting": "Suppression...",
     "showDeleted": "Afficher les entrées supprimées",
     "hideDeleted": "Masquer les entrées supprimées",

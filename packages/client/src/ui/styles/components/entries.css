@@ -107,20 +107,28 @@
 }
 
 .entry-delete-btn {
-  background: none;
+  background-color: var(--color-danger);
   border: none;
-  font-size: var(--font-size-xl);
-  padding: var(--space-xs);
+  border-radius: var(--radius-md);
+  padding: var(--space-sm) var(--space-md);
   cursor: pointer;
-  opacity: 0.6;
   transition: all var(--transition-base);
   flex-shrink: 0;
-  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  min-width: 40px;
+  min-height: 36px;
+}
+
+.entry-delete-btn svg {
+  width: 18px;
+  height: 18px;
 }
 
 .entry-delete-btn:hover {
-  opacity: 1;
-  transform: scale(1.1);
+  background-color: #b91c1c;
 }
 
 .entry-delete-btn:active {

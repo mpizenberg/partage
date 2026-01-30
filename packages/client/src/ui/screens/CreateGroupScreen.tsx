@@ -63,6 +63,7 @@ export const CreateGroupScreen: Component<CreateGroupScreenProps> = (props) => {
   const [newLinkLabel, setNewLinkLabel] = createSignal('');
   const [newLinkUrl, setNewLinkUrl] = createSignal('');
   const [showOptionalFields, setShowOptionalFields] = createSignal(false);
+  const [linkError, setLinkError] = createSignal<string | null>(null);
 
   // PoW state - using background solver
   const [powState, setPowState] = createSignal<PoWState>({ status: 'idle' });
@@ -117,19 +118,23 @@ export const CreateGroupScreen: Component<CreateGroupScreenProps> = (props) => {
     const label = newLinkLabel().trim();
     const url = newLinkUrl().trim();
 
-    if (!label || !url) return;
+    if (!label || !url) {
+      setLinkError(t('groupInfo.linkRequiredFields'));
+      return;
+    }
 
     // Basic URL validation
     try {
       new URL(url);
     } catch {
-      setValidationError(t('groupInfo.invalidUrl'));
+      setLinkError(t('groupInfo.invalidUrl'));
       return;
     }
 
     setLinks([...links(), { label, url }]);
     setNewLinkLabel('');
     setNewLinkUrl('');
+    setLinkError(null);
   };
 
   const handleRemoveLink = (index: number) => {
@@ -363,22 +368,34 @@ export const CreateGroupScreen: Component<CreateGroupScreenProps> = (props) => {
                     <Input
                       type="text"
                       value={newLinkLabel()}
-                      onInput={(e) => setNewLinkLabel(e.currentTarget.value)}
+                      onInput={(e) => {
+                        setNewLinkLabel(e.currentTarget.value);
+                        setLinkError(null);
+                      }}
                       placeholder={t('groupInfo.linkLabelPlaceholder')}
+                      error={!!linkError()}
                     />
                   </div>
                   <div style="flex: 2; min-width: 200px;">
                     <Input
                       type="text"
                       value={newLinkUrl()}
-                      onInput={(e) => setNewLinkUrl(e.currentTarget.value)}
+                      onInput={(e) => {
+                        setNewLinkUrl(e.currentTarget.value);
+                        setLinkError(null);
+                      }}
                       placeholder={t('groupInfo.linkUrlPlaceholder')}
+                      error={!!linkError()}
                     />
                   </div>
                   <Button type="button" variant="secondary" onClick={handleAddLink}>
                     +
                   </Button>
                 </div>
+                {/* Link error message */}
+                <Show when={linkError()}>
+                  <div class="link-error-message">{linkError()}</div>
+                </Show>
               </div>
             </Show>
           </div>

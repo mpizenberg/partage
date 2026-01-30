@@ -306,6 +306,24 @@
   justify-content: flex-end;
 }
 
+/* Modal with mobile keyboard support */
+.modal-content-mobile-keyboard .modal-body {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  padding-bottom: var(--space-xl);
+}
+
+.modal-content-mobile-keyboard .modal-actions {
+  position: sticky;
+  bottom: 0;
+  background-color: var(--color-bg);
+  padding: var(--space-md) 0;
+  padding-bottom: calc(var(--space-md) + env(safe-area-inset-bottom, 0px) + 44px);
+  margin-top: auto;
+  border-top: 1px solid var(--color-border);
+}
+
 /* Empty State */
 .empty-state {
   text-align: center;

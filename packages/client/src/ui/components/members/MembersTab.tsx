@@ -226,7 +226,7 @@ export const MembersTab: Component<MembersTabProps> = (props) => {
       {/* Add Virtual Member Modal */}
       <Show when={showAddMemberModal()}>
         <div class="modal-overlay" onClick={() => setShowAddMemberModal(false)}>
-          <div class="modal-content" onClick={(e) => e.stopPropagation()}>
+          <div class="modal-content modal-content-mobile-keyboard" onClick={(e) => e.stopPropagation()}>
             <div class="modal-body">
               <h2 class="text-xl font-bold mb-md">{t('members.addVirtualMember')}</h2>
               <p class="mb-md text-muted">{t('members.virtualMemberDescription')}</p>
@@ -239,6 +239,13 @@ export const MembersTab: Component<MembersTabProps> = (props) => {
                   onInput={(e) => setNewMemberName(e.currentTarget.value)}
                   placeholder={t('members.memberNamePlaceholder')}
                   onKeyPress={(e) => e.key === 'Enter' && handleAddVirtualMember()}
+                  onFocus={(e) => {
+                    // Scroll the modal actions into view when keyboard opens on mobile
+                    setTimeout(() => {
+                      const actions = e.currentTarget.closest('.modal-body')?.querySelector('.modal-actions');
+                      actions?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+                    }, 300);
+                  }}
                 />
               </div>
               <div class="modal-actions">

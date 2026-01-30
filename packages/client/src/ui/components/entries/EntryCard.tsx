@@ -3,6 +3,7 @@ import { useI18n, formatCurrency, formatRelativeTime } from '../../../i18n';
 import { useAppContext } from '../../context/AppContext';
 import { Modal } from '../common/Modal';
 import { Button } from '../common/Button';
+import { EntryViewModal } from './EntryViewModal';
 import type { Entry, ExpenseEntry, TransferEntry, ExpenseCategory } from '@partage/shared';
 
 // Category emoji mapping
@@ -36,6 +37,7 @@ export const EntryCard: Component<EntryCardProps> = (props) => {
     conflictingEntryIds,
   } = useAppContext();
   const [showDeleteModal, setShowDeleteModal] = createSignal(false);
+  const [showViewModal, setShowViewModal] = createSignal(false);
   const [isDeleting, setIsDeleting] = createSignal(false);
   const [isUndeleting, setIsUndeleting] = createSignal(false);
 
@@ -43,10 +45,22 @@ export const EntryCard: Component<EntryCardProps> = (props) => {
   const isConflict = () => conflictingEntryIds().has(props.entry.id);
 
   const handleClick = () => {
-    // Don't allow editing if disabled or deleted
-    if (!props.disabled && !isDeleted()) {
+    // Don't allow viewing if deleted
+    if (!isDeleted()) {
+      setShowViewModal(true);
+    }
+  };
+
+  const handleEdit = () => {
+    setShowViewModal(false);
+    if (!props.disabled) {
       setEditingEntry(props.entry);
     }
+  };
+
+  const handleDeleteFromViewModal = () => {
+    setShowViewModal(false);
+    setShowDeleteModal(true);
   };
 
   const handleDeleteClick = (e: MouseEvent) => {
@@ -249,7 +263,7 @@ export const EntryCard: Component<EntryCardProps> = (props) => {
               <div class="entry-amount">
                 {formatAmountWithDefault()}
                 <Show when={expenseEntry()?.category}>
-                  <span class="entry-category"> • {expenseEntry()?.category}</span>
+                  <span class="entry-category"> • {t(`categories.${expenseEntry()!.category}`)}</span>
                 </Show>
               </div>
             </div>
@@ -276,10 +290,15 @@ export const EntryCard: Component<EntryCardProps> = (props) => {
                 <button
                   class="entry-delete-btn"
                   onClick={handleDeleteClick}
-                  aria-label="Delete entry"
-                  title="Delete entry"
+                  aria-label={t('common.delete')}
+                  title={t('common.delete')}
                 >
-                  🗑️
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <polyline points="3 6 5 6 21 6"></polyline>
+                    <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                    <line x1="10" y1="11" x2="10" y2="17"></line>
+                    <line x1="14" y1="11" x2="14" y2="17"></line>
+                  </svg>
                 </button>
               </Show>
             </Show>
@@ -351,10 +370,15 @@ export const EntryCard: Component<EntryCardProps> = (props) => {
                 <button
                   class="entry-delete-btn"
                   onClick={handleDeleteClick}
-                  aria-label="Delete entry"
-                  title="Delete entry"
+                  aria-label={t('common.delete')}
+                  title={t('common.delete')}
                 >
-                  🗑️
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <polyline points="3 6 5 6 21 6"></polyline>
+                    <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                    <line x1="10" y1="11" x2="10" y2="17"></line>
+                    <line x1="14" y1="11" x2="14" y2="17"></line>
+                  </svg>
                 </button>
               </Show>
             </Show>
@@ -386,6 +410,15 @@ export const EntryCard: Component<EntryCardProps> = (props) => {
           </div>
         </div>
       </Modal>
+
+      {/* Entry View Modal */}
+      <EntryViewModal
+        isOpen={showViewModal()}
+        onClose={() => setShowViewModal(false)}
+        entry={props.entry}
+        onEdit={props.disabled ? undefined : handleEdit}
+        onDelete={props.disabled ? undefined : handleDeleteFromViewModal}
+      />
     </>
   );
 };

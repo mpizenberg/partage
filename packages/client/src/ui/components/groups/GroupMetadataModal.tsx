@@ -31,6 +31,7 @@ export const GroupMetadataModal: Component<GroupMetadataModalProps> = (props) =>
   const [newLinkUrl, setNewLinkUrl] = createSignal('');
   const [isSaving, setIsSaving] = createSignal(false);
   const [error, setError] = createSignal<string | null>(null);
+  const [linkError, setLinkError] = createSignal<string | null>(null);
 
   // Reset form when modal opens
   createEffect(() => {
@@ -42,6 +43,7 @@ export const GroupMetadataModal: Component<GroupMetadataModalProps> = (props) =>
       setNewLinkLabel('');
       setNewLinkUrl('');
       setError(null);
+      setLinkError(null);
     }
   });
 
@@ -50,7 +52,7 @@ export const GroupMetadataModal: Component<GroupMetadataModalProps> = (props) =>
     const url = newLinkUrl().trim();
 
     if (!label || !url) {
-      setError(t('groupInfo.linkRequiredFields'));
+      setLinkError(t('groupInfo.linkRequiredFields'));
       return;
     }
 
@@ -58,14 +60,14 @@ export const GroupMetadataModal: Component<GroupMetadataModalProps> = (props) =>
     try {
       new URL(url);
     } catch {
-      setError(t('groupInfo.invalidUrl'));
+      setLinkError(t('groupInfo.invalidUrl'));
       return;
     }
 
     setLinks([...links(), { label, url }]);
     setNewLinkLabel('');
     setNewLinkUrl('');
-    setError(null);
+    setLinkError(null);
   };
 
   const handleRemoveLink = (index: number) => {
@@ -178,22 +180,34 @@ export const GroupMetadataModal: Component<GroupMetadataModalProps> = (props) =>
             <Input
               type="text"
               value={newLinkLabel()}
-              onInput={(e) => setNewLinkLabel(e.currentTarget.value)}
+              onInput={(e) => {
+                setNewLinkLabel(e.currentTarget.value);
+                setLinkError(null);
+              }}
               placeholder={t('groupInfo.linkLabelPlaceholder')}
+              error={!!linkError()}
             />
             <Input
               type="text"
               value={newLinkUrl()}
-              onInput={(e) => setNewLinkUrl(e.currentTarget.value)}
+              onInput={(e) => {
+                setNewLinkUrl(e.currentTarget.value);
+                setLinkError(null);
+              }}
               placeholder={t('groupInfo.linkUrlPlaceholder')}
+              error={!!linkError()}
             />
             <Button type="button" variant="secondary" onClick={handleAddLink}>
               {t('groupInfo.addLink')}
             </Button>
           </div>
+          {/* Link error message - directly below the add link inputs */}
+          <Show when={linkError()}>
+            <div class="link-error-message">{linkError()}</div>
+          </Show>
         </div>
 
-        {/* Error message */}
+        {/* General error message */}
         <Show when={error()}>
           <div class="error-message">{error()}</div>
         </Show>

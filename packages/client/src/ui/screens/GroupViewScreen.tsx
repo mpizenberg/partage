@@ -124,13 +124,31 @@ export const GroupViewScreen: Component = () => {
     return balances().get(canonicalUserId);
   };
 
+  // Check if the entire group is settled (all balances near zero)
+  const isGroupFullySettled = (): boolean => {
+    const allBalances = balances();
+    if (allBalances.size === 0) return true;
+
+    for (const balance of allBalances.values()) {
+      if (Math.abs(balance.netBalance) >= 0.01) {
+        return false;
+      }
+    }
+    return true;
+  };
+
   const getBalanceText = (): string => {
     const balance = myBalance();
     if (!balance) return t('balance.noTransactions');
 
     const amount = balance.netBalance;
     if (Math.abs(amount) < 0.01) {
-      return t('balance.allSettled') + ' ✓';
+      // User's balance is zero - check if whole group is settled
+      if (isGroupFullySettled()) {
+        return t('balance.allSettled') + ' ✓';
+      } else {
+        return t('balance.youAreSettled') + ' ✓';
+      }
     }
 
     const currency = activeGroup()?.defaultCurrency || 'USD';

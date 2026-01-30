@@ -332,6 +332,16 @@
   flex-wrap: wrap;
 }
 
+.link-error-message {
+  margin-top: var(--space-sm);
+  padding: var(--space-sm) var(--space-md);
+  background-color: #fef2f2;
+  color: var(--color-danger);
+  border-radius: var(--radius-md);
+  border: 1px solid #fecaca;
+  font-size: var(--font-size-sm);
+}
+
 /* Member Detail Modal */
 .member-detail-modal {
   display: flex;

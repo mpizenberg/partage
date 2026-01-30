@@ -121,7 +121,7 @@ export const SettlementPlan: Component<SettlementPlanProps> = (props) => {
 
               return (
                 <div class={`settlement-item ${involved ? 'settlement-item-involved' : ''}`}>
-                  <div class="settlement-info">
+                  <div class="settlement-row-1">
                     <div class="settlement-flow">
                       <span class="settlement-from">{getMemberName(transaction.from)}</span>
                       <span class="settlement-arrow">→</span>
@@ -133,16 +133,18 @@ export const SettlementPlan: Component<SettlementPlanProps> = (props) => {
                   </div>
 
                   <Show when={!props.disabled}>
-                    <Button
-                      variant="primary"
-                      size="small"
-                      onClick={() =>
-                        handleSettle(transaction.from, transaction.to, transaction.amount)
-                      }
-                      disabled={loading}
-                    >
-                      {loading ? t('settle.recording') : t('settle.markAsPaid')}
-                    </Button>
+                    <div class="settlement-row-2">
+                      <Button
+                        variant="primary"
+                        size="small"
+                        onClick={() =>
+                          handleSettle(transaction.from, transaction.to, transaction.amount)
+                        }
+                        disabled={loading}
+                      >
+                        {loading ? t('settle.recording') : t('settle.markAsPaid')}
+                      </Button>
+                    </div>
                   </Show>
                 </div>
               );

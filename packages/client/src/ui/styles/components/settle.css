@@ -251,10 +251,17 @@
 
 .member-preference-header {
   display: flex;
-  justify-content: space-between;
-  align-items: center;
+  flex-direction: column;
   gap: var(--space-md);
   margin-bottom: var(--space-md);
+}
+
+@media (min-width: 768px) {
+  .member-preference-header {
+    flex-direction: row;
+    justify-content: space-between;
+    align-items: center;
+  }
 }
 
 .member-preference-title {
@@ -272,6 +279,7 @@
 .member-preference-actions {
   display: flex;
   gap: var(--space-sm);
+  flex-wrap: wrap;
 }
 
 .member-preference-empty {
